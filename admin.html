@@ -556,9 +556,7 @@
           const photoInput = document.getElementById("surfer-photo");
           photoInput.value = s.photoUrl || "";
           const preview = document.getElementById("surfer-photo-preview");
-          preview.innerHTML = s.photoUrl
-            ? `<img src="${s.photoUrl}" class="surfer-photo" alt="">`
-            : "";
+          preview.innerHTML = s.photoUrl ? `<img src="${s.photoUrl}" class="surfer-photo--sm" alt="">` : "";
           document.getElementById("surfer-form-title").textContent = "Edit Surfer";
         });
       });
