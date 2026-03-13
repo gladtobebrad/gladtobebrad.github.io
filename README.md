@@ -1,1 +1,1 @@
-Hi hi
+This page is for the fantasy surfing things 
