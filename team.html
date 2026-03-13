@@ -129,7 +129,7 @@
               </div>
               <div class="surfer-list surfer-list--grid" id="roster-list">
                 ${roster.length === 0 ? `<p class="text-muted text-sm">Add surfers from the list on the right.</p>` : ""}
-                ${roster.map((s) => {
+                ${roster.map((s, i) => {
                   const data = allSurfers[s.surferId] || {};
                   const photo = data.photoUrl
                     ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
