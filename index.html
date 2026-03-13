@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth, getCurrentUser, getUserProfile } from "./js/auth.js";
-    import { getCurrentEvent, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub } from "./js/db.js";
+    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub } from "./js/db.js";
     import { scoreTeam } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, formatSalary, formatDate, statusBadge, tradingBadge, renderTable } from "./js/ui.js";
 
@@ -42,10 +42,11 @@
     });
 
     async function renderDashboard(container, user, profile) {
-      let currentEvent, leaderboard, events;
+      let mensEvent, womensEvent, leaderboard, events;
       try {
-        [currentEvent, leaderboard, events] = await Promise.all([
-          getCurrentEvent(SEASON),
+        [mensEvent, womensEvent, leaderboard, events] = await Promise.all([
+          getCurrentEventForTour("mens", SEASON),
+          getCurrentEventForTour("womens", SEASON),
           getLeaderboard(SEASON),
           getEvents(SEASON)
         ]);
@@ -60,16 +61,19 @@
         return;
       }
 
-      // Get user's team for current event
-      let userTeam = null;
-      let userScore = null;
-      if (currentEvent) {
-        userTeam = await getTeam(user.uid, currentEvent.id);
-        if (userTeam && currentEvent.status === "completed") {
-          const results = await getResults(currentEvent.id);
-          userScore = scoreTeam(userTeam, results, currentEvent.tour || "mens");
-        }
-      }
+      // Use mensEvent as the primary "current event" for legacy sections
+      const currentEvent = mensEvent || womensEvent;
+
+      // Get user's teams for both tours
+      let mensTeam = null, womensTeam = null;
+      const [mt, wt] = await Promise.all([
+        mensEvent ? getTeam(user.uid, mensEvent.id) : null,
+        womensEvent ? getTeam(user.uid, womensEvent.id) : null,
+      ]);
+      mensTeam = mt; womensTeam = wt;
+
+      // Legacy userTeam for all-teams section
+      const userTeam = mensTeam;
 
       // Always load surfer data for name lookups
       let allTeamsData = [];
@@ -157,51 +161,70 @@
             <!-- Current Event -->
             <div class="card mb-3">
               <div class="card__header">
-                <span class="card__title">Current Event</span>
-                ${currentEvent ? statusBadge(currentEvent.status) : ""}
+                <span class="card__title">Current Events</span>
               </div>
-              ${currentEvent ? `
-                <h3 style="margin-bottom:0.5rem">${currentEvent.name}</h3>
-                <p class="text-muted text-sm">${currentEvent.location || ""}</p>
-                <p class="text-sm mt-1">
-                  ${formatDate(currentEvent.startDate)} — ${formatDate(currentEvent.endDate)}
-                </p>
-                <p class="mt-1">${tradingBadge(currentEvent.tradingOpen)}</p>
-                <a href="event.html?id=${currentEvent.id}" class="btn btn--outline btn--sm mt-2">View Event</a>
+              ${mensEvent || womensEvent ? `
+                ${[mensEvent && { ev: mensEvent, label: "Men's CT" }, womensEvent && { ev: womensEvent, label: "Women's CT" }]
+                  .filter(Boolean)
+                  .map(({ ev, label }, idx) => `
+                    ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+                      <span class="text-sm" style="font-weight:600">${label}</span>
+                      ${statusBadge(ev.status)}
+                    </div>
+                    <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
+                    <p class="text-muted text-sm">${ev.location || ""}</p>
+                    <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
+                    <p class="mt-1">${tradingBadge(ev.tradingOpen)}</p>
+                  `).join("")}
               ` : `<p class="text-muted">No upcoming events.</p>`}
             </div>
 
-            <!-- Your Team -->
-            <div class="card mb-3">
-              <div class="card__header">
-                <span class="card__title">Your Team${currentEvent ? ` — ${currentEvent.name}` : ""}</span>
-              </div>
-              ${userTeam ? `
-                <div class="surfer-list">
-                  ${userTeam.surfers.map((s, i) => {
-                    const pts = userScore?.surferScores?.[i]?.points;
-                    return `<div class="surfer-row">
-                      <span class="surfer-row__rank">${i + 1}</span>
-                      <span class="surfer-row__name">${surferMap[s.surferId]?.name || s.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
-                      ${pts !== undefined ? `<span class="text-sm text-muted">${pts} pts</span>` : ""}
-                    </div>`;
-                  }).join("")}
-                  ${userTeam.alternate ? `
-                    <div class="surfer-row surfer-row--alternate">
-                      <span class="surfer-row__rank">ALT</span>
-                      <span class="surfer-row__name">${surferMap[userTeam.alternate.surferId]?.name || userTeam.alternate.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__value">${formatSalary(userTeam.alternate.purchasePrice)}</span>
+            <!-- Your Teams -->
+            ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT" }]
+              .filter(Boolean)
+              .map(({ ev, team, label }) => `
+                <div class="card mb-3">
+                  <div class="card__header">
+                    <span class="card__title">Your Team — ${label}</span>
+                  </div>
+                  <p class="text-muted text-sm mb-2">${ev.name}</p>
+                  ${team ? `
+                    <div class="surfer-list">
+                      ${team.surfers.map((s) => {
+                        const data = surferMap[s.surferId] || {};
+                        const photo = data.photoUrl
+                          ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
+                          : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
+                        return `<div class="surfer-row">
+                          ${photo}
+                          <div class="surfer-row__info">
+                            <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                            <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                          </div>
+                        </div>`;
+                      }).join("")}
+                      ${team.alternate ? (() => {
+                        const altData = surferMap[team.alternate.surferId] || {};
+                        const altPhoto = altData.photoUrl
+                          ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
+                          : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
+                        return `<div class="surfer-row surfer-row--alternate">
+                          ${altPhoto}
+                          <div class="surfer-row__info">
+                            <span class="surfer-row__name">${altData.name || team.alternate.surferId.replace(/-/g, " ")}</span>
+                            <span class="surfer-row__meta">ALT &middot; ${formatSalary(team.alternate.purchasePrice)}</span>
+                          </div>
+                        </div>`;
+                      })() : ""}
                     </div>
-                  ` : ""}
+                    <a href="team.html" class="btn btn--primary btn--sm mt-2">Manage Team</a>
+                  ` : `
+                    <p class="text-muted">No team picked yet.</p>
+                    <a href="team.html" class="btn btn--primary btn--sm mt-2">Pick Your Team</a>
+                  `}
                 </div>
-                ${userScore ? `<p class="mt-2" style="font-weight:600">Event Total: ${userScore.totalPoints} pts</p>` : ""}
-                <a href="team.html" class="btn btn--primary btn--sm mt-2">Manage Team</a>
-              ` : `
-                <p class="text-muted">You haven't picked a team${currentEvent ? " for this event" : ""} yet.</p>
-                <a href="team.html" class="btn btn--primary btn--sm mt-2">Pick Your Team</a>
-              `}
-            </div>
+              `).join("")}
           </div>
 
           <!-- Sidebar: Leaderboard + Events -->
@@ -277,17 +300,24 @@
               <div class="card__header">
                 <span class="card__title">${SEASON} Schedule</span>
               </div>
-              ${events.length > 0 ? `
-                <div class="surfer-list">
-                  ${events.map((e) => `
-                    <a href="event.html?id=${e.id}" class="surfer-row" style="cursor:pointer;text-decoration:none;color:inherit">
+              ${events.length > 0 ? (() => {
+                // Deduplicate — mens + womens share the same contest name/number
+                const seen = new Set();
+                const unique = events.filter((e) => {
+                  const key = `${e.eventNumber}-${e.name}`;
+                  if (seen.has(key)) return false;
+                  seen.add(key); return true;
+                });
+                return `<div class="surfer-list">
+                  ${unique.map((e) => `
+                    <div class="surfer-row">
                       <span class="surfer-row__rank">${e.eventNumber}</span>
                       <span class="surfer-row__name">${e.name}</span>
                       ${statusBadge(e.status)}
-                    </a>
+                    </div>
                   `).join("")}
-                </div>
-              ` : `<p class="text-muted">No events scheduled yet.</p>`}
+                </div>`;
+              })() : `<p class="text-muted">No events scheduled yet.</p>`}
             </div>
           </div>
         </div>
@@ -309,20 +339,30 @@
                   <div class="surfer-list">
                     ${t.surfers.map((s) => {
                       const data = surferMap[s.surferId] || {};
+                      const photo = data.photoUrl
+                        ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
+                        : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
                       return `<div class="surfer-row">
-                        <span class="surfer-row__rank">${data.rank || "—"}</span>
-                        <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                        <span class="surfer-row__country">${data.country || ""}</span>
-                        <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                        ${photo}
+                        <div class="surfer-row__info">
+                          <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                          <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                        </div>
                       </div>`;
                     }).join("")}
-                    ${t.alternate ? `
-                      <div class="surfer-row surfer-row--alternate">
-                        <span class="surfer-row__rank">ALT</span>
-                        <span class="surfer-row__name">${(surferMap[t.alternate.surferId]?.name) || t.alternate.surferId.replace(/-/g, " ")}</span>
-                        <span class="surfer-row__value">${formatSalary(t.alternate.purchasePrice)}</span>
-                      </div>
-                    ` : ""}
+                    ${t.alternate ? (() => {
+                      const altData = surferMap[t.alternate.surferId] || {};
+                      const altPhoto = altData.photoUrl
+                        ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
+                        : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
+                      return `<div class="surfer-row surfer-row--alternate">
+                        ${altPhoto}
+                        <div class="surfer-row__info">
+                          <span class="surfer-row__name">${altData.name || t.alternate.surferId.replace(/-/g, " ")}</span>
+                          <span class="surfer-row__meta">ALT &middot; ${formatSalary(t.alternate.purchasePrice)}</span>
+                        </div>
+                      </div>`;
+                    })() : ""}
                   </div>
                 </div>
               `).join("")}

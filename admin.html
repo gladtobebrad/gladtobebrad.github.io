@@ -134,8 +134,9 @@
                     <div class="form-group">
                       <label class="form-label">Tour</label>
                       <select class="form-select" id="event-tour">
-                        <option value="mens">Men's</option>
-                        <option value="womens">Women's</option>
+                        <option value="both">Both (Men's + Women's)</option>
+                        <option value="mens">Men's only</option>
+                        <option value="womens">Women's only</option>
                       </select>
                     </div>
                   </div>
@@ -230,6 +231,13 @@
                       <input class="form-input" id="surfer-rank" type="number" min="1">
                     </div>
                   </div>
+                  <div class="form-group">
+                    <label class="form-label">Tour</label>
+                    <select class="form-select" id="surfer-tour">
+                      <option value="mens">Men's CT</option>
+                      <option value="womens">Women's CT</option>
+                    </select>
+                  </div>
                   <div class="form-row">
                     <div class="form-group">
                       <label class="form-label">Value ($)</label>
@@ -245,6 +253,11 @@
                         <option value="budget">Budget (&lt;$1M)</option>
                       </select>
                     </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Photo Path</label>
+                    <input class="form-input" id="surfer-photo" placeholder="data/photos/john-john-florence.png">
+                    <div id="surfer-photo-preview" style="margin-top:0.5rem"></div>
                   </div>
                   <div class="form-actions">
                     <button type="submit" class="btn btn--primary">Save Surfer</button>
@@ -445,11 +458,11 @@
         const editId = document.getElementById("event-edit-id").value;
         const id = editId || document.getElementById("event-id").value.trim();
         if (!id) return;
-        const data = {
+        const tourValue = document.getElementById("event-tour").value;
+        const baseData = {
           name: document.getElementById("event-name").value.trim(),
           location: document.getElementById("event-location").value.trim(),
           eventNumber: parseInt(document.getElementById("event-number").value, 10),
-          tour: document.getElementById("event-tour").value,
           startDate: document.getElementById("event-start").value,
           endDate: document.getElementById("event-end").value,
           status: document.getElementById("event-status").value,
@@ -458,8 +471,16 @@
           resultsEntered: false
         };
         try {
-          await saveEvent(id, data);
-          toast("Event saved!", "success");
+          if (tourValue === "both") {
+            // Strip any existing -mens/-womens suffix to get base ID
+            const baseId = id.replace(/-mens$|-womens$/, "");
+            await saveEvent(baseId + "-mens",   { ...baseData, tour: "mens" });
+            await saveEvent(baseId + "-womens", { ...baseData, tour: "womens" });
+            toast("Saved Men's + Women's events!", "success");
+          } else {
+            await saveEvent(id, { ...baseData, tour: tourValue });
+            toast("Event saved!", "success");
+          }
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) {
@@ -484,7 +505,7 @@
           document.getElementById("event-name").value = ev.name || "";
           document.getElementById("event-location").value = ev.location || "";
           document.getElementById("event-number").value = ev.eventNumber || "";
-          document.getElementById("event-tour").value = ev.tour || "mens";
+          document.getElementById("event-tour").value = ev.tour || "mens"; // "both" not shown on edit — each event is its own doc
           document.getElementById("event-start").value = (ev.startDate || "").substring(0, 10);
           document.getElementById("event-end").value = (ev.endDate || "").substring(0, 10);
           document.getElementById("event-status").value = ev.status || "upcoming";
@@ -515,6 +536,8 @@
           rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
           value: parseInt(document.getElementById("surfer-value").value, 10) || 0,
           priceBracket: document.getElementById("surfer-bracket").value,
+          tour: document.getElementById("surfer-tour").value,
+          photoUrl: document.getElementById("surfer-photo").value.trim() || null,
           active: true
         };
         try {
@@ -532,6 +555,7 @@
         document.getElementById("surfer-edit-id").value = "";
         document.getElementById("surfer-id").disabled = false;
         document.getElementById("surfer-form-title").textContent = "Add Surfer";
+        document.getElementById("surfer-photo-preview").innerHTML = "";
       });
 
       container.querySelectorAll("[data-edit-surfer]").forEach((btn) => {
@@ -546,6 +570,11 @@
           document.getElementById("surfer-rank").value = s.rank || "";
           document.getElementById("surfer-value").value = s.value || 0;
           document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
+          document.getElementById("surfer-tour").value = s.tour || "mens";
+          const photoInput = document.getElementById("surfer-photo");
+          photoInput.value = s.photoUrl || "";
+          const preview = document.getElementById("surfer-photo-preview");
+          preview.innerHTML = s.photoUrl ? `<img src="${s.photoUrl}" class="surfer-photo--sm" alt="">` : "";
           document.getElementById("surfer-form-title").textContent = "Edit Surfer";
         });
       });
