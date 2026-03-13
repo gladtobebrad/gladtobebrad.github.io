@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { title: "Dashboard", href: "index.html" },
   { title: "My Team", href: "team.html" },
   { title: "Players", href: "players.html" },
+  { title: "Data", href: "data.html" },
   { title: "Club", href: "club.html" },
   { title: "Back to Site", href: "/" }
 ];
