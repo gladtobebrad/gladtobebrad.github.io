@@ -246,6 +246,11 @@
                       </select>
                     </div>
                   </div>
+                  <div class="form-group">
+                    <label class="form-label">Photo Path</label>
+                    <input class="form-input" id="surfer-photo" placeholder="data/photos/john-john-florence.png">
+                    <div id="surfer-photo-preview" style="margin-top:0.5rem"></div>
+                  </div>
                   <div class="form-actions">
                     <button type="submit" class="btn btn--primary">Save Surfer</button>
                     <button type="button" class="btn btn--outline" id="surfer-form-reset">Clear</button>
@@ -515,6 +520,7 @@
           rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
           value: parseInt(document.getElementById("surfer-value").value, 10) || 0,
           priceBracket: document.getElementById("surfer-bracket").value,
+          photoUrl: document.getElementById("surfer-photo").value.trim() || null,
           active: true
         };
         try {
@@ -532,6 +538,7 @@
         document.getElementById("surfer-edit-id").value = "";
         document.getElementById("surfer-id").disabled = false;
         document.getElementById("surfer-form-title").textContent = "Add Surfer";
+        document.getElementById("surfer-photo-preview").innerHTML = "";
       });
 
       container.querySelectorAll("[data-edit-surfer]").forEach((btn) => {
@@ -546,6 +553,12 @@
           document.getElementById("surfer-rank").value = s.rank || "";
           document.getElementById("surfer-value").value = s.value || 0;
           document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
+          const photoInput = document.getElementById("surfer-photo");
+          photoInput.value = s.photoUrl || "";
+          const preview = document.getElementById("surfer-photo-preview");
+          preview.innerHTML = s.photoUrl
+            ? `<img src="${s.photoUrl}" class="surfer-photo" alt="">`
+            : "";
           document.getElementById("surfer-form-title").textContent = "Edit Surfer";
         });
       });
