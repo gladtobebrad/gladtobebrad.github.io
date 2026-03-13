@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surfer Data — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+  <style>
+    .place-badge {
+      display: inline-block;
+      min-width: 2.5rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .place-1  { background: #f5d060; color: #5a4200; }
+    .place-2  { background: #d0d5dd; color: #2f2f2f; }
+    .place-3  { background: #d4a97a; color: #3a2400; }
+    .place-5  { background: #c8e6c9; color: #1b5e20; }
+    .place-9  { background: #e8f4fd; color: #1a3a50; }
+    .place-13 { background: var(--color-beige); color: var(--color-warm-black); }
+    .place-33 { background: #fce4ec; color: #880e4f; }
+    .place-null { color: var(--color-warm-gray); }
+
+    .surfer-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .surfer-btn {
+      padding: 0.3rem 0.75rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--color-charcoal);
+    }
+    .surfer-btn:hover { border-color: var(--color-sage); background: var(--color-cream); }
+    .surfer-btn.active {
+      background: var(--color-charcoal);
+      color: var(--color-warm-white);
+      border-color: var(--color-charcoal);
+    }
+    .data-table td { vertical-align: middle; }
+    .text-center { text-align: center; }
+    .avg-cell { font-weight: 500; color: var(--color-warm-black); }
+    .year-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-wrap { margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script>
+    // If module scripts fail to parse/load (older browser, cached old file, etc.),
+    // the page would otherwise sit on the spinner forever. This failsafe makes
+    // the failure visible with next-step instructions.
+    window.__dataBoot = { started: false, rendered: false };
+    setTimeout(() => {
+      const main = document.getElementById("app-main");
+      if (!main) return;
+      if (!window.__dataBoot.started) {
+        main.innerHTML = `
+          <h1 class="page-title">Surfer Data</h1>
+          <div class="card">
+            <p class="text-muted">The Data page script did not start.</p>
+            <p class="text-muted">Try a hard refresh, or open <code>data.html?v=1</code>. If it still fails, check the browser Console for the first error.</p>
+          </div>
+        `;
+        return;
+      }
+      if (!window.__dataBoot.rendered) {
+        main.innerHTML = `
+          <h1 class="page-title">Surfer Data</h1>
+          <div class="card">
+            <p class="text-muted">Still loading…</p>
+            <p class="text-muted">Open DevTools and check Network for <code>wsl_2024_mens.json</code> / <code>wsl_2025_mens.json</code> and Console for errors.</p>
+          </div>
+        `;
+      }
+    }, 4000);
+  </script>
+
+  <script type="module">
+    // Avoid top-level await so the page works on older mobile browsers.
+    async function boot() {
+      window.__dataBoot.started = true;
+      // This page is meant to work even if auth/firebase is unavailable (e.g. local
+      // file previews, ad-blocked CDNs, or missing network). We try to load the
+      // shared auth/nav modules, but we don't block the data UI on them.
+      let onAuth = null;
+      try {
+        const auth = await import("./js/auth.js");
+        const ui = await import("./js/ui.js");
+        auth.initAuth();
+        ui.renderHeader();
+        ui.renderFooter();
+        onAuth = auth.onAuth;
+      } catch (err) {
+        console.warn("Auth/UI modules failed to load; continuing without them:", err);
+        const header = document.getElementById("app-header");
+        const footer = document.getElementById("app-footer");
+        if (header) header.innerHTML = `<div class="nav-inner"><a href="index.html" class="nav-brand">Fantasy Surf League</a></div>`;
+        if (footer) footer.innerHTML = `<div class="footer-inner"><p>Fantasy Surf League</p></div>`;
+      }
+
+      // ── Location name mapping ─────────────────────────────
+      // Keep a small exact map for known historical names, plus patterns that
+      // make the page resilient to sponsor/title changes.
+      const LOCATION_MAP = {
+        "Lexus Pipe Pro":                          "Pipeline",
+        "Hurley Pro Sunset Beach":                 "Sunset Beach",
+        "Surf Abu Dhabi Pro":                      "Abu Dhabi",
+        "MEO Rip Curl Pro Portugal":               "Portugal",
+        "Surf City El Salvador Pro":               "El Salvador",
+        "Rip Curl Pro Bells Beach":                "Bells Beach",
+        "Bonsoy Gold Coast Pro":                   "Gold Coast",
+        "Western Australia Margaret River Pro":    "Margaret River",
+        "Lexus Trestles Pro":                      "Trestles",
+        "VIVO Rio Pro":                            "Rio de Janeiro",
+        "Corona Open J-Bay":                       "J-Bay",
+        "SHISEIDO Tahiti Pro":                     "Tahiti",
+        "Tahiti Pro":                              "Tahiti",
+        "Corona Fiji Pro":                         "Fiji",
+        "Lexus WSL Finals":                        "WSL Finals",
+      };
+
+      const LOCATION_PATTERNS = [
+        { re: /\bpipe\b/i, loc: "Pipeline" },
+        { re: /\bsunset\b/i, loc: "Sunset Beach" },
+        { re: /\babu\s+dhabi\b/i, loc: "Abu Dhabi" },
+        { re: /\bportugal\b/i, loc: "Portugal" },
+        { re: /\bel\s+salvador\b/i, loc: "El Salvador" },
+        { re: /\bbells\b/i, loc: "Bells Beach" },
+        { re: /\bgold\s+coast\b/i, loc: "Gold Coast" },
+        { re: /\bmargaret\s+river\b/i, loc: "Margaret River" },
+        { re: /\btrestles\b/i, loc: "Trestles" },
+        { re: /\brio\b/i, loc: "Rio de Janeiro" },
+        { re: /\bj-?bay\b/i, loc: "J-Bay" },
+        { re: /\btahiti\b/i, loc: "Tahiti" },
+        { re: /\bfiji\b/i, loc: "Fiji" },
+        { re: /\bfinals\b/i, loc: "WSL Finals" },
+      ];
+
+      function locationForEvent(eventName) {
+        if (!eventName) return eventName;
+        const exact = LOCATION_MAP[eventName];
+        if (exact) return exact;
+        for (const { re, loc } of LOCATION_PATTERNS) {
+          if (re.test(eventName)) return loc;
+        }
+        return eventName;
+      }
+
+      // Canonical display order for locations
+      const LOCATION_ORDER = [
+        "Pipeline", "Sunset Beach", "Abu Dhabi", "Portugal",
+        "El Salvador", "Bells Beach", "Gold Coast", "Margaret River",
+        "Trestles", "Rio de Janeiro", "J-Bay", "Tahiti", "Fiji", "WSL Finals",
+      ];
+
+      // ── Load data ─────────────────────────────────────────
+      let datasets = [];
+      try {
+        if (location.protocol === "file:") {
+          throw new Error("This page can’t load JSON when opened from a local file. Run a local web server (e.g. `python3 -m http.server`) and open `http://localhost:8000/data.html`.");
+        }
+        datasets = await Promise.all([
+          fetch("./wsl_2024_mens.json").then(r => r.json()),
+          fetch("./wsl_2025_mens.json").then(r => r.json()),
+        ]);
+      } catch (err) {
+        document.getElementById("app-main").innerHTML =
+          `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">Failed to load data: ${err.message}</p></div>`;
+        return;
+      }
+
+    // ── Build surfer index ────────────────────────────────
+    // surferIndex[name][location][year] = place (number | null)
+    const surferIndex = {};
+    const allYears = [];
+
+    for (const ds of datasets) {
+      const { year, events, surfers } = ds;
+      allYears.push(year);
+      for (const surfer of surfers) {
+        if (!surferIndex[surfer.name]) surferIndex[surfer.name] = {};
+        for (let i = 0; i < events.length; i++) {
+          const loc = locationForEvent(events[i]);
+          const place = surfer.places[i] ?? null;
+          if (!surferIndex[surfer.name][loc]) surferIndex[surfer.name][loc] = {};
+          surferIndex[surfer.name][loc][year] = place;
+        }
+      }
+    }
+
+    const sortedNames = Object.keys(surferIndex).sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+
+    // ── Helpers ───────────────────────────────────────────
+    function ordinal(n) {
+      if (n === null || n === undefined) return "—";
+      const s = ["th","st","nd","rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    function placeClass(n) {
+      if (n === null) return "place-null";
+      if (n === 1) return "place-1";
+      if (n === 2) return "place-2";
+      if (n === 3) return "place-3";
+      if (n <= 8) return "place-5";
+      if (n <= 12) return "place-9";
+      if (n <= 16) return "place-13";
+      return "place-33";
+    }
+
+    function placeBadge(n) {
+      if (n === null) return `<span class="place-null text-muted">—</span>`;
+      return `<span class="place-badge ${placeClass(n)}">${ordinal(n)}</span>`;
+    }
+
+    // ── Render ────────────────────────────────────────────
+    let selectedSurfer = sortedNames[0];
+    let filterText = "";
+
+    function visibleNames() {
+      const q = filterText.toLowerCase();
+      return q ? sortedNames.filter(n => n.toLowerCase().includes(q)) : sortedNames;
+    }
+
+    function renderPage() {
+      const main = document.getElementById("app-main");
+
+      const name = selectedSurfer;
+      const locData = surferIndex[name] || {};
+
+      // Build ordered list of locations this surfer has data for
+      const usedLocs = new Set(Object.keys(locData));
+      const ordered = [
+        ...LOCATION_ORDER.filter(l => usedLocs.has(l)),
+        ...[...usedLocs].filter(l => !LOCATION_ORDER.includes(l)).sort((a, b) => a.localeCompare(b)),
+      ];
+
+      // Table header — show years that have at least one result for this surfer
+      const activeYears = allYears.filter(y =>
+        ordered.some(loc => locData[loc]?.[y] !== undefined)
+      );
+
+      const headerCells = activeYears.map(y => `<th class="text-center">${y}</th>`).join("");
+
+      const rows = ordered.map(loc => {
+        const yearPlaces = activeYears.map(y => locData[loc]?.[y] ?? null);
+        const valid = yearPlaces.filter(p => p !== null);
+        const avg = valid.length > 0
+          ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
+          : null;
+
+        const cells = yearPlaces.map(p => `<td class="text-center">${placeBadge(p)}</td>`).join("");
+
+        return `<tr>
+          <td>${loc}</td>
+          ${cells}
+          <td class="text-center avg-cell">${avg !== null ? avg : "—"}</td>
+        </tr>`;
+      }).join("");
+
+      // Surfer button list
+      const names = visibleNames();
+      const btnList = names.map(n =>
+        `<button class="surfer-btn${n === selectedSurfer ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
+      ).join("");
+
+      main.innerHTML = `
+        <h1 class="page-title">Surfer Data</h1>
+        <div class="grid grid--sidebar">
+          <div class="card" style="align-self:start">
+            <div class="card__header"><span class="card__title">Surfers</span></div>
+            <div class="search-wrap">
+              <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${filterText}">
+            </div>
+            <div class="surfer-grid" id="surfer-list">${btnList}</div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">${name}</span>
+                <span class="text-sm text-muted">Place by location</span>
+              </div>
+              ${rows.length > 0 ? `
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Location</th>
+                    ${headerCells}
+                    <th class="text-center">Avg</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+              ` : `<p class="text-muted">No data available.</p>`}
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Events
+      document.getElementById("surfer-search").addEventListener("input", e => {
+        filterText = e.target.value;
+        renderPage();
+        document.getElementById("surfer-search").focus();
+      });
+
+      document.getElementById("surfer-list").addEventListener("click", e => {
+        const btn = e.target.closest(".surfer-btn");
+        if (!btn) return;
+        selectedSurfer = btn.dataset.name;
+        renderPage();
+      });
+    }
+
+      // Render immediately; auth only affects header UI.
+      renderPage();
+      window.__dataBoot.rendered = true;
+      onAuth?.(() => renderPage());
+    }
+
+    boot().catch((err) => {
+      console.error("Data page boot failed:", err);
+      const main = document.getElementById("app-main");
+      if (main) {
+        main.innerHTML = `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">Page failed to start: ${err.message}</p></div>`;
+      }
+    });
+  </script>
+</body>
+</html>

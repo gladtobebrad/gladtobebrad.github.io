@@ -1,0 +1,158 @@
+{
+  "year": 2024,
+  "tour": "mens",
+  "events": [
+    "Lexus Pipe Pro",
+    "Hurley Pro Sunset Beach",
+    "MEO Rip Curl Pro Portugal",
+    "Rip Curl Pro Bells Beach",
+    "Western Australia Margaret River Pro",
+    "SHISEIDO Tahiti Pro",
+    "Surf City El Salvador Pro",
+    "VIVO Rio Pro",
+    "Corona Fiji Pro",
+    "Lexus WSL Finals"
+  ],
+  "surfers": [
+    {
+      "name": "John John Florence",
+      "places": [2, 5, 9, 13, 2, 2, 1, 5, 9, 1]
+    },
+    {
+      "name": "Italo Ferreira",
+      "places": [13, 5, 9, 13, 9, 1, 13, 1, 9, 2]
+    },
+    {
+      "name": "Griffin Colapinto",
+      "places": [9, 9, 1, 2, 5, 13, 9, 3, 1, 3]
+    },
+    {
+      "name": "Jack Robinson",
+      "places": [13, 1, 9, 13, 1, 13, 5, 9, 3, 4]
+    },
+    {
+      "name": "Ethan Ewing",
+      "places": [5, 9, 2, 5, 9, 9, 9, 5, 3, 5]
+    },
+    {
+      "name": "Yago Dora",
+      "places": [9, 13, 9, 9, 33, 5, 2, 2, 5, null]
+    },
+    {
+      "name": "Gabriel Medina",
+      "places": [13, 13, 3, 13, 9, 3, 3, 5, 5, null]
+    },
+    {
+      "name": "Jordy Smith",
+      "places": [5, 3, 13, 13, 5, 9, 5, 3, 13, null]
+    },
+    {
+      "name": "Rio Waida",
+      "places": [33, 9, 9, 3, 33, 5, 9, 9, 2, null]
+    },
+    {
+      "name": "Crosby Colapinto",
+      "places": [9, 13, 3, 9, 13, 9, 5, 9, 9, null]
+    },
+    {
+      "name": "Jake Marshall",
+      "places": [9, 9, 5, 5, 9, 9, 9, 13, 9, null]
+    },
+    {
+      "name": "Ramzi Boukhiam",
+      "places": [9, 33, 5, 13, 9, 3, 13, 9, 9, null]
+    },
+    {
+      "name": "Ryan Callinan",
+      "places": [13, 3, 33, 9, 13, 5, 9, 9, 9, null]
+    },
+    {
+      "name": "Barron Mamiya",
+      "places": [1, 13, 13, 9, 33, 9, 13, 13, 5, null]
+    },
+    {
+      "name": "Cole Houshmand",
+      "places": [33, 13, 9, 1, 13, 9, 13, 9, 13, null]
+    },
+    {
+      "name": "Connor O'Leary",
+      "places": [3, 9, 13, 13, 13, 13, 9, 5, 9, null]
+    },
+    {
+      "name": "Kanoa Igarashi",
+      "places": [13, 2, 9, 9, 13, 9, 13, 13, 13, null]
+    },
+    {
+      "name": "Imaikalani deVault",
+      "places": [5, 13, 9, 13, 5, 13, 13, 13, 5, null]
+    },
+    {
+      "name": "Seth Moniz",
+      "places": [13, 5, 13, 33, 3, 13, 13, 9, 9, null]
+    },
+    {
+      "name": "Matthew McGillivray",
+      "places": [9, 13, 13, 3, 13, 13, 3, 13, 13, null]
+    },
+    {
+      "name": "Liam O'Brien",
+      "places": [9, 5, 13, 9, 9, 13, 13, 9, 13, null]
+    },
+    {
+      "name": "Leonardo Fioravanti",
+      "places": [5, 13, 5, 13, 13, 13, 9, 13, 13, null]
+    },
+    {
+      "name": "Samuel Pupo",
+      "places": [13, 13, 13, 9, 5, null, null, null, null, null]
+    },
+    {
+      "name": "Ian Gentil",
+      "places": [3, 13, 33, 13, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Caio Ibelli",
+      "places": [33, 13, 13, 9, 9, null, null, null, null, null]
+    },
+    {
+      "name": "Miguel Pupo",
+      "places": [13, 9, 13, 13, 9, null, null, null, null, null]
+    },
+    {
+      "name": "Kade Matson",
+      "places": [13, 13, 13, 5, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Jacob Willcox",
+      "places": [13, 9, 13, 13, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Frederico Morais",
+      "places": [13, 9, 13, 13, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Callum Robson",
+      "places": [9, 33, 13, 33, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Kelly Slater",
+      "places": [13, 13, null, 13, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Eli Hanneman",
+      "places": [13, 13, 13, 33, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Deivid Silva",
+      "places": [13, 13, 13, 33, 13, null, null, null, null, null]
+    },
+    {
+      "name": "Joao Chianca",
+      "places": [33, 33, 33, 33, 33, null, null, null, null, null]
+    },
+    {
+      "name": "Filipe Toledo",
+      "places": [33, null, null, null, null, null, null, null, null, null]
+    }
+  ]
+}
