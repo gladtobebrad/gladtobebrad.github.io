@@ -179,21 +179,33 @@
               ${userTeam ? `
                 <div class="surfer-list">
                   ${userTeam.surfers.map((s, i) => {
+                    const data = surferMap[s.surferId] || {};
                     const pts = userScore?.surferScores?.[i]?.points;
+                    const photo = data.photoUrl
+                      ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
+                      : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
                     return `<div class="surfer-row">
-                      <span class="surfer-row__rank">${i + 1}</span>
-                      <span class="surfer-row__name">${surferMap[s.surferId]?.name || s.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                      ${photo}
+                      <div class="surfer-row__info">
+                        <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                        <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                      </div>
                       ${pts !== undefined ? `<span class="text-sm text-muted">${pts} pts</span>` : ""}
                     </div>`;
                   }).join("")}
-                  ${userTeam.alternate ? `
-                    <div class="surfer-row surfer-row--alternate">
-                      <span class="surfer-row__rank">ALT</span>
-                      <span class="surfer-row__name">${surferMap[userTeam.alternate.surferId]?.name || userTeam.alternate.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__value">${formatSalary(userTeam.alternate.purchasePrice)}</span>
-                    </div>
-                  ` : ""}
+                  ${userTeam.alternate ? (() => {
+                    const altData = surferMap[userTeam.alternate.surferId] || {};
+                    const altPhoto = altData.photoUrl
+                      ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
+                      : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
+                    return `<div class="surfer-row surfer-row--alternate">
+                      ${altPhoto}
+                      <div class="surfer-row__info">
+                        <span class="surfer-row__name">${altData.name || userTeam.alternate.surferId.replace(/-/g, " ")}</span>
+                        <span class="surfer-row__meta">ALT &middot; ${formatSalary(userTeam.alternate.purchasePrice)}</span>
+                      </div>
+                    </div>`;
+                  })() : ""}
                 </div>
                 ${userScore ? `<p class="mt-2" style="font-weight:600">Event Total: ${userScore.totalPoints} pts</p>` : ""}
                 <a href="team.html" class="btn btn--primary btn--sm mt-2">Manage Team</a>
@@ -309,20 +321,30 @@
                   <div class="surfer-list">
                     ${t.surfers.map((s) => {
                       const data = surferMap[s.surferId] || {};
+                      const photo = data.photoUrl
+                        ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
+                        : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
                       return `<div class="surfer-row">
-                        <span class="surfer-row__rank">${data.rank || "—"}</span>
-                        <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                        <span class="surfer-row__country">${data.country || ""}</span>
-                        <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                        ${photo}
+                        <div class="surfer-row__info">
+                          <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                          <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                        </div>
                       </div>`;
                     }).join("")}
-                    ${t.alternate ? `
-                      <div class="surfer-row surfer-row--alternate">
-                        <span class="surfer-row__rank">ALT</span>
-                        <span class="surfer-row__name">${(surferMap[t.alternate.surferId]?.name) || t.alternate.surferId.replace(/-/g, " ")}</span>
-                        <span class="surfer-row__value">${formatSalary(t.alternate.purchasePrice)}</span>
-                      </div>
-                    ` : ""}
+                    ${t.alternate ? (() => {
+                      const altData = surferMap[t.alternate.surferId] || {};
+                      const altPhoto = altData.photoUrl
+                        ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
+                        : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
+                      return `<div class="surfer-row surfer-row--alternate">
+                        ${altPhoto}
+                        <div class="surfer-row__info">
+                          <span class="surfer-row__name">${altData.name || t.alternate.surferId.replace(/-/g, " ")}</span>
+                          <span class="surfer-row__meta">ALT &middot; ${formatSalary(t.alternate.purchasePrice)}</span>
+                        </div>
+                      </div>`;
+                    })() : ""}
                   </div>
                 </div>
               `).join("")}

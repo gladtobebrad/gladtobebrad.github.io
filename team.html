@@ -127,15 +127,19 @@
               <div class="card__header">
                 <span class="card__title">Your Roster (${roster.length}/${rules.rosterSize})</span>
               </div>
-              <div class="surfer-list" id="roster-list">
+              <div class="surfer-list surfer-list--grid" id="roster-list">
                 ${roster.length === 0 ? `<p class="text-muted text-sm">Add surfers from the list on the right.</p>` : ""}
                 ${roster.map((s) => {
                   const data = allSurfers[s.surferId] || {};
-                  return `<div class="surfer-row">
-                    <span class="surfer-row__rank">${data.rank || "—"}</span>
-                    <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                    <span class="surfer-row__country">${data.country || ""}</span>
-                    <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                  const photo = data.photoUrl
+                    ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
+                    : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
+                  return `<div class="surfer-row" ${tradingOpen ? `draggable="true" data-roster-index="${i}" style="cursor:grab"` : ""}>
+                    ${photo}
+                    <div class="surfer-row__info">
+                      <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                      <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                    </div>
                     <span class="surfer-row__action">
                       ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop="${s.surferId}" title="Drop">&times;</button>` : ""}
                     </span>
@@ -144,42 +148,59 @@
               </div>
 
               <!-- Alternate -->
-              <div class="mt-3">
-                <h4>Alternate Slot</h4>
-                <p class="text-muted text-xs mb-1">Budget bracket only (&lt; $1M). Excluded from salary cap.</p>
-                <div id="alternate-slot">
-                  ${alternate ? `
-                    <div class="surfer-row surfer-row--alternate">
-                      <span class="surfer-row__rank">ALT</span>
-                      <span class="surfer-row__name">${(allSurfers[alternate.surferId]?.name) || alternate.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__value">${formatSalary(alternate.purchasePrice)}</span>
+              <div class="mt-3" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+                <div style="flex-shrink:0">
+                  <span class="text-sm" style="font-weight:600">Alternate</span>
+                  <span class="text-xs text-muted" style="display:block">Budget only · excluded from cap</span>
+                </div>
+                <div id="alternate-slot" style="flex:1;min-width:200px">
+                  ${alternate ? (() => {
+                    const altData = allSurfers[alternate.surferId] || {};
+                    const altPhoto = altData.photoUrl
+                      ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
+                      : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
+                    return `<div class="surfer-row surfer-row--alternate">
+                      ${altPhoto}
+                      <div class="surfer-row__info">
+                        <span class="surfer-row__name">${altData.name || alternate.surferId.replace(/-/g, " ")}</span>
+                        <span class="surfer-row__meta">ALT &middot; ${formatSalary(alternate.purchasePrice)}</span>
+                      </div>
                       <span class="surfer-row__action">
                         ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop-alt title="Drop">&times;</button>` : ""}
                       </span>
-                    </div>
-                  ` : `<p class="text-muted text-sm">No alternate selected.</p>`}
+                    </div>`;
+                  })() : `<p class="text-muted text-sm">No alternate selected. ${tradingOpen ? "Drag a budget surfer here." : ""}</p>`}
                 </div>
+              </div>
               </div>
 
               <!-- Actions -->
               ${tradingOpen ? `
-                <div class="form-actions">
-                  <button class="btn btn--outline" id="btn-revert">Revert</button>
-                  <button class="btn btn--primary" id="btn-save">Save Team</button>
+                <div class="form-actions" style="margin-top:0.75rem">
+                  <button class="btn btn--outline btn--sm" id="btn-revert">Revert</button>
+                  <button class="btn btn--primary btn--sm" id="btn-save">Save Team</button>
                 </div>
               ` : ""}
             </div>
           </div>
 
-          <!-- Right: Available -->
+          <!-- Salary cap repeat -->
+          <div class="salary-bar" style="margin:0.25rem 0">
+            <div class="salary-bar__header">
+              <span>Salary Cap: ${formatSalaryFull(spent)} / ${formatSalaryFull(rules.salaryCap)}</span>
+              <span>Remaining: <strong style="color:${overCap ? "#c0392b" : "inherit"}">${formatSalaryFull(Math.abs(remaining))}${overCap ? " OVER" : ""}</strong></span>
+            </div>
+            <div class="salary-bar__track">
+              <div class="salary-bar__fill ${overCap ? "salary-bar__fill--over" : pct > 90 ? "salary-bar__fill--warn" : ""}" style="width:${pct}%"></div>
+            </div>
+          </div>
+
+          <!-- Available -->
           <div>
             <div class="card">
-              <div class="card__header">
-                <span class="card__title">Available Surfers</span>
-              </div>
-              <div class="search-bar">
-                <input type="text" class="search-input" id="surfer-search" placeholder="Search by name...">
-                <select class="filter-select" id="bracket-filter">
+              <div class="search-bar" style="margin-bottom:0.5rem">
+                <input type="text" class="search-input" id="surfer-search" placeholder="Search..." style="font-size:0.8rem;padding:0.375rem 0.75rem">
+                <select class="filter-select" id="bracket-filter" style="font-size:0.8rem;padding:0.375rem 0.75rem">
                   <option value="">All Brackets</option>
                   <option value="elite">Elite ($8M+)</option>
                   <option value="high">High ($5-7.9M)</option>
@@ -188,7 +209,7 @@
                   <option value="budget">Budget (&lt;$1M)</option>
                 </select>
               </div>
-              <div class="surfer-list" id="available-list" style="max-height:500px;overflow-y:auto">
+              <div class="surfer-list surfer-list--grid" id="available-list">
                 ${renderAvailable(available)}
               </div>
             </div>
@@ -202,20 +223,27 @@
 
     function renderAvailable(surfers) {
       if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
-      return surfers.map((s) => `
-        <div class="surfer-row" data-bracket="${s.priceBracket || ""}">
-          <span class="surfer-row__rank">${s.rank || "—"}</span>
-          <span class="surfer-row__name">${s.name}</span>
-          <span class="surfer-row__country">${s.country || ""}</span>
-          <span class="surfer-row__value">${formatSalary(s.value)}</span>
-          <span class="surfer-row__action">
-            ${tradingOpen ? `
-              <button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
-              ${s.priceBracket === "budget" ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}
-            ` : ""}
-          </span>
-        </div>
-      `).join("");
+      return surfers.map((s) => {
+        const photo = s.photoUrl
+          ? `<img src="${s.photoUrl}" class="surfer-photo" alt="">`
+          : `<div class="surfer-photo--empty">${(s.name || "?")[0]}</div>`;
+        return `
+          <div class="surfer-row" data-bracket="${s.priceBracket || ""}"
+            ${tradingOpen ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}>
+            ${photo}
+            <div class="surfer-row__info">
+              <span class="surfer-row__name">${s.name}</span>
+              <span class="surfer-row__meta">#${s.rank || "—"} &middot; ${s.country || ""} &middot; ${formatSalary(s.value)}</span>
+            </div>
+            <span class="surfer-row__action">
+              ${tradingOpen ? `
+                <button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
+                ${s.priceBracket === "budget" ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}
+              ` : ""}
+            </span>
+          </div>
+        `;
+      }).join("");
     }
 
     function wireEvents(container, user) {
@@ -260,6 +288,115 @@
           renderTeamPage(container, user);
         });
       });
+
+      // Reorder within roster
+      if (tradingOpen) {
+        let dragSrcIndex = null;
+        container.querySelectorAll("#roster-list .surfer-row[data-roster-index]").forEach((row) => {
+          row.addEventListener("dragstart", (e) => {
+            dragSrcIndex = parseInt(row.dataset.rosterIndex, 10);
+            e.dataTransfer.setData("application/x-roster-index", dragSrcIndex);
+            e.dataTransfer.effectAllowed = "move";
+            row.classList.add("surfer-row--dragging");
+          });
+          row.addEventListener("dragend", () => {
+            row.classList.remove("surfer-row--dragging");
+            container.querySelectorAll(".surfer-row--drag-over").forEach((r) => r.classList.remove("surfer-row--drag-over"));
+          });
+          row.addEventListener("dragover", (e) => {
+            if (dragSrcIndex === null) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "move";
+            row.classList.add("surfer-row--drag-over");
+          });
+          row.addEventListener("dragleave", () => {
+            row.classList.remove("surfer-row--drag-over");
+          });
+          row.addEventListener("drop", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            row.classList.remove("surfer-row--drag-over");
+            const targetIndex = parseInt(row.dataset.rosterIndex, 10);
+            if (dragSrcIndex === null || dragSrcIndex === targetIndex) return;
+            const newRoster = [...roster];
+            const [moved] = newRoster.splice(dragSrcIndex, 1);
+            newRoster.splice(targetIndex, 0, moved);
+            roster = newRoster;
+            dragSrcIndex = null;
+            renderTeamPage(container, user);
+          });
+        });
+      }
+
+      // Drag from available list
+      if (tradingOpen) {
+        container.querySelectorAll("#available-list .surfer-row[draggable]").forEach((row) => {
+          row.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("application/json", JSON.stringify({
+              id: row.dataset.surferId,
+              value: parseInt(row.dataset.surferValue, 10),
+              bracket: row.dataset.surferBracket
+            }));
+            e.dataTransfer.effectAllowed = "copy";
+            row.classList.add("surfer-row--dragging");
+          });
+          row.addEventListener("dragend", () => {
+            row.classList.remove("surfer-row--dragging");
+          });
+        });
+
+        // Drop on roster list
+        const rosterList = container.querySelector("#roster-list");
+        rosterList.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          rosterList.classList.add("drop-zone--over");
+        });
+        rosterList.addEventListener("dragleave", () => {
+          rosterList.classList.remove("drop-zone--over");
+        });
+        rosterList.addEventListener("drop", (e) => {
+          e.preventDefault();
+          rosterList.classList.remove("drop-zone--over");
+          try {
+            const { id, value } = JSON.parse(e.dataTransfer.getData("application/json"));
+            const rules = getTeamRules(currentEvent.tour || "mens");
+            if (roster.length >= rules.rosterSize) {
+              toast("Roster is full. Drop a surfer first.", "error");
+              return;
+            }
+            if (roster.some((s) => s.surferId === id) || alternate?.surferId === id) return;
+            roster.push({ surferId: id, purchasePrice: value });
+            renderTeamPage(container, user);
+          } catch {}
+        });
+
+        // Drop on alternate slot
+        const altSlot = container.querySelector("#alternate-slot");
+        altSlot.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          altSlot.classList.add("drop-zone--over");
+        });
+        altSlot.addEventListener("dragleave", () => {
+          altSlot.classList.remove("drop-zone--over");
+        });
+        altSlot.addEventListener("drop", (e) => {
+          e.preventDefault();
+          altSlot.classList.remove("drop-zone--over");
+          try {
+            const { id, value, bracket } = JSON.parse(e.dataTransfer.getData("application/json"));
+            if (bracket !== "budget") {
+              toast("Alternate must be a budget bracket surfer (< $1M).", "error");
+              return;
+            }
+            if (roster.some((s) => s.surferId === id)) return;
+            alternate = { surferId: id, purchasePrice: value };
+            renderTeamPage(container, user);
+          } catch {}
+        });
+      }
 
       // Search
       document.getElementById("surfer-search")?.addEventListener("input", (e) => {

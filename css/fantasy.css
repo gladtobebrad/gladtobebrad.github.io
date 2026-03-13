@@ -217,7 +217,7 @@ img { max-width: 100%; }
 .grid--2 { grid-template-columns: 1fr 1fr; }
 .grid--3 { grid-template-columns: 1fr 1fr 1fr; }
 .grid--sidebar { grid-template-columns: 1fr 380px; }
-.grid--team { grid-template-columns: 1fr 1fr; }
+.grid--team { grid-template-columns: 1fr; gap: 0.5rem; }
 
 /* ── Buttons ──────────────────────────────────────── */
 
@@ -417,6 +417,12 @@ img { max-width: 100%; }
 .surfer-list {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+}
+
+.surfer-list--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 0.5rem;
 }
 
@@ -926,3 +932,91 @@ img { max-width: 100%; }
 }
 
 .hidden { display: none !important; }
+
+/* ── Surfer Photos ─────────────────────────────────── */
+
+/* Available surfers list */
+.surfer-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  object-position: center;
+  flex-shrink: 0;
+  border: 1px solid var(--color-beige);
+}
+
+.surfer-photo--empty {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--color-beige);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-warm-brown);
+  flex-shrink: 0;
+}
+
+/* Medium — roster list */
+.surfer-photo--sm {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  object-position: center;
+  flex-shrink: 0;
+  border: 1px solid var(--color-beige);
+}
+
+.surfer-photo--sm.surfer-photo--empty {
+  width: 64px;
+  height: 64px;
+  background: var(--color-beige);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-warm-brown);
+  flex-shrink: 0;
+}
+
+/* Stacked name/meta inside surfer rows */
+.surfer-row__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.surfer-row__meta {
+  font-size: 0.75rem;
+  color: var(--color-warm-brown);
+}
+
+/* ── Drag & Drop ───────────────────────────────────── */
+
+.surfer-row[draggable="true"] {
+  cursor: grab;
+}
+.surfer-row[draggable="true"]:active {
+  cursor: grabbing;
+}
+.surfer-row--dragging {
+  opacity: 0.4;
+}
+.surfer-row--drag-over {
+  background: rgba(156, 168, 152, 0.15) !important;
+  outline: 2px dashed var(--color-sage);
+  outline-offset: -2px;
+}
+.drop-zone--over {
+  background: rgba(156, 168, 152, 0.1) !important;
+  border-color: var(--color-sage) !important;
+  outline: 2px dashed var(--color-sage);
+  outline-offset: -2px;
+}
