@@ -25,6 +25,10 @@
     import { renderHeader, renderFooter, showAuthGate, showLoading, renderTable } from "./js/ui.js";
 
     const SEASON = 2026;
+    let activeTab = "popularity-mens";
+    let allSurfers = [];
+    let events = [];
+    let eventData = {};
 
     initAuth();
     renderHeader();
@@ -37,42 +41,30 @@
         return;
       }
       showLoading(main);
-      await renderSurfersPage(main);
+      await loadData(main);
     });
 
-    async function renderSurfersPage(container) {
+    async function loadData(container) {
       try {
-        const [events, surfers] = await Promise.all([
+        [events, allSurfers] = await Promise.all([
           getEvents(SEASON),
           getSurfers()
         ]);
 
-        // Sort surfers by rank
-        surfers.sort((a, b) => (a.rank || 999) - (b.rank || 999));
-
-        // Get all event numbers
         const allEventNumbers = events.map(e => e.eventNumber).sort((a, b) => a - b);
 
-        // Prepare data: for each event, if trading closed, get percentages
-        const eventData = {};
         for (const event of events) {
-          const totalTeams = 0;
           let percentages = {};
-          if (event.tradingOpen !== false) {
-            // Trading open, no data
-          } else {
+          let totalTeams = 0;
+          if (event.tradingOpen === false) {
             const teams = await getTeamsForEvent(event.id);
-            const totalTeams = teams.length;
+            totalTeams = teams.length;
             if (totalTeams > 0) {
               const surferCounts = {};
               for (const team of teams) {
                 const surferIds = new Set();
-                if (team.surfers) {
-                  team.surfers.forEach(s => surferIds.add(s.surferId));
-                }
-                if (team.alternate) {
-                  surferIds.add(team.alternate.surferId);
-                }
+                if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
+                if (team.alternate) surferIds.add(team.alternate.surferId);
                 for (const sid of surferIds) {
                   surferCounts[sid] = (surferCounts[sid] || 0) + 1;
                 }
@@ -80,24 +72,52 @@
               percentages = surferCounts;
             }
           }
-
-          eventData[event.eventNumber] = {
-            event,
-            percentages,
-            totalTeams
-          };
+          eventData[event.eventNumber] = { event, percentages, totalTeams };
         }
 
-        // Build table
-        const headers = ["Surfer"];
-        headers.push(...allEventNumbers.map(num => `${num}`));
+        render(container);
+      } catch (err) {
+        container.innerHTML = `
+          <h1 class="page-title">Surfers</h1>
+          <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
+        `;
+      }
+    }
 
-        const rows = [];
-        for (const surfer of surfers) {
+    function render(container) {
+      const tabs = [
+        { id: "popularity-mens",   label: "Men's Popularity" },
+        { id: "popularity-womens", label: "Women's Popularity" },
+      ];
+
+      const tabBar = `
+        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+          ${tabs.map(t => `
+            <button data-tab="${t.id}" style="
+              padding:0.5rem 1rem;
+              border:none;background:none;cursor:pointer;
+              font-size:0.9rem;font-weight:${activeTab === t.id ? "600" : "400"};
+              color:${activeTab === t.id ? "var(--color-charcoal)" : "var(--color-sage)"};
+              border-bottom:2px solid ${activeTab === t.id ? "var(--color-charcoal)" : "transparent"};
+              margin-bottom:-1px;
+            ">${t.label}</button>
+          `).join("")}
+        </div>`;
+
+      let content = "";
+
+      const tour = activeTab === "popularity-mens" ? "mens" : "womens";
+        const popularitySurfers = allSurfers
+          .filter(s => (s.tour || "mens") === tour)
+          .sort((a, b) => (a.rank || 999) - (b.rank || 999));
+
+        const allEventNumbers = events.map(e => e.eventNumber).sort((a, b) => a - b);
+        const headers = ["Surfer", ...allEventNumbers.map(n => `${n}`)];
+        const rows = popularitySurfers.map(surfer => {
           const row = [surfer.name];
           for (const num of allEventNumbers) {
             const data = eventData[num];
-            if (data.totalTeams > 0) {
+            if (data && data.totalTeams > 0) {
               const count = data.percentages[surfer.id] || 0;
               const pct = ((count / data.totalTeams) * 100).toFixed(1);
               row.push(`${pct}%`);
@@ -105,27 +125,27 @@
               row.push("—");
             }
           }
-          rows.push(row);
-        }
+          return row;
+        });
 
-        const tableHtml = renderTable(headers, rows);
-
-        container.innerHTML = `
-          <h1 class="page-title">Surfer Popularity</h1>
+        content = `
           <div class="card">
             <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
-            ${tableHtml}
-          </div>
-        `;
-      } catch (err) {
-        container.innerHTML = `
-          <h1 class="page-title">Surfer Popularity</h1>
-          <div class="card">
-            <p class="text-muted">Unable to load data. Check Firebase config.</p>
-            <p class="text-muted text-sm mt-1">${err.message}</p>
-          </div>
-        `;
-      }
+            ${renderTable(headers, rows)}
+          </div>`;
+
+      container.innerHTML = `
+        <h1 class="page-title">Surfers</h1>
+        ${tabBar}
+        ${content}
+      `;
+
+      container.querySelectorAll("[data-tab]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeTab = btn.dataset.tab;
+          render(container);
+        });
+      });
     }
   </script>
 
