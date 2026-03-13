@@ -134,8 +134,9 @@
                     <div class="form-group">
                       <label class="form-label">Tour</label>
                       <select class="form-select" id="event-tour">
-                        <option value="mens">Men's</option>
-                        <option value="womens">Women's</option>
+                        <option value="both">Both (Men's + Women's)</option>
+                        <option value="mens">Men's only</option>
+                        <option value="womens">Women's only</option>
                       </select>
                     </div>
                   </div>
@@ -457,11 +458,11 @@
         const editId = document.getElementById("event-edit-id").value;
         const id = editId || document.getElementById("event-id").value.trim();
         if (!id) return;
-        const data = {
+        const tourValue = document.getElementById("event-tour").value;
+        const baseData = {
           name: document.getElementById("event-name").value.trim(),
           location: document.getElementById("event-location").value.trim(),
           eventNumber: parseInt(document.getElementById("event-number").value, 10),
-          tour: document.getElementById("event-tour").value,
           startDate: document.getElementById("event-start").value,
           endDate: document.getElementById("event-end").value,
           status: document.getElementById("event-status").value,
@@ -470,8 +471,16 @@
           resultsEntered: false
         };
         try {
-          await saveEvent(id, data);
-          toast("Event saved!", "success");
+          if (tourValue === "both") {
+            // Strip any existing -mens/-womens suffix to get base ID
+            const baseId = id.replace(/-mens$|-womens$/, "");
+            await saveEvent(baseId + "-mens",   { ...baseData, tour: "mens" });
+            await saveEvent(baseId + "-womens", { ...baseData, tour: "womens" });
+            toast("Saved Men's + Women's events!", "success");
+          } else {
+            await saveEvent(id, { ...baseData, tour: tourValue });
+            toast("Event saved!", "success");
+          }
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) {
@@ -496,7 +505,7 @@
           document.getElementById("event-name").value = ev.name || "";
           document.getElementById("event-location").value = ev.location || "";
           document.getElementById("event-number").value = ev.eventNumber || "";
-          document.getElementById("event-tour").value = ev.tour || "mens";
+          document.getElementById("event-tour").value = ev.tour || "mens"; // "both" not shown on edit — each event is its own doc
           document.getElementById("event-start").value = (ev.startDate || "").substring(0, 10);
           document.getElementById("event-end").value = (ev.endDate || "").substring(0, 10);
           document.getElementById("event-status").value = ev.status || "upcoming";

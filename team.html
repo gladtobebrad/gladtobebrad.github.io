@@ -21,13 +21,14 @@
 
   <script type="module">
     import { initAuth, requireAuth, getCurrentUser } from "./js/auth.js";
-    import { getSurfers, getCurrentEvent, getTeam, saveTeam, getPreviousTeam } from "./js/db.js";
+    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, buildRevertTeam } from "./js/team.js";
     import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
 
     const SEASON = 2026;
 
     // Working state
+    let activeTour = "mens";
     let roster = [];       // { surferId, purchasePrice }
     let alternate = null;  // { surferId, purchasePrice }
     let allSurfers = {};   // id → surfer doc
@@ -49,17 +50,20 @@
       try {
         const [surfers, event] = await Promise.all([
           getSurfers(),
-          getCurrentEvent(SEASON)
+          getCurrentEventForTour(activeTour, SEASON)
         ]);
 
         surfers.forEach((s) => { allSurfers[s.id] = s; });
         currentEvent = event;
 
+        // Reset working state when switching tours
+        roster = [];
+        alternate = null;
+
         if (!currentEvent) {
-          container.innerHTML = `
-            <h1 class="page-title">My Team</h1>
-            <div class="card"><p class="text-muted">No current event. Check back when the season schedule is posted.</p></div>
-          `;
+          renderTourTabs(container);
+          container.innerHTML += `<div class="card"><p class="text-muted">No current ${activeTour === "womens" ? "Women's" : "Men's"} CT event. Check back when the season schedule is posted.</p></div>`;
+          wireTourTabs(container, user);
           return;
         }
 
@@ -105,6 +109,10 @@
         <div class="flex-between mb-2">
           <h1 class="page-title" style="margin-bottom:0">My Team</h1>
           <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
+        </div>
+        <div class="tour-tabs mb-3">
+          <button class="tour-tab ${activeTour === "mens" ? "tour-tab--active" : ""}" data-tour="mens">Men's CT</button>
+          <button class="tour-tab ${activeTour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
         </div>
         <p class="text-muted mb-3">${currentEvent.name} — ${currentEvent.location || ""}</p>
 
@@ -220,6 +228,7 @@
 
       // Wire up event handlers
       wireEvents(container, user);
+      wireTourTabs(container, user);
     }
 
     function renderAvailable(surfers) {
@@ -447,6 +456,30 @@
         } catch (err) {
           toast("Failed to save: " + err.message, "error");
         }
+      });
+    }
+
+    function renderTourTabs(container) {
+      container.innerHTML = `
+        <div class="flex-between mb-2">
+          <h1 class="page-title" style="margin-bottom:0">My Team</h1>
+        </div>
+        <div class="tour-tabs mb-3">
+          <button class="tour-tab ${activeTour === "mens" ? "tour-tab--active" : ""}" data-tour="mens">Men's CT</button>
+          <button class="tour-tab ${activeTour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
+        </div>
+      `;
+    }
+
+    function wireTourTabs(container, user) {
+      container.querySelectorAll(".tour-tab").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (btn.dataset.tour === activeTour) return;
+          activeTour = btn.dataset.tour;
+          const main = document.getElementById("app-main");
+          showLoading(main);
+          await loadTeamPage(main, user);
+        });
       });
     }
 

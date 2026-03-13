@@ -1014,6 +1014,32 @@ img { max-width: 100%; }
   outline: 2px dashed var(--color-sage);
   outline-offset: -2px;
 }
+
+/* Tour tabs */
+.tour-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--color-beige);
+  padding-bottom: 0;
+}
+.tour-tab {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  color: var(--color-warm-brown);
+  transition: color var(--transition), border-color var(--transition);
+}
+.tour-tab:hover { color: var(--color-dark); }
+.tour-tab--active {
+  color: var(--color-dark);
+  border-bottom-color: var(--color-sage);
+  font-weight: 600;
+}
 .drop-zone--over {
   background: rgba(156, 168, 152, 0.1) !important;
   border-color: var(--color-sage) !important;

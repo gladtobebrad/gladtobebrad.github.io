@@ -49,6 +49,14 @@ export async function getCurrentEvent(season = 2026) {
     || null;
 }
 
+export async function getCurrentEventForTour(tour, season = 2026) {
+  const events = await getEvents(season);
+  const tourEvents = events.filter((e) => (e.tour || "mens") === tour);
+  return tourEvents.find((e) => e.status === "live")
+    || tourEvents.find((e) => e.status === "upcoming")
+    || null;
+}
+
 export async function saveEvent(eventId, data) {
   await setDoc(doc(db, "events", eventId), data, { merge: true });
 }
