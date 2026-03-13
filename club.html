@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Club — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script type="module">
+    import { initAuth, onAuth } from "./js/auth.js";
+    import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub, getLeaderboard } from "./js/db.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast } from "./js/ui.js";
+
+    const SEASON = 2026;
+
+    initAuth();
+    renderHeader();
+    renderFooter();
+
+    onAuth(async (user, profile) => {
+      const main = document.getElementById("app-main");
+      if (!user) {
+        showAuthGate(main);
+        return;
+      }
+      showLoading(main);
+      await renderClubPage(main, user);
+    });
+
+    async function renderClubPage(container, user) {
+      const userDoc = await getUser(user.uid);
+      const clubId = userDoc?.clubId || null;
+
+      if (!clubId) {
+        renderNoClub(container, user);
+      } else {
+        const club = await getClub(clubId);
+        if (!club) {
+          // Stale clubId — club was deleted
+          renderNoClub(container, user);
+        } else {
+          await renderClubView(container, user, club);
+        }
+      }
+    }
+
+    function renderNoClub(container, user) {
+      container.innerHTML = `
+        <h1 class="page-title">Club</h1>
+        <p class="text-muted mb-3">Compete with friends in a private leaderboard. Create a club or join one with an invite code.</p>
+        <div class="grid grid--2">
+          <div class="card">
+            <div class="card__header">
+              <span class="card__title">Create a Club</span>
+            </div>
+            <div class="form-group mb-2">
+              <label class="form-label">Club Name</label>
+              <input type="text" class="search-input" id="club-name-input" placeholder="SanDiegoFS$$" maxlength="40">
+            </div>
+            <button class="btn btn--primary btn--sm" id="btn-create-club">Create Club</button>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <span class="card__title">Join a Club</span>
+            </div>
+            <div class="form-group mb-2">
+              <label class="form-label">Invite Code</label>
+              <input type="text" class="search-input" id="invite-code-input" placeholder="e.g. AB3XY7" maxlength="6" style="text-transform:uppercase">
+            </div>
+            <button class="btn btn--outline btn--sm" id="btn-join-club">Join Club</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("btn-create-club")?.addEventListener("click", async () => {
+        const name = document.getElementById("club-name-input")?.value.trim();
+        if (!name) { toast("Enter a club name.", "error"); return; }
+        const btn = document.getElementById("btn-create-club");
+        btn.disabled = true;
+        btn.textContent = "Creating…";
+        try {
+          await createClub(user.uid, name);
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          toast("Failed to create club.", "error");
+          btn.disabled = false;
+          btn.textContent = "Create Club";
+        }
+      });
+
+      document.getElementById("btn-join-club")?.addEventListener("click", async () => {
+        const code = document.getElementById("invite-code-input")?.value.trim().toUpperCase();
+        if (!code) { toast("Enter an invite code.", "error"); return; }
+        const btn = document.getElementById("btn-join-club");
+        btn.disabled = true;
+        btn.textContent = "Joining…";
+        try {
+          const club = await getClubByInviteCode(code);
+          if (!club) { toast("Club not found. Check the invite code.", "error"); btn.disabled = false; btn.textContent = "Join Club"; return; }
+          await joinClub(user.uid, club.id);
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          toast("Failed to join club.", "error");
+          btn.disabled = false;
+          btn.textContent = "Join Club";
+        }
+      });
+    }
+
+    async function renderClubView(container, user, club) {
+      const isOwner = club.ownerId === user.uid;
+
+      // Fetch leaderboard and filter to club members
+      const leaderboard = await getLeaderboard(SEASON);
+
+      // Enrich leaderboard entries with user profile data
+      const memberSet = new Set(club.memberIds);
+      const memberEntries = leaderboard.filter((e) => memberSet.has(e.userId));
+
+      // Fetch profiles for members not yet in leaderboard (e.g. new members with no score)
+      const leaderboardUserIds = new Set(memberEntries.map((e) => e.userId));
+      const missingIds = club.memberIds.filter((id) => !leaderboardUserIds.has(id));
+
+      for (const entry of memberEntries) {
+        const ud = await getUser(entry.userId);
+        if (ud) {
+          entry.avatarUrl = ud.avatarUrl || "";
+          entry.teamName = ud.teamName || entry.teamName || ud.displayName || "";
+          entry.displayName = ud.displayName || entry.displayName || "";
+        }
+      }
+
+      // Add zero-score rows for members with no leaderboard entry
+      for (const uid of missingIds) {
+        const ud = await getUser(uid);
+        if (ud) {
+          memberEntries.push({
+            userId: uid,
+            avatarUrl: ud.avatarUrl || "",
+            teamName: ud.teamName || ud.displayName || "—",
+            displayName: ud.displayName || "—",
+            bestNineTotal: 0,
+            allEventsTotal: 0
+          });
+        }
+      }
+
+      memberEntries.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+          <h1 class="page-title" style="margin:0">${club.name}</h1>
+          <button class="btn btn--outline btn--sm" id="btn-leave-club" style="color:var(--color-error,#c0392b);border-color:var(--color-error,#c0392b)">
+            ${isOwner ? "Delete Club" : "Leave Club"}
+          </button>
+        </div>
+        <p class="text-muted text-sm mb-3">${club.memberIds.length} member${club.memberIds.length === 1 ? "" : "s"} &nbsp;·&nbsp; Invite code: <strong>${club.inviteCode}</strong></p>
+
+        <div class="card">
+          <div class="card__header">
+            <span class="card__title">Club Leaderboard</span>
+          </div>
+          ${memberEntries.length > 0 ? `
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Team</th>
+                  <th class="text-right">Best 9</th>
+                  <th class="text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${memberEntries.map((entry, i) => `
+                  <tr class="${entry.userId === user.uid ? "highlight" : ""}">
+                    <td><span class="leaderboard-rank leaderboard-rank--${i + 1}">${i + 1}</span></td>
+                    <td class="flex gap-1" style="align-items:center">
+                      <a href="profile.html?id=${entry.userId}" style="display:flex;align-items:center;gap:0.4rem;text-decoration:none;color:inherit">
+                        ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+                        ${entry.teamName || entry.displayName || "—"}
+                      </a>
+                    </td>
+                    <td class="text-right">${entry.bestNineTotal || 0}</td>
+                    <td class="text-right text-muted">${entry.allEventsTotal || 0}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          ` : `<p class="text-muted">No standings yet.</p>`}
+        </div>
+      `;
+
+      document.getElementById("btn-leave-club")?.addEventListener("click", async () => {
+        const action = isOwner ? "delete this club and remove all members" : "leave this club";
+        if (!confirm(`Are you sure you want to ${action}?`)) return;
+        const btn = document.getElementById("btn-leave-club");
+        btn.disabled = true;
+        try {
+          if (isOwner) {
+            await deleteClub(club.id, club.memberIds);
+          } else {
+            await leaveClub(user.uid, club.id);
+          }
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          toast("Action failed.", "error");
+          btn.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>

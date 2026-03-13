@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player Profile — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script type="module">
+    import { initAuth, onAuth } from "./js/auth.js";
+    import { getUser, getLeaderboard, getEvents, getTeamsForEvent, getSurfers, getResults } from "./js/db.js";
+    import { scoreTeam } from "./js/scoring.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, formatSalary, statusBadge } from "./js/ui.js";
+
+    const SEASON = 2026;
+
+    initAuth();
+    renderHeader();
+    renderFooter();
+
+    onAuth(async (user, profile) => {
+      const main = document.getElementById("app-main");
+      if (!user) {
+        showAuthGate(main);
+        return;
+      }
+      showLoading(main);
+      await renderProfile(main);
+    });
+
+    async function renderProfile(container) {
+      const params = new URLSearchParams(window.location.search);
+      const userId = params.get("id");
+
+      if (!userId) {
+        container.innerHTML = `
+          <h1 class="page-title">Player Profile</h1>
+          <div class="card"><p class="text-muted">No player specified. <a href="players.html">View all players</a>.</p></div>
+        `;
+        return;
+      }
+
+      try {
+        const [playerDoc, leaderboard, events, surfers] = await Promise.all([
+          getUser(userId),
+          getLeaderboard(SEASON),
+          getEvents(SEASON),
+          getSurfers()
+        ]);
+
+        if (!playerDoc) {
+          container.innerHTML = `
+            <h1 class="page-title">Player Not Found</h1>
+            <div class="card"><p class="text-muted">This player does not exist. <a href="players.html">Back to players</a>.</p></div>
+          `;
+          return;
+        }
+
+        // Build surfer lookup
+        const surferMap = {};
+        surfers.forEach((s) => { surferMap[s.id] = s; });
+
+        // Find player's rank from leaderboard
+        leaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+        const lbEntry = leaderboard.find((e) => e.userId === userId);
+        const rank = lbEntry
+          ? leaderboard.indexOf(lbEntry) + 1
+          : null;
+
+        const avatarUrl = playerDoc.avatarUrl || playerDoc.photoUrl || "";
+        const teamName = playerDoc.teamName || playerDoc.displayName || "Anonymous";
+        const displayName = playerDoc.displayName || "Anonymous";
+        const adsCoins = playerDoc.adsCoins ?? 10;
+
+        // Load this player's teams for completed events only
+        const completedEvents = events.filter((e) => e.status === "completed");
+        const eventRosters = [];
+
+        for (const event of completedEvents) {
+          const allTeams = await getTeamsForEvent(event.id);
+          const playerTeam = allTeams.find((t) => t.userId === userId);
+          if (!playerTeam) continue;
+
+          const results = await getResults(event.id);
+          const score = scoreTeam(playerTeam, results, event.tour || "mens");
+
+          eventRosters.push({ event, team: playerTeam, score });
+        }
+
+        container.innerHTML = `
+          <div class="flex gap-2 mb-3" style="align-items:center">
+            ${avatarUrl
+              ? `<img src="${avatarUrl}" alt="" class="avatar-lg">`
+              : `<div class="avatar-lg avatar-lg--empty">${(displayName || "?")[0]}</div>`}
+            <div>
+              <h1 class="page-title" style="margin-bottom:0">${teamName}</h1>
+              ${teamName !== displayName ? `<p class="text-muted">${displayName}</p>` : ""}
+            </div>
+          </div>
+
+          <!-- Season Summary -->
+          <div class="card mb-3">
+            <div class="card__header">
+              <span class="card__title">Season ${SEASON} Standings</span>
+              <span class="ads-coin-badge">🪙 ${adsCoins} ADScoin</span>
+            </div>
+            <div class="grid grid--3 text-center mt-2">
+              <div>
+                <p class="text-xs text-muted">Rank</p>
+                <p style="font-size:1.5rem;font-weight:600">${rank || "—"}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">Best 9 Total</p>
+                <p style="font-size:1.5rem;font-weight:600">${lbEntry?.bestNineTotal || 0}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">Events Played</p>
+                <p style="font-size:1.5rem;font-weight:600">${lbEntry?.eventsPlayed || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Event Rosters -->
+          ${eventRosters.length > 0 ? `
+            <h2 class="mb-2">Event Rosters</h2>
+            <div class="grid grid--2">
+              ${eventRosters.map(({ event, team, score }) => `
+                <div class="card">
+                  <div class="card__header">
+                    <span class="card__title">${event.name}</span>
+                    <span class="text-sm" style="font-weight:600">${score.totalPoints} pts</span>
+                  </div>
+                  <div class="surfer-list">
+                    ${team.surfers.map((s, i) => {
+                      const data = surferMap[s.surferId] || {};
+                      const sc = score.surferScores[i];
+                      return `<div class="surfer-row">
+                        <span class="surfer-row__rank">${i + 1}</span>
+                        <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                        <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                        ${sc ? `<span class="text-sm text-muted">${sc.points} pts</span>` : ""}
+                      </div>`;
+                    }).join("")}
+                    ${team.alternate ? `
+                      <div class="surfer-row surfer-row--alternate">
+                        <span class="surfer-row__rank">ALT</span>
+                        <span class="surfer-row__name">${(surferMap[team.alternate.surferId]?.name) || team.alternate.surferId.replace(/-/g, " ")}${score.alternateUsed ? " (used)" : ""}</span>
+                        <span class="surfer-row__value">${formatSalary(team.alternate.purchasePrice)}</span>
+                      </div>
+                    ` : ""}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          ` : `
+            <div class="card">
+              <p class="text-muted">No completed event rosters to show yet.</p>
+            </div>
+          `}
+
+          <div class="mt-3">
+            <a href="players.html" class="btn btn--outline">&larr; Back to Players</a>
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `
+          <h1 class="page-title">Error</h1>
+          <div class="card"><p class="text-muted">${err.message}</p></div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

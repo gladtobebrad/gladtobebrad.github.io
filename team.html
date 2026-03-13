@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Team — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script type="module">
+    import { initAuth, requireAuth, getCurrentUser } from "./js/auth.js";
+    import { getSurfers, getCurrentEvent, getTeam, saveTeam, getPreviousTeam } from "./js/db.js";
+    import { validateTeam, calculateRemaining, getTeamRules, buildRevertTeam } from "./js/team.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
+
+    const SEASON = 2026;
+
+    // Working state
+    let roster = [];       // { surferId, purchasePrice }
+    let alternate = null;  // { surferId, purchasePrice }
+    let allSurfers = {};   // id → surfer doc
+    let currentEvent = null;
+    let existingTeam = null;
+    let tradingOpen = true;
+
+    initAuth();
+    renderHeader();
+    renderFooter();
+
+    requireAuth().then(async (user) => {
+      const main = document.getElementById("app-main");
+      showLoading(main);
+      await loadTeamPage(main, user);
+    });
+
+    async function loadTeamPage(container, user) {
+      try {
+        const [surfers, event] = await Promise.all([
+          getSurfers(),
+          getCurrentEvent(SEASON)
+        ]);
+
+        surfers.forEach((s) => { allSurfers[s.id] = s; });
+        currentEvent = event;
+
+        if (!currentEvent) {
+          container.innerHTML = `
+            <h1 class="page-title">My Team</h1>
+            <div class="card"><p class="text-muted">No current event. Check back when the season schedule is posted.</p></div>
+          `;
+          return;
+        }
+
+        tradingOpen = currentEvent.tradingOpen !== false;
+
+        // Load existing team
+        existingTeam = await getTeam(user.uid, currentEvent.id);
+        if (existingTeam) {
+          roster = [...existingTeam.surfers];
+          alternate = existingTeam.alternate ? { ...existingTeam.alternate } : null;
+        }
+
+        renderTeamPage(container, user);
+      } catch (err) {
+        container.innerHTML = `
+          <h1 class="page-title">My Team</h1>
+          <div class="card">
+            <p class="text-muted">Unable to load data. Check Firebase config.</p>
+            <p class="text-muted text-sm mt-1">${err.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderTeamPage(container, user) {
+      const rules = getTeamRules(currentEvent.tour || "mens");
+      const remaining = calculateRemaining(roster, currentEvent.tour || "mens");
+      const spent = rules.salaryCap - remaining;
+      const pct = Math.min((spent / rules.salaryCap) * 100, 100);
+      const overCap = remaining < 0;
+
+      // Surfers on roster (by id)
+      const onRoster = new Set(roster.map((s) => s.surferId));
+      if (alternate) onRoster.add(alternate.surferId);
+
+      // Available surfers (not on roster)
+      const available = Object.values(allSurfers)
+        .filter((s) => !onRoster.has(s.id))
+        .sort((a, b) => a.rank - b.rank);
+
+      container.innerHTML = `
+        <div class="flex-between mb-2">
+          <h1 class="page-title" style="margin-bottom:0">My Team</h1>
+          <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
+        </div>
+        <p class="text-muted mb-3">${currentEvent.name} — ${currentEvent.location || ""}</p>
+
+        ${!tradingOpen ? `<div class="locked-banner">Trading is locked for this event. You cannot make changes until the event is completed.</div>` : ""}
+
+        <!-- Salary Cap Bar -->
+        <div class="salary-bar">
+          <div class="salary-bar__header">
+            <span>Salary Cap: ${formatSalaryFull(spent)} / ${formatSalaryFull(rules.salaryCap)}</span>
+            <span>Remaining: <strong style="color:${overCap ? "#c0392b" : "inherit"}">${formatSalaryFull(Math.abs(remaining))}${overCap ? " OVER" : ""}</strong></span>
+          </div>
+          <div class="salary-bar__track">
+            <div class="salary-bar__fill ${overCap ? "salary-bar__fill--over" : pct > 90 ? "salary-bar__fill--warn" : ""}" style="width:${pct}%"></div>
+          </div>
+        </div>
+
+        <div class="grid grid--team">
+          <!-- Left: Roster -->
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Your Roster (${roster.length}/${rules.rosterSize})</span>
+              </div>
+              <div class="surfer-list" id="roster-list">
+                ${roster.length === 0 ? `<p class="text-muted text-sm">Add surfers from the list on the right.</p>` : ""}
+                ${roster.map((s) => {
+                  const data = allSurfers[s.surferId] || {};
+                  return `<div class="surfer-row">
+                    <span class="surfer-row__rank">${data.rank || "—"}</span>
+                    <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
+                    <span class="surfer-row__country">${data.country || ""}</span>
+                    <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
+                    <span class="surfer-row__action">
+                      ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop="${s.surferId}" title="Drop">&times;</button>` : ""}
+                    </span>
+                  </div>`;
+                }).join("")}
+              </div>
+
+              <!-- Alternate -->
+              <div class="mt-3">
+                <h4>Alternate Slot</h4>
+                <p class="text-muted text-xs mb-1">Budget bracket only (&lt; $1M). Excluded from salary cap.</p>
+                <div id="alternate-slot">
+                  ${alternate ? `
+                    <div class="surfer-row surfer-row--alternate">
+                      <span class="surfer-row__rank">ALT</span>
+                      <span class="surfer-row__name">${(allSurfers[alternate.surferId]?.name) || alternate.surferId.replace(/-/g, " ")}</span>
+                      <span class="surfer-row__value">${formatSalary(alternate.purchasePrice)}</span>
+                      <span class="surfer-row__action">
+                        ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop-alt title="Drop">&times;</button>` : ""}
+                      </span>
+                    </div>
+                  ` : `<p class="text-muted text-sm">No alternate selected.</p>`}
+                </div>
+              </div>
+
+              <!-- Actions -->
+              ${tradingOpen ? `
+                <div class="form-actions">
+                  <button class="btn btn--outline" id="btn-revert">Revert</button>
+                  <button class="btn btn--primary" id="btn-save">Save Team</button>
+                </div>
+              ` : ""}
+            </div>
+          </div>
+
+          <!-- Right: Available -->
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Available Surfers</span>
+              </div>
+              <div class="search-bar">
+                <input type="text" class="search-input" id="surfer-search" placeholder="Search by name...">
+                <select class="filter-select" id="bracket-filter">
+                  <option value="">All Brackets</option>
+                  <option value="elite">Elite ($8M+)</option>
+                  <option value="high">High ($5-7.9M)</option>
+                  <option value="mid">Mid ($3-4.9M)</option>
+                  <option value="low">Low ($1-2.9M)</option>
+                  <option value="budget">Budget (&lt;$1M)</option>
+                </select>
+              </div>
+              <div class="surfer-list" id="available-list" style="max-height:500px;overflow-y:auto">
+                ${renderAvailable(available)}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Wire up event handlers
+      wireEvents(container, user);
+    }
+
+    function renderAvailable(surfers) {
+      if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
+      return surfers.map((s) => `
+        <div class="surfer-row" data-bracket="${s.priceBracket || ""}">
+          <span class="surfer-row__rank">${s.rank || "—"}</span>
+          <span class="surfer-row__name">${s.name}</span>
+          <span class="surfer-row__country">${s.country || ""}</span>
+          <span class="surfer-row__value">${formatSalary(s.value)}</span>
+          <span class="surfer-row__action">
+            ${tradingOpen ? `
+              <button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
+              ${s.priceBracket === "budget" ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}
+            ` : ""}
+          </span>
+        </div>
+      `).join("");
+    }
+
+    function wireEvents(container, user) {
+      // Drop from roster
+      container.querySelectorAll("[data-drop]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.drop;
+          roster = roster.filter((s) => s.surferId !== id);
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Drop alternate
+      container.querySelectorAll("[data-drop-alt]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          alternate = null;
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Add to roster
+      container.querySelectorAll("[data-add]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.add;
+          const value = parseInt(btn.dataset.value, 10);
+          const rules = getTeamRules(currentEvent.tour || "mens");
+          if (roster.length >= rules.rosterSize) {
+            toast("Roster is full. Drop a surfer first.", "error");
+            return;
+          }
+          roster.push({ surferId: id, purchasePrice: value });
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Add as alternate
+      container.querySelectorAll("[data-add-alt]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.addAlt;
+          const value = parseInt(btn.dataset.value, 10);
+          alternate = { surferId: id, purchasePrice: value };
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Search
+      document.getElementById("surfer-search")?.addEventListener("input", (e) => {
+        filterAvailable(container);
+      });
+      document.getElementById("bracket-filter")?.addEventListener("change", () => {
+        filterAvailable(container);
+      });
+
+      // Revert
+      document.getElementById("btn-revert")?.addEventListener("click", async () => {
+        if (!currentEvent) return;
+        const prev = await getPreviousTeam(user.uid, currentEvent.eventNumber, SEASON);
+        if (!prev) {
+          toast("No previous team to revert to.", "info");
+          return;
+        }
+        const reverted = buildRevertTeam(prev);
+        roster = reverted.surfers;
+        alternate = reverted.alternate;
+        renderTeamPage(container, user);
+        toast("Team reverted to previous event roster.", "success");
+      });
+
+      // Save
+      document.getElementById("btn-save")?.addEventListener("click", async () => {
+        const tour = currentEvent.tour || "mens";
+        const rules = getTeamRules(tour);
+        const validation = validateTeam(roster, alternate, tour, allSurfers);
+        if (!validation.valid) {
+          validation.errors.forEach((err) => toast(err, "error", 5000));
+          return;
+        }
+        const totalSpent = roster.reduce((sum, s) => sum + s.purchasePrice, 0);
+        try {
+          await saveTeam(user.uid, currentEvent.id, {
+            season: SEASON,
+            tour,
+            surfers: roster,
+            alternate,
+            totalSpent,
+            salaryCap: rules.salaryCap,
+            locked: false
+          });
+          toast("Team saved!", "success");
+        } catch (err) {
+          toast("Failed to save: " + err.message, "error");
+        }
+      });
+    }
+
+    function filterAvailable(container) {
+      const search = (document.getElementById("surfer-search")?.value || "").toLowerCase();
+      const bracket = document.getElementById("bracket-filter")?.value || "";
+      const rows = container.querySelectorAll("#available-list .surfer-row");
+      rows.forEach((row) => {
+        const name = row.querySelector(".surfer-row__name")?.textContent.toLowerCase() || "";
+        const rb = row.dataset.bracket || "";
+        const matchSearch = !search || name.includes(search);
+        const matchBracket = !bracket || rb === bracket;
+        row.style.display = (matchSearch && matchBracket) ? "" : "none";
+      });
+    }
+  </script>
+</body>
+</html>
