@@ -230,6 +230,13 @@
                       <input class="form-input" id="surfer-rank" type="number" min="1">
                     </div>
                   </div>
+                  <div class="form-group">
+                    <label class="form-label">Tour</label>
+                    <select class="form-select" id="surfer-tour">
+                      <option value="mens">Men's CT</option>
+                      <option value="womens">Women's CT</option>
+                    </select>
+                  </div>
                   <div class="form-row">
                     <div class="form-group">
                       <label class="form-label">Value ($)</label>
@@ -520,6 +527,7 @@
           rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
           value: parseInt(document.getElementById("surfer-value").value, 10) || 0,
           priceBracket: document.getElementById("surfer-bracket").value,
+          tour: document.getElementById("surfer-tour").value,
           photoUrl: document.getElementById("surfer-photo").value.trim() || null,
           active: true
         };
@@ -553,6 +561,7 @@
           document.getElementById("surfer-rank").value = s.rank || "";
           document.getElementById("surfer-value").value = s.value || 0;
           document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
+          document.getElementById("surfer-tour").value = s.tour || "mens";
           const photoInput = document.getElementById("surfer-photo");
           photoInput.value = s.photoUrl || "";
           const preview = document.getElementById("surfer-photo-preview");
