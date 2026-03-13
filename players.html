@@ -37,26 +37,23 @@
         return;
       }
       showLoading(main);
-      await renderPlayers(main);
+      await renderPage(main);
     });
 
-    async function renderPlayers(container) {
+    async function renderPage(container) {
       try {
         const [users, leaderboard] = await Promise.all([
           getAllUsers(),
           getLeaderboard(SEASON)
         ]);
 
-        // Build leaderboard lookup by userId
         const lbMap = {};
-        // Sort to assign ranks
         leaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
         leaderboard.forEach((entry, i) => {
           lbMap[entry.userId] = { ...entry, rank: i + 1 };
         });
 
-        // Merge user profiles with leaderboard stats and sort by rank (unranked last)
-        const players = users.map((u) => ({
+        const players = users.map(u => ({
           id: u.id,
           displayName: u.displayName || "Anonymous",
           teamName: u.teamName || u.displayName || "—",
@@ -79,15 +76,10 @@
           <div class="card">
             <table class="data-table">
               <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Player</th>
-                  <th class="text-right">Best 9</th>
-                  <th class="text-right">Events</th>
-                </tr>
+                <tr><th>#</th><th>Player</th><th class="text-right">Best 9</th><th class="text-right">Events</th></tr>
               </thead>
               <tbody>
-                ${players.map((p) => `
+                ${players.map(p => `
                   <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'">
                     <td>${p.rank || "—"}</td>
                     <td class="flex gap-1" style="align-items:center">
@@ -113,9 +105,7 @@
       } catch (err) {
         container.innerHTML = `
           <h1 class="page-title">Players</h1>
-          <div class="card">
-            <p class="text-muted">Unable to load players. ${err.message}</p>
-          </div>
+          <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
         `;
       }
     }
