@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Surfers — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script type="module">
+    import { initAuth, onAuth } from "./js/auth.js";
+    import { getEvents, getTeamsForEvent, getSurfers } from "./js/db.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, renderTable } from "./js/ui.js";
+
+    const SEASON = 2026;
+
+    initAuth();
+    renderHeader();
+    renderFooter();
+
+    onAuth(async (user, profile) => {
+      const main = document.getElementById("app-main");
+      if (!user) {
+        showAuthGate(main);
+        return;
+      }
+      showLoading(main);
+      await renderSurfersPage(main);
+    });
+
+    async function renderSurfersPage(container) {
+      try {
+        const [events, surfers] = await Promise.all([
+          getEvents(SEASON),
+          getSurfers()
+        ]);
+
+        // Sort surfers by rank
+        surfers.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+
+        // Get all event numbers
+        const allEventNumbers = events.map(e => e.eventNumber).sort((a, b) => a - b);
+
+        // Prepare data: for each event, if trading closed, get percentages
+        const eventData = {};
+        for (const event of events) {
+          const totalTeams = 0;
+          let percentages = {};
+          if (event.tradingOpen !== false) {
+            // Trading open, no data
+          } else {
+            const teams = await getTeamsForEvent(event.id);
+            const totalTeams = teams.length;
+            if (totalTeams > 0) {
+              const surferCounts = {};
+              for (const team of teams) {
+                const surferIds = new Set();
+                if (team.surfers) {
+                  team.surfers.forEach(s => surferIds.add(s.surferId));
+                }
+                if (team.alternate) {
+                  surferIds.add(team.alternate.surferId);
+                }
+                for (const sid of surferIds) {
+                  surferCounts[sid] = (surferCounts[sid] || 0) + 1;
+                }
+              }
+              percentages = surferCounts;
+            }
+          }
+
+          eventData[event.eventNumber] = {
+            event,
+            percentages,
+            totalTeams
+          };
+        }
+
+        // Build table
+        const headers = ["Surfer"];
+        headers.push(...allEventNumbers.map(num => `${num}`));
+
+        const rows = [];
+        for (const surfer of surfers) {
+          const row = [surfer.name];
+          for (const num of allEventNumbers) {
+            const data = eventData[num];
+            if (data.totalTeams > 0) {
+              const count = data.percentages[surfer.id] || 0;
+              const pct = ((count / data.totalTeams) * 100).toFixed(1);
+              row.push(`${pct}%`);
+            } else {
+              row.push("—");
+            }
+          }
+          rows.push(row);
+        }
+
+        const tableHtml = renderTable(headers, rows);
+
+        container.innerHTML = `
+          <h1 class="page-title">Surfer Popularity</h1>
+          <div class="card">
+            <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
+            ${tableHtml}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `
+          <h1 class="page-title">Surfer Popularity</h1>
+          <div class="card">
+            <p class="text-muted">Unable to load data. Check Firebase config.</p>
+            <p class="text-muted text-sm mt-1">${err.message}</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+
+</body>
+</html>
