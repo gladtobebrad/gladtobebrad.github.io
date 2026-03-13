@@ -323,7 +323,9 @@
       document.getElementById("surfer-search").addEventListener("input", e => {
         filterText = e.target.value;
         renderPage();
-        document.getElementById("surfer-search").focus();
+        const searchEl = document.getElementById("surfer-search");
+        searchEl.focus();
+        searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
       });
 
       document.getElementById("surfer-list").addEventListener("click", e => {
