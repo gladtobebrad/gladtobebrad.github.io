@@ -51,8 +51,6 @@
           getSurfers()
         ]);
 
-        const allEventNumbers = events.map(e => e.eventNumber).sort((a, b) => a - b);
-
         for (const event of events) {
           let percentages = {};
           let totalTeams = 0;
@@ -72,7 +70,8 @@
               percentages = surferCounts;
             }
           }
-          eventData[event.eventNumber] = { event, percentages, totalTeams };
+          // Key by eventId, not eventNumber — mens/womens are separate
+          eventData[event.id] = { event, percentages, totalTeams };
         }
 
         render(container);
@@ -111,12 +110,16 @@
           .filter(s => (s.tour || "mens") === tour)
           .sort((a, b) => (a.rank || 999) - (b.rank || 999));
 
-        const allEventNumbers = events.map(e => e.eventNumber).sort((a, b) => a - b);
-        const headers = ["Surfer", ...allEventNumbers.map(n => `${n}`)];
+        // Only show events for this tour, sorted by event number
+        const tourEvents = events
+          .filter(e => (e.tour || "mens") === tour)
+          .sort((a, b) => a.eventNumber - b.eventNumber);
+
+        const headers = ["Surfer", ...tourEvents.map(e => `Ev ${e.eventNumber}`)];
         const rows = popularitySurfers.map(surfer => {
           const row = [surfer.name];
-          for (const num of allEventNumbers) {
-            const data = eventData[num];
+          for (const event of tourEvents) {
+            const data = eventData[event.id];
             if (data && data.totalTeams > 0) {
               const count = data.percentages[surfer.id] || 0;
               const pct = ((count / data.totalTeams) * 100).toFixed(1);
