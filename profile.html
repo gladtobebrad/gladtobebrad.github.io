@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getUser, getLeaderboard, getEvents, getTeamsForEvent, getSurfers, getResults } from "./js/db.js";
+    import { getUser, getLeaderboard, getEvents, getTeamsForEvent, getSurfers, getResults, getCurrentEventForTour, getTeam } from "./js/db.js";
     import { scoreTeam } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, formatSalary, statusBadge } from "./js/ui.js";
 
@@ -85,6 +85,19 @@
         const displayName = playerDoc.displayName || "Anonymous";
         const adsCoins = playerDoc.adsCoins ?? 10;
 
+        // Load current event teams if trading is locked
+        const [mensEvent, womensEvent] = await Promise.all([
+          getCurrentEventForTour("mens", SEASON),
+          getCurrentEventForTour("womens", SEASON)
+        ]);
+        const currentTeams = [];
+        for (const ev of [mensEvent, womensEvent].filter(Boolean)) {
+          if (!ev.tradingOpen) {
+            const team = await getTeam(userId, ev.id);
+            if (team) currentTeams.push({ event: ev, team, label: ev.tour === "womens" ? "Women's CT" : "Men's CT" });
+          }
+        }
+
         // Load this player's teams for completed events only
         const completedEvents = events.filter((e) => e.status === "completed");
         const eventRosters = [];
@@ -132,6 +145,43 @@
               </div>
             </div>
           </div>
+
+          <!-- Current Event Teams (visible when trading locked) -->
+          ${currentTeams.length > 0 ? `
+            <h2 class="mb-2">Current Roster${currentTeams.length > 1 ? "s" : ""}</h2>
+            <div class="grid grid--2 mb-4">
+              ${currentTeams.map(({ event, team, label }) => `
+                <div class="card">
+                  <div class="card__header">
+                    <span class="card__title">${label} — ${event.name}</span>
+                    <span class="text-sm text-muted">${formatSalary(team.totalSpent || 0)} spent</span>
+                  </div>
+                  <div class="team-photo-strip">
+                    ${team.surfers.map((s) => {
+                      const data = surferMap[s.surferId] || {};
+                      const photo = data.photoUrl
+                        ? `<img src="${data.photoUrl}" class="team-strip__photo" alt="">`
+                        : `<div class="team-strip__photo team-strip__photo--empty">${(data.name || "?")[0]}</div>`;
+                      return `<div class="team-strip__surfer">
+                        ${photo}
+                        <span class="team-strip__name">${(data.name || s.surferId.replace(/-/g, " ")).split(" ").pop()}</span>
+                      </div>`;
+                    }).join("")}
+                    ${team.alternate ? (() => {
+                      const altData = surferMap[team.alternate.surferId] || {};
+                      const altPhoto = altData.photoUrl
+                        ? `<img src="${altData.photoUrl}" class="team-strip__photo team-strip__photo--alt" alt="">`
+                        : `<div class="team-strip__photo team-strip__photo--empty team-strip__photo--alt">${(altData.name || "?")[0]}</div>`;
+                      return `<div class="team-strip__surfer">
+                        ${altPhoto}
+                        <span class="team-strip__name" style="color:var(--color-warm-brown)">ALT</span>
+                      </div>`;
+                    })() : ""}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
 
           <!-- Event Rosters -->
           ${eventRosters.length > 0 ? `

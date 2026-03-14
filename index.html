@@ -325,53 +325,6 @@
           </div>
         </div>
 
-        ${allMensTeams.length > 0 || allWomensTeams.length > 0 ? `
-          <div class="mt-4">
-            ${[mensEvent && allMensTeams.length > 0 && { ev: mensEvent, teams: allMensTeams, label: "Men's CT" },
-               womensEvent && allWomensTeams.length > 0 && { ev: womensEvent, teams: allWomensTeams, label: "Women's CT" }]
-              .filter(Boolean)
-              .map(({ ev, teams, label }) => `
-                <h2 class="mb-1">${label} — ${ev.name}</h2>
-                <p class="text-muted text-sm mb-3">Trading is locked — all rosters are visible.</p>
-                <div class="grid grid--2 mb-4">
-                  ${teams.map((t) => `
-                    <div class="card">
-                      <div class="card__header">
-                        <span class="card__title flex gap-1" style="align-items:center">
-                          ${t.avatarUrl ? `<img src="${t.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(t.displayName || "?")[0]}</div>`}
-                          ${t.teamName}
-                        </span>
-                        <span class="text-sm text-muted">${formatSalary(t.totalSpent || 0)} spent</span>
-                      </div>
-                      <div class="team-photo-strip">
-                        ${t.surfers.map((s) => {
-                          const data = surferMap[s.surferId] || {};
-                          const photo = data.photoUrl
-                            ? `<img src="${data.photoUrl}" class="team-strip__photo" alt="">`
-                            : `<div class="team-strip__photo team-strip__photo--empty">${(data.name || "?")[0]}</div>`;
-                          return `<div class="team-strip__surfer">
-                            ${photo}
-                            <span class="team-strip__name">${(data.name || s.surferId.replace(/-/g, " ")).split(" ").pop()}</span>
-                          </div>`;
-                        }).join("")}
-                        ${t.alternate ? (() => {
-                          const altData = surferMap[t.alternate.surferId] || {};
-                          const altPhoto = altData.photoUrl
-                            ? `<img src="${altData.photoUrl}" class="team-strip__photo team-strip__photo--alt" alt="">`
-                            : `<div class="team-strip__photo team-strip__photo--empty team-strip__photo--alt">${(altData.name || "?")[0]}</div>`;
-                          return `<div class="team-strip__surfer">
-                            ${altPhoto}
-                            <span class="team-strip__name" style="color:var(--color-warm-brown)">ALT</span>
-                          </div>`;
-                        })() : ""}
-                      </div>
-                    </div>
-                  `).join("")}
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        ` : ""}
       `;
 
       // Profile save handler
