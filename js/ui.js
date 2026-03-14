@@ -77,7 +77,7 @@ export function renderFooter() {
   footer.innerHTML = `
     <div class="footer-inner">
       <p>Fantasy Surf League &mdash; Chapman Research Group</p>
-      <p class="footer-sub">A friendly WSL fantasy game. Not affiliated with the World Surf League.</p>
+      <p class="footer-sub">Not affiliated with the World Surf League.</p>
     </div>
   `;
 }
