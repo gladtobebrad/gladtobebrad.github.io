@@ -81,19 +81,22 @@
       const surfers = await getSurfers();
       surfers.forEach((s) => { surferMap[s.id] = s; });
 
-      // Load all teams when trading is closed
-      if (currentEvent && !currentEvent.tradingOpen) {
-        const allTeams = await getTeamsForEvent(currentEvent.id);
-        for (const team of allTeams) {
-          const userDoc = await getUser(team.userId);
-          allTeamsData.push({
-            ...team,
-            displayName: userDoc?.displayName || "Unknown",
-            teamName: userDoc?.teamName || userDoc?.displayName || "—",
-            avatarUrl: userDoc?.avatarUrl || ""
-          });
+      // Load all teams (per tour) when trading is closed
+      let allMensTeams = [], allWomensTeams = [];
+      const userDocCache = {};
+      const enrichTeams = async (eventObj) => {
+        if (!eventObj || eventObj.tradingOpen) return [];
+        const raw = await getTeamsForEvent(eventObj.id);
+        const enriched = [];
+        for (const team of raw) {
+          if (!userDocCache[team.userId]) userDocCache[team.userId] = await getUser(team.userId);
+          const u = userDocCache[team.userId];
+          enriched.push({ ...team, displayName: u?.displayName || "Unknown", teamName: u?.teamName || u?.displayName || "—", avatarUrl: u?.avatarUrl || "" });
         }
-      }
+        return enriched;
+      };
+      [allMensTeams, allWomensTeams] = await Promise.all([enrichTeams(mensEvent), enrichTeams(womensEvent)]);
+      allTeamsData = allMensTeams; // legacy
 
       // Enrich leaderboard with fresh user profile data (avatar, team name)
       for (const entry of leaderboard) {
@@ -322,48 +325,48 @@
           </div>
         </div>
 
-        ${currentEvent && !currentEvent.tradingOpen && allTeamsData.length > 0 ? `
+        ${allMensTeams.length > 0 || allWomensTeams.length > 0 ? `
           <div class="mt-4">
-            <h2>All Teams — ${currentEvent.name}</h2>
-            <p class="text-muted text-sm mb-3">Trading is locked — all rosters are visible.</p>
-            <div class="grid grid--2">
-              ${allTeamsData.map((t) => `
-                <div class="card">
-                  <div class="card__header">
-                    <span class="card__title flex gap-1" style="align-items:center">
-                      ${t.avatarUrl ? `<img src="${t.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(t.displayName || "?")[0]}</div>`}
-                      ${t.teamName}
-                    </span>
-                    <span class="text-sm text-muted">${formatSalary(t.totalSpent || 0)} spent</span>
-                  </div>
-                  <div class="surfer-list">
-                    ${t.surfers.map((s) => {
-                      const data = surferMap[s.surferId] || {};
-                      const photo = data.photoUrl
-                        ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
-                        : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
-                      return `<div class="surfer-row">
-                        ${photo}
-                        <div class="surfer-row__info">
-                          <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                          <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
-                        </div>
-                      </div>`;
-                    }).join("")}
-                    ${t.alternate ? (() => {
-                      const altData = surferMap[t.alternate.surferId] || {};
-                      const altPhoto = altData.photoUrl
-                        ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
-                        : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
-                      return `<div class="surfer-row surfer-row--alternate">
-                        ${altPhoto}
-                        <div class="surfer-row__info">
-                          <span class="surfer-row__name">${altData.name || t.alternate.surferId.replace(/-/g, " ")}</span>
-                          <span class="surfer-row__meta">ALT &middot; ${formatSalary(t.alternate.purchasePrice)}</span>
-                        </div>
-                      </div>`;
-                    })() : ""}
-                  </div>
+            ${[mensEvent && allMensTeams.length > 0 && { ev: mensEvent, teams: allMensTeams, label: "Men's CT" },
+               womensEvent && allWomensTeams.length > 0 && { ev: womensEvent, teams: allWomensTeams, label: "Women's CT" }]
+              .filter(Boolean)
+              .map(({ ev, teams, label }) => `
+                <h2 class="mb-1">${label} — ${ev.name}</h2>
+                <p class="text-muted text-sm mb-3">Trading is locked — all rosters are visible.</p>
+                <div class="grid grid--2 mb-4">
+                  ${teams.map((t) => `
+                    <div class="card">
+                      <div class="card__header">
+                        <span class="card__title flex gap-1" style="align-items:center">
+                          ${t.avatarUrl ? `<img src="${t.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(t.displayName || "?")[0]}</div>`}
+                          ${t.teamName}
+                        </span>
+                        <span class="text-sm text-muted">${formatSalary(t.totalSpent || 0)} spent</span>
+                      </div>
+                      <div class="team-photo-strip">
+                        ${t.surfers.map((s) => {
+                          const data = surferMap[s.surferId] || {};
+                          const photo = data.photoUrl
+                            ? `<img src="${data.photoUrl}" class="team-strip__photo" alt="">`
+                            : `<div class="team-strip__photo team-strip__photo--empty">${(data.name || "?")[0]}</div>`;
+                          return `<div class="team-strip__surfer">
+                            ${photo}
+                            <span class="team-strip__name">${(data.name || s.surferId.replace(/-/g, " ")).split(" ").pop()}</span>
+                          </div>`;
+                        }).join("")}
+                        ${t.alternate ? (() => {
+                          const altData = surferMap[t.alternate.surferId] || {};
+                          const altPhoto = altData.photoUrl
+                            ? `<img src="${altData.photoUrl}" class="team-strip__photo team-strip__photo--alt" alt="">`
+                            : `<div class="team-strip__photo team-strip__photo--empty team-strip__photo--alt">${(altData.name || "?")[0]}</div>`;
+                          return `<div class="team-strip__surfer">
+                            ${altPhoto}
+                            <span class="team-strip__name" style="color:var(--color-warm-brown)">ALT</span>
+                          </div>`;
+                        })() : ""}
+                      </div>
+                    </div>
+                  `).join("")}
                 </div>
               `).join("")}
             </div>
