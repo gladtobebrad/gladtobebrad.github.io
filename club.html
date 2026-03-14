@@ -157,11 +157,11 @@
       memberEntries.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
 
       // ── Event-by-event scoring ──
-      const completedEvents = events.filter((e) => e.status === "completed");
-      // eventScores[userId][eventId] = points
+      // eventScores[userId][eventId] = points (completed events only)
       const eventScores = {};
       for (const uid of club.memberIds) eventScores[uid] = {};
 
+      const completedEvents = events.filter((e) => e.status === "completed");
       for (const event of completedEvents) {
         const [teams, results] = await Promise.all([getTeamsForEvent(event.id), getResults(event.id)]);
         for (const team of teams) {
@@ -171,13 +171,13 @@
         }
       }
 
-      // Deduplicate events for column headers (mens+womens same contest)
-      const seen = new Set();
-      const uniqueEvents = completedEvents.filter((e) => {
-        const key = `${e.eventNumber}-${e.name}`;
-        if (seen.has(key)) return false;
-        seen.add(key); return true;
-      });
+      // Each event doc gets its own column (mens and womens are separate)
+      // Sort by eventNumber then tour so mens comes before womens
+      const eventColumns = [...events].sort((a, b) =>
+        a.eventNumber !== b.eventNumber
+          ? a.eventNumber - b.eventNumber
+          : (a.tour || "mens").localeCompare(b.tour || "mens")
+      );
 
       // Club tabs for multi-club users
       const clubTabsHtml = allUserClubs.length > 1 ? `
@@ -226,7 +226,7 @@
         </div>
 
         <!-- Event-by-Event Scores -->
-        ${uniqueEvents.length > 0 ? `
+        ${eventColumns.length > 0 ? `
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Event-by-Event</span></div>
             <div style="overflow-x:auto">
@@ -234,7 +234,12 @@
                 <thead>
                   <tr>
                     <th>Player</th>
-                    ${uniqueEvents.map((e) => `<th class="text-right" style="white-space:nowrap;font-size:0.75rem">${e.name.split(" ").slice(-2).join(" ")}</th>`).join("")}
+                    ${eventColumns.map((e) => `
+                      <th class="text-right" style="white-space:nowrap;font-size:0.7rem">
+                        ${e.name.split(" ").slice(-2).join(" ")}<br>
+                        <span style="color:var(--color-warm-brown);font-weight:400">${e.tour === "womens" ? "W" : "M"}</span>
+                      </th>
+                    `).join("")}
                   </tr>
                 </thead>
                 <tbody>
@@ -245,13 +250,12 @@
                           ${entry.teamName || entry.displayName || "—"}
                         </a>
                       </td>
-                      ${uniqueEvents.map((e) => {
-                        // Sum mens + womens scores for same contest
-                        const mensEvent = completedEvents.find((ce) => ce.eventNumber === e.eventNumber && (ce.tour || "mens") === "mens");
-                        const womensEvent = completedEvents.find((ce) => ce.eventNumber === e.eventNumber && ce.tour === "womens");
-                        const pts = (eventScores[entry.userId]?.[mensEvent?.id] || 0)
-                                  + (eventScores[entry.userId]?.[womensEvent?.id] || 0);
-                        return `<td class="text-right">${pts || "—"}</td>`;
+                      ${eventColumns.map((e) => {
+                        const pts = eventScores[entry.userId]?.[e.id];
+                        const isCompleted = e.status === "completed";
+                        return `<td class="text-right" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
+                          ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
+                        </td>`;
                       }).join("")}
                     </tr>
                   `).join("")}
