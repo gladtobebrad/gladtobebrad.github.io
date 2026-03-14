@@ -181,8 +181,8 @@
           throw new Error("This page can’t load JSON when opened from a local file. Run a local web server (e.g. `python3 -m http.server`) and open `http://localhost:8000/data.html`.");
         }
         datasets = await Promise.all([
-          fetch("./wsl_2024_mens.json").then(r => r.json()),
-          fetch("./wsl_2025_mens.json").then(r => r.json()),
+          fetch("./data/wsl_2024_mens.json").then(r => r.json()),
+          fetch("./data/wsl_2025_mens.json").then(r => r.json()),
         ]);
       } catch (err) {
         document.getElementById("app-main").innerHTML =
