@@ -169,6 +169,13 @@ function randomCode(len = 6) {
   return s;
 }
 
+// Returns array of club IDs for a user doc (handles old clubId string + new clubIds array)
+export function getUserClubIds(userDoc) {
+  const ids = new Set(userDoc?.clubIds || []);
+  if (userDoc?.clubId) ids.add(userDoc.clubId); // backward compat
+  return [...ids];
+}
+
 export async function createClub(ownerId, name) {
   const id = randomCode(6);
   const inviteCode = randomCode(6);
@@ -180,7 +187,7 @@ export async function createClub(ownerId, name) {
     createdAt: serverTimestamp()
   };
   await setDoc(doc(db, "clubs", id), data);
-  await updateDoc(doc(db, "users", ownerId), { clubId: id });
+  await updateDoc(doc(db, "users", ownerId), { clubIds: arrayUnion(id) });
   return { id, ...data };
 }
 
@@ -202,18 +209,18 @@ export async function getClubByInviteCode(code) {
 
 export async function joinClub(userId, clubId) {
   await updateDoc(doc(db, "clubs", clubId), { memberIds: arrayUnion(userId) });
-  await updateDoc(doc(db, "users", userId), { clubId });
+  await updateDoc(doc(db, "users", userId), { clubIds: arrayUnion(clubId) });
 }
 
 export async function leaveClub(userId, clubId) {
   await updateDoc(doc(db, "clubs", clubId), { memberIds: arrayRemove(userId) });
-  await updateDoc(doc(db, "users", userId), { clubId: null });
+  await updateDoc(doc(db, "users", userId), { clubIds: arrayRemove(clubId) });
 }
 
 export async function deleteClub(clubId, memberIds) {
   const batch = writeBatch(db);
   for (const uid of memberIds) {
-    batch.update(doc(db, "users", uid), { clubId: null });
+    batch.update(doc(db, "users", uid), { clubIds: arrayRemove(clubId) });
   }
   batch.delete(doc(db, "clubs", clubId));
   await batch.commit();

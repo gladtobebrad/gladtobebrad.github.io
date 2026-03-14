@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth, getCurrentUser, getUserProfile } from "./js/auth.js";
-    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub } from "./js/db.js";
+    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub, getUserClubIds } from "./js/db.js";
     import { scoreTeam } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, formatSalary, formatDate, statusBadge, tradingBadge, renderTable } from "./js/ui.js";
 
@@ -111,13 +111,13 @@
       // Sort leaderboard by bestNineTotal
       leaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
 
-      // Load club data if user has one
+      // Load club data — show first club's mini leaderboard on dashboard
       const userDoc = await getUser(user.uid);
-      const clubId = userDoc?.clubId || null;
+      const clubIds = getUserClubIds(userDoc);
       let club = null;
       let clubMembers = [];
-      if (clubId) {
-        club = await getClub(clubId);
+      if (clubIds.length > 0) {
+        club = await getClub(clubIds[0]);
         if (club) {
           const memberLeaderboard = leaderboard.filter((e) => club.memberIds.includes(e.userId));
           memberLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
@@ -266,7 +266,7 @@
             ${club ? `
             <div class="card mb-3">
               <div class="card__header">
-                <span class="card__title">${club.name}</span>
+                <span class="card__title">${club.name}${clubIds.length > 1 ? ` <span class="text-xs text-muted">(+${clubIds.length - 1} more)</span>` : ""}</span>
                 <a href="club.html" class="btn btn--outline btn--sm">View Club →</a>
               </div>
               ${clubMembers.length > 0 ? `
