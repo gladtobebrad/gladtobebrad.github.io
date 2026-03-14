@@ -143,11 +143,16 @@
                   const photo = data.photoUrl
                     ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
                     : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
+                  const marketVal = data.value || s.purchasePrice;
+                  const delta = marketVal - s.purchasePrice;
+                  const deltaHtml = delta !== 0
+                    ? `<span class="price-delta ${delta > 0 ? "price-delta--up" : "price-delta--down"}">${delta > 0 ? "▲" : "▼"} ${formatSalary(Math.abs(delta))}</span>`
+                    : "";
                   return `<div class="surfer-row" ${tradingOpen ? `draggable="true" data-roster-index="${i}" style="cursor:grab"` : ""}>
                     ${photo}
                     <div class="surfer-row__info">
                       <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
+                      <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)} ${deltaHtml}</span>
                     </div>
                     <span class="surfer-row__action">
                       ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop="${s.surferId}" title="Drop">&times;</button>` : ""}

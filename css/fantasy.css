@@ -1015,6 +1015,22 @@ img { max-width: 100%; }
   outline-offset: -2px;
 }
 
+/* Purchase price delta indicator */
+.price-delta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+.price-delta--up {
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.1);
+}
+.price-delta--down {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.1);
+}
+
 /* Tour tabs */
 .tour-tabs {
   display: flex;
