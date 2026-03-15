@@ -38,6 +38,7 @@
     let users = [];
     let clubs = [];
     let activeTab = "events";
+    let activeSurferTour = "mens";
 
     initAuth();
     renderHeader();
@@ -183,13 +184,21 @@
             <div>
               <div class="card">
                 <div class="card__header">
-                  <span class="card__title">Surfers (${surfers.length})</span>
+                  <span class="card__title">Surfers</span>
+                </div>
+                <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+                  <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+                    Men's CT (${surfers.filter(s=>(s.tour||"mens")==="mens").length})
+                  </button>
+                  <button data-surfer-tour="womens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="womens"?"600":"400"};color:${activeSurferTour==="womens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="womens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+                    Women's CT (${surfers.filter(s=>s.tour==="womens").length})
+                  </button>
                 </div>
                 <div style="max-height:600px;overflow-y:auto">
                   <table class="data-table">
                     <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th>Status</th><th></th></tr></thead>
                     <tbody>
-                      ${surfers.map((s) => `
+                      ${surfers.filter(s => (s.tour || "mens") === activeSurferTour).map((s) => `
                         <tr style="${s.active === false ? "opacity:0.5" : ""}">
                           <td>${s.rank || "—"}</td>
                           <td>${s.name}</td>
@@ -528,6 +537,14 @@
           await deleteEvent(btn.dataset.deleteEvent);
           toast("Event deleted.", "info");
           events = await getEvents(SEASON);
+          renderAdmin(container);
+        });
+      });
+
+      // ── SURFER TOUR SUB-TABS ──
+      container.querySelectorAll("[data-surfer-tour]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeSurferTour = btn.dataset.surferTour;
           renderAdmin(container);
         });
       });
