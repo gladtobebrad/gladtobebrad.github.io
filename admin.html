@@ -22,7 +22,7 @@
   <script type="module">
     import { initAuth, requireAdmin, getCurrentUser } from "./js/auth.js";
     import {
-      getSurfers, saveSurfer, deleteSurfer,
+      getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
       getTeamsForEvent, lockTeamsForEvent,
@@ -52,7 +52,7 @@
     async function loadAdmin(container) {
       try {
         [surfers, events, users] = await Promise.all([
-          getSurfers(),
+          getAllSurfers(),
           getEvents(SEASON),
           getAllUsers()
         ]);
@@ -187,15 +187,16 @@
                 </div>
                 <div style="max-height:600px;overflow-y:auto">
                   <table class="data-table">
-                    <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th></th></tr></thead>
+                    <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                       ${surfers.map((s) => `
-                        <tr>
+                        <tr style="${s.active === false ? "opacity:0.5" : ""}">
                           <td>${s.rank || "—"}</td>
                           <td>${s.name}</td>
                           <td>${s.country || ""}</td>
                           <td>${formatSalary(s.value)}</td>
                           <td><span class="badge badge--${s.priceBracket === "elite" ? "live" : s.priceBracket === "budget" ? "locked" : "upcoming"}">${s.priceBracket || "—"}</span></td>
+                          <td><span class="badge badge--${s.active === false ? "locked" : "live"}">${s.active === false ? "Inactive" : "Active"}</span></td>
                           <td>
                             <button class="btn btn--sm btn--outline" data-edit-surfer="${s.id}">Edit</button>
                             <button class="btn btn--sm btn--danger" data-delete-surfer="${s.id}">Del</button>
@@ -258,6 +259,13 @@
                     <label class="form-label">Photo Path</label>
                     <input class="form-input" id="surfer-photo" placeholder="data/photos/john-john-florence.png">
                     <div id="surfer-photo-preview" style="margin-top:0.5rem"></div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="surfer-active">
+                      <option value="true">Active</option>
+                      <option value="false">Inactive (wildcard/hidden)</option>
+                    </select>
                   </div>
                   <div class="form-actions">
                     <button type="submit" class="btn btn--primary">Save Surfer</button>
@@ -538,12 +546,12 @@
           priceBracket: document.getElementById("surfer-bracket").value,
           tour: document.getElementById("surfer-tour").value,
           photoUrl: document.getElementById("surfer-photo").value.trim() || null,
-          active: true
+          active: document.getElementById("surfer-active").value === "true"
         };
         try {
           await saveSurfer(id, data);
           toast("Surfer saved!", "success");
-          surfers = await getSurfers();
+          surfers = await getAllSurfers();
           renderAdmin(container);
         } catch (err) {
           toast("Error: " + err.message, "error");
@@ -571,6 +579,7 @@
           document.getElementById("surfer-value").value = s.value || 0;
           document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
           document.getElementById("surfer-tour").value = s.tour || "mens";
+          document.getElementById("surfer-active").value = s.active === false ? "false" : "true";
           const photoInput = document.getElementById("surfer-photo");
           photoInput.value = s.photoUrl || "";
           const preview = document.getElementById("surfer-photo-preview");
@@ -584,7 +593,7 @@
           if (!confirm("Delete this surfer?")) return;
           await deleteSurfer(btn.dataset.deleteSurfer);
           toast("Surfer deleted.", "info");
-          surfers = await getSurfers();
+          surfers = await getAllSurfers();
           renderAdmin(container);
         });
       });
@@ -872,7 +881,7 @@
             await saveSurfer(s.id, { name: s.name, country: s.country, rank: s.rank, value: s.value, priceBracket: s.priceBracket, active: true });
           }
           toast(`Seeded ${SEED_SURFERS.length} surfers!`, "success");
-          surfers = await getSurfers();
+          surfers = await getAllSurfers();
           output.innerHTML = `<p style="color:#217a3c;font-weight:600">Done! ${SEED_SURFERS.length} surfers added.</p>`;
         } catch (err) {
           output.innerHTML = `<p class="text-muted">Error: ${err.message}</p>`;

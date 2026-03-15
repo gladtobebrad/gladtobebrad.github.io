@@ -13,6 +13,11 @@ export async function getSurfers() {
     .filter((s) => s.active !== false);
 }
 
+export async function getAllSurfers() {
+  const snap = await getDocs(collection(db, "surfers"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function getSurfer(surferId) {
   const snap = await getDoc(doc(db, "surfers", surferId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
