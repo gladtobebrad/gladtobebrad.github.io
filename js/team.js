@@ -42,11 +42,11 @@ export function validateTeam(surfers, alternate, tour, surferData = {}) {
     errors.push(`Over salary cap by $${over.toLocaleString()}. Drop a surfer or trade down.`);
   }
 
-  // Alternate must be budget bracket
+  // Alternate must be under $4M
   if (alternate?.surferId) {
     const altData = surferData[alternate.surferId];
-    if (altData && altData.priceBracket !== "budget") {
-      errors.push(`Alternate must be from the budget bracket (< $1M). ${altData.name || alternate.surferId} is ${altData.priceBracket}.`);
+    if (altData && (altData.value || 0) >= 4_000_000) {
+      errors.push(`Alternate must be under $4M. ${altData.name || alternate.surferId} costs ${altData.value ? "$" + (altData.value / 1_000_000).toFixed(2) + "M" : "unknown"}.`);
     }
   }
 
