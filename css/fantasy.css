@@ -417,20 +417,20 @@ img { max-width: 100%; }
 .surfer-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .surfer-list--grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.3rem;
 }
 
 .surfer-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   border: 1px solid var(--color-beige);
   border-radius: var(--radius-md);
   background: var(--color-warm-white);
@@ -941,8 +941,8 @@ img { max-width: 100%; }
 
 /* Available surfers list */
 .surfer-photo {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   object-position: center;
@@ -951,8 +951,8 @@ img { max-width: 100%; }
 }
 
 .surfer-photo--empty {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-sm);
   background: var(--color-beige);
   display: inline-flex;
