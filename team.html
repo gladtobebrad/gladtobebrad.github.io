@@ -8,6 +8,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/fantasy.css">
+  <style>
+    .surfer-row--selected {
+      border: 2px solid #27ae60;
+      background: #eafaf1;
+    }
+    .surfer-row--unaffordable {
+      background: #d0ccc8;
+    }
+    .surfer-row--unaffordable .surfer-row__info {
+      opacity: 0.35;
+    }
+    .surfer-row--unaffordable .surfer-row__action {
+      opacity: 0.75;
+    }
+    .btn--unaffordable {
+      background: none;
+      border: 1px solid #c0392b;
+      color: #c0392b;
+      cursor: default;
+      font-weight: 700;
+    }
+  </style>
 </head>
 <body>
 
@@ -99,10 +121,10 @@
       const onRoster = new Set(roster.map((s) => s.surferId));
       if (alternate) onRoster.add(alternate.surferId);
 
-      // Available surfers (not on roster, matching this event's tour)
+      // All surfers for this tour — selected ones shown greyed out
       const eventTour = currentEvent.tour || "mens";
       const available = Object.values(allSurfers)
-        .filter((s) => !onRoster.has(s.id) && (s.tour || "mens") === eventTour)
+        .filter((s) => (s.tour || "mens") === eventTour)
         .sort((a, b) => a.rank - b.rank);
 
       container.innerHTML = `
@@ -224,7 +246,7 @@
                 </select>
               </div>
               <div class="surfer-list surfer-list--grid" id="available-list">
-                ${renderAvailable(available)}
+                ${renderAvailable(available, onRoster, alternate?.surferId, remaining)}
               </div>
             </div>
           </div>
@@ -236,25 +258,36 @@
       wireTourTabs(container, user);
     }
 
-    function renderAvailable(surfers) {
+    function renderAvailable(surfers, onRoster, altSurferId, remaining) {
       if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
       return surfers.map((s) => {
+        const isAlt = s.id === altSurferId;
+        const isOnRoster = !isAlt && onRoster?.has(s.id);
+        const isSelected = isOnRoster || isAlt;
+        const isUnaffordable = !isSelected && (s.value > remaining);
+        const rowClass = isSelected ? " surfer-row--selected" : isUnaffordable ? " surfer-row--unaffordable" : "";
         const photo = s.photoUrl
           ? `<img src="${s.photoUrl}" class="surfer-photo" alt="">`
           : `<div class="surfer-photo--empty">${(s.name || "?")[0]}</div>`;
         return `
-          <div class="surfer-row" data-bracket="${s.priceBracket || ""}"
-            ${tradingOpen ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}>
+          <div class="surfer-row${rowClass}" data-bracket="${s.priceBracket || ""}"
+            ${tradingOpen && !isSelected && !isUnaffordable ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}>
             ${photo}
             <div class="surfer-row__info">
               <span class="surfer-row__name">${s.name}</span>
               <span class="surfer-row__meta">#${s.rank || "—"} &middot; ${s.country || ""} &middot; ${s.stance ? s.stance.charAt(0).toUpperCase() + s.stance.slice(1) : ""} &middot; ${formatSalary(s.value)}</span>
             </div>
             <span class="surfer-row__action">
-              ${tradingOpen ? `
-                <button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
-                ${s.priceBracket === "budget" ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}
-              ` : ""}
+              ${tradingOpen ? (
+                isAlt
+                  ? `<button class="btn btn--danger btn--icon" data-drop-alt title="Remove alternate">&minus;</button>`
+                  : isOnRoster
+                    ? `<button class="btn btn--danger btn--icon" data-drop="${s.id}" title="Drop">&minus;</button>`
+                    : isUnaffordable
+                      ? `<button class="btn btn--icon btn--unaffordable" disabled title="Can't afford">$</button>`
+                      : `<button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
+                         ${s.priceBracket === "budget" ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}`
+              ) : ""}
             </span>
           </div>
         `;
