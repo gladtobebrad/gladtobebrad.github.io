@@ -662,30 +662,27 @@
         const existingMap = {};
         existing.forEach((r) => { existingMap[r.surferId] = r; });
 
-        const mensSurfers = surfers.filter((s) => (s.tour || "mens") === "mens").sort((a, b) => (a.rank || 99) - (b.rank || 99));
-        const womensSurfers = surfers.filter((s) => s.tour === "womens").sort((a, b) => (a.rank || 99) - (b.rank || 99));
-
-        function renderSurferRows(list, tourKey) {
-          const maxPos = (tourKey === "womens" ? WOMEN_SCORING : MEN_SCORING).length - 1;
-          return list.map((s) => {
-            const ex = existingMap[s.id];
-            return `<tr>
-              <td>${s.name} (${s.country || ""})</td>
-              <td><input class="form-input" type="number" min="1" max="${maxPos}" data-result-surfer="${s.id}" data-result-tour="${tourKey}" value="${ex?.finish || ""}" style="width:80px"></td>
-              <td class="result-pts" data-pts-for="${s.id}">${ex?.finish ? getPoints(ex.finish, tourKey) : "—"}</td>
-            </tr>`;
-          }).join("");
-        }
+        const eventTour = ev?.tour || "mens";
+        const eventSurfers = surfers
+          .filter((s) => (s.tour || "mens") === eventTour)
+          .sort((a, b) => (a.rank || 99) - (b.rank || 99));
+        const maxPos = (eventTour === "womens" ? WOMEN_SCORING : MEN_SCORING).length - 1;
 
         rc.innerHTML = `
           <form id="results-entry-form">
-            <p class="text-sm text-muted mb-2">Enter finish position for each surfer. Points auto-calculated. Leave blank if surfer did not compete.</p>
+            <p class="text-sm text-muted mb-2">Enter finish position (1–${maxPos}) for each surfer. Points auto-calculated. Leave blank if surfer did not compete.</p>
             <div style="max-height:600px;overflow-y:auto">
               <table class="data-table">
                 <thead><tr><th>Surfer</th><th>Finish Position</th><th>Points</th></tr></thead>
                 <tbody>
-                  ${mensSurfers.length ? `<tr><td colspan="3" style="background:var(--surface-2,#f5f5f5);font-weight:600;font-size:0.75rem;letter-spacing:0.08em;padding:0.4rem 0.75rem;color:var(--text-muted)">MEN'S CT (1–${(MEN_SCORING.length-1)})</td></tr>${renderSurferRows(mensSurfers, "mens")}` : ""}
-                  ${womensSurfers.length ? `<tr><td colspan="3" style="background:var(--surface-2,#f5f5f5);font-weight:600;font-size:0.75rem;letter-spacing:0.08em;padding:0.4rem 0.75rem;color:var(--text-muted)">WOMEN'S CT (1–${(WOMEN_SCORING.length-1)})</td></tr>${renderSurferRows(womensSurfers, "womens")}` : ""}
+                  ${eventSurfers.map((s) => {
+                    const ex = existingMap[s.id];
+                    return `<tr>
+                      <td>${s.name} (${s.country || ""})</td>
+                      <td><input class="form-input" type="number" min="1" max="${maxPos}" data-result-surfer="${s.id}" data-result-tour="${eventTour}" value="${ex?.finish || ""}" style="width:80px"></td>
+                      <td class="result-pts" data-pts-for="${s.id}">${ex?.finish ? getPoints(ex.finish, eventTour) : "—"}</td>
+                    </tr>`;
+                  }).join("")}
                 </tbody>
               </table>
             </div>
