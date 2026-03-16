@@ -46,8 +46,9 @@ export function renderHeader() {
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
-      const photo = user.photoURL
-        ? `<img src="${user.photoURL}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      const photoSrc = profile?.avatarUrl || user.photoURL;
+      const photo = photoSrc
+        ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
         : "";
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
