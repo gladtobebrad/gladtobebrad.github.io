@@ -370,7 +370,7 @@
 
         await updateUser(user.uid, { teamName: name, avatarUrl });
         t("Profile saved!", "success");
-        location.reload();
+        setTimeout(() => location.reload(), 800);
       });
     }
   </script>

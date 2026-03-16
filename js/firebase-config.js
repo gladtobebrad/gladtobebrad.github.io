@@ -10,7 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDL4eGekrUTqvYrKXtznEQps86hRnL1G4A",
   authDomain: "FantasySurfer.firebaseapp.com",
   projectId: "fantasysurfer",
-  storageBucket: "fantasysurfer.appspot.com",
+  storageBucket: "fantasysurfer.firebasestorage.app",
   messagingSenderId: "G-CEY04638EW",
   appId: "1:856596619567:web:6246d8549a27e56de181da"
 };
