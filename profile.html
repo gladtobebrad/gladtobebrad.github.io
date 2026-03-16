@@ -105,6 +105,7 @@
         const loadEventRosters = async (tourEvents) => {
           const rosters = [];
           for (const event of tourEvents) {
+            if (event.tradingOpen !== false) { rosters.push({ event, team: null, score: null }); continue; }
             const team = await getTeam(userId, event.id);
             if (!team) { rosters.push({ event, team: null, score: null }); continue; }
             let score = null;
