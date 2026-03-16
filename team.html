@@ -180,7 +180,7 @@
                     ${photo}
                     <div class="surfer-row__info">
                       <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${data.stance ? data.stance.charAt(0).toUpperCase() + data.stance.slice(1) : ""} &middot; ${formatSalary(s.purchasePrice)} ${deltaHtml}</span>
+                      <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${data.stance ? data.stance === "goofy" ? "Gfy" : "Reg" : ""} &middot; ${formatSalary(s.purchasePrice)} ${deltaHtml}</span>
                     </div>
                     <span class="surfer-row__action">
                       ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop="${s.surferId}" title="Drop">&times;</button>` : ""}
@@ -206,7 +206,7 @@
                       ${altPhoto}
                       <div class="surfer-row__info">
                         <span class="surfer-row__name">${altData.name || alternate.surferId.replace(/-/g, " ")}</span>
-                        <span class="surfer-row__meta">ALT &middot; ${altData.stance ? altData.stance.charAt(0).toUpperCase() + altData.stance.slice(1) : ""} &middot; ${formatSalary(alternate.purchasePrice)}</span>
+                        <span class="surfer-row__meta">ALT &middot; ${altData.stance ? altData.stance === "goofy" ? "Gfy" : "Reg" : ""} &middot; ${formatSalary(alternate.purchasePrice)}</span>
                       </div>
                       <span class="surfer-row__action">
                         ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop-alt title="Drop">&times;</button>` : ""}
@@ -282,7 +282,7 @@
             ${photo}
             <div class="surfer-row__info">
               <span class="surfer-row__name">${s.name}</span>
-              <span class="surfer-row__meta">#${s.rank || "—"} &middot; ${s.country || ""} &middot; ${s.stance ? s.stance.charAt(0).toUpperCase() + s.stance.slice(1) : ""} &middot; ${formatSalary(s.value)}</span>
+              <span class="surfer-row__meta">#${s.rank || "—"} &middot; ${s.country || ""} &middot; ${s.stance ? s.stance === "goofy" ? "Gfy" : "Reg" : ""} &middot; ${formatSalary(s.value)}</span>
             </div>
             <span class="surfer-row__action">
               ${tradingOpen ? (
