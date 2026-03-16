@@ -199,35 +199,20 @@
                   </div>
                   <p class="text-muted text-sm mb-2">${ev.name}</p>
                   ${team ? `
-                    <div class="surfer-list">
-                      ${team.surfers.map((s) => {
+                    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
+                      ${[...team.surfers, ...(team.alternate ? [{ surferId: team.alternate.surferId, alt: true }] : [])].map((s) => {
                         const data = surferMap[s.surferId] || {};
+                        const lastName = (data.name || s.surferId).split(" ").pop();
                         const photo = data.photoUrl
-                          ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
-                          : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
-                        return `<div class="surfer-row">
+                          ? `<img src="${data.photoUrl}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid ${s.alt ? "var(--color-warm-gray)" : "var(--color-beige)"};${s.alt ? "opacity:0.75" : ""}" alt="">`
+                          : `<div style="width:42px;height:42px;border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:600;color:var(--color-warm-brown)">${(data.name || "?")[0]}</div>`;
+                        return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:48px">
                           ${photo}
-                          <div class="surfer-row__info">
-                            <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                            <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)}</span>
-                          </div>
+                          <span style="font-size:0.62rem;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48px;color:${s.alt ? "var(--color-warm-brown)" : "var(--color-charcoal)"}">${s.alt ? "ALT" : lastName}</span>
                         </div>`;
                       }).join("")}
-                      ${team.alternate ? (() => {
-                        const altData = surferMap[team.alternate.surferId] || {};
-                        const altPhoto = altData.photoUrl
-                          ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
-                          : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
-                        return `<div class="surfer-row surfer-row--alternate">
-                          ${altPhoto}
-                          <div class="surfer-row__info">
-                            <span class="surfer-row__name">${altData.name || team.alternate.surferId.replace(/-/g, " ")}</span>
-                            <span class="surfer-row__meta">ALT &middot; ${formatSalary(team.alternate.purchasePrice)}</span>
-                          </div>
-                        </div>`;
-                      })() : ""}
                     </div>
-                    <a href="team.html" class="btn btn--primary btn--sm mt-2">Manage Team</a>
+                    <a href="team.html" class="btn btn--primary btn--sm">Manage Team</a>
                   ` : `
                     <p class="text-muted">No team picked yet.</p>
                     <a href="team.html" class="btn btn--primary btn--sm mt-2">Pick Your Team</a>
