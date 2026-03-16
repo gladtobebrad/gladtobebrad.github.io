@@ -251,7 +251,7 @@
                   <div class="form-row">
                     <div class="form-group">
                       <label class="form-label">Value ($)</label>
-                      <input class="form-input" id="surfer-value" type="number" min="0" step="100000" required>
+                      <input class="form-input" id="surfer-value" type="number" min="0" step="250000" required>
                     </div>
                     <div class="form-group">
                       <label class="form-label">Bracket</label>
@@ -576,6 +576,10 @@
           photoUrl: document.getElementById("surfer-photo").value.trim() || null,
           active: document.getElementById("surfer-active").value === "true"
         };
+        if (data.value % 250000 !== 0) {
+          toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
+          return;
+        }
         try {
           await saveSurfer(id, data);
           toast("Surfer saved!", "success");
