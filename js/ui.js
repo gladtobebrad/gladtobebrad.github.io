@@ -47,7 +47,7 @@ export function renderHeader() {
     if (!authEl) return;
     if (user) {
       const photo = user.photoURL
-        ? `<img src="${user.photoURL}" alt="" class="nav-avatar">`
+        ? `<img src="${user.photoURL}" alt="" class="nav-avatar" onerror="this.style.display='none'">`
         : "";
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
@@ -86,7 +86,7 @@ export function renderFooter() {
 
 /** Format a number as currency: $1,500,000 → "$1.5M" */
 export function formatSalary(value) {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
   return `$${value}`;
 }
