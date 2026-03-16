@@ -29,6 +29,13 @@
       cursor: default;
       font-weight: 700;
     }
+    .roster-slot--empty {
+      height: 88px;
+      border: 2px dashed #d5d0ca;
+      border-radius: 6px;
+      background: #f5f3f0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+    }
   </style>
 </head>
 <body>
@@ -159,7 +166,6 @@
                 <span class="card__title">Your Roster (${roster.length}/${rules.rosterSize})</span>
               </div>
               <div class="surfer-list surfer-list--grid" id="roster-list" style="min-height:80px">
-                ${roster.length === 0 ? `<p class="text-muted text-sm">Drag surfers here to build your roster.</p>` : ""}
                 ${roster.map((s, i) => {
                   const data = allSurfers[s.surferId] || {};
                   const photo = data.photoUrl
@@ -181,6 +187,7 @@
                     </span>
                   </div>`;
                 }).join("")}
+                ${Array.from({ length: rules.rosterSize - roster.length }, () => `<div class="roster-slot--empty"></div>`).join("")}
               </div>
 
               <!-- Alternate -->
