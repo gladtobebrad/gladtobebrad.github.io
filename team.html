@@ -291,7 +291,8 @@
                   : isOnRoster
                     ? `<button class="btn btn--danger btn--icon" data-drop="${s.id}" title="Drop">&minus;</button>`
                     : isUnaffordable
-                      ? `<button class="btn btn--icon btn--unaffordable" disabled title="Can't afford">$</button>`
+                      ? `<button class="btn btn--icon btn--unaffordable" disabled title="Can't afford">$</button>
+                         ${s.value < 4_000_000 ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}`
                       : `<button class="btn btn--primary btn--icon" data-add="${s.id}" data-value="${s.value}" title="Add">+</button>
                          ${s.value < 4_000_000 ? `<button class="btn btn--outline btn--icon" data-add-alt="${s.id}" data-value="${s.value}" title="Add as alternate" style="font-size:0.7rem">ALT</button>` : ""}`
               ) : ""}
