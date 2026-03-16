@@ -84,7 +84,7 @@
                     <td>${p.rank || "—"}</td>
                     <td class="flex gap-1" style="align-items:center">
                       ${p.avatarUrl
-                        ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm">`
+                        ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
                         : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
                       <div>
                         <strong>${p.teamName}</strong>

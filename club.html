@@ -212,7 +212,7 @@
                     <td><span class="leaderboard-rank leaderboard-rank--${i + 1}">${i + 1}</span></td>
                     <td>
                       <a href="profile.html?id=${entry.userId}" style="display:flex;align-items:center;gap:0.4rem;text-decoration:none;color:inherit">
-                        ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+                        ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
                         ${entry.teamName || entry.displayName || "—"}
                       </a>
                     </td>

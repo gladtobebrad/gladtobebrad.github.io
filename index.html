@@ -128,7 +128,7 @@
       // Profile section — team name + avatar
       const avatarUrl = profile?.avatarUrl || profile?.photoUrl || user.photoURL || "";
       const avatarPreview = avatarUrl
-        ? `<img src="${avatarUrl}" alt="" class="avatar-preview">`
+        ? `<img src="${avatarUrl}" alt="" class="avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
         : `<div class="avatar-preview avatar-preview--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
 
       const adsCoins = profile?.adsCoins ?? 10;
@@ -251,7 +251,7 @@
                       <tr class="${entry.userId === user.uid ? "highlight" : ""}">
                         <td><span class="leaderboard-rank leaderboard-rank--${i + 1}">${i + 1}</span></td>
                         <td class="flex gap-1" style="align-items:center">
-                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
                           ${entry.teamName || entry.displayName || "—"}
                         </td>
                         <td class="text-right">${entry.bestNineTotal || 0}</td>
@@ -279,7 +279,7 @@
                       <tr class="${entry.userId === user.uid ? "highlight" : ""}">
                         <td>${i + 1}</td>
                         <td class="flex gap-1" style="align-items:center">
-                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
                           ${entry.teamName || entry.displayName || "—"}
                         </td>
                         <td class="text-right">${entry.bestNineTotal || 0}</td>
