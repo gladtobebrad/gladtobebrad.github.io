@@ -304,7 +304,7 @@
               <label class="form-label">Select Event</label>
               <select class="form-select" id="results-event-select">
                 <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} (${e.status})</option>`).join("")}
+                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"} (${e.status})</option>`).join("")}
               </select>
             </div>
             <div id="results-form-container"></div>
@@ -320,7 +320,7 @@
               <select class="form-select" id="scoring-event-select">
                 <option value="">Choose an event...</option>
                 ${events.filter((e) => e.status === "completed" || e.resultsEntered).map((e) =>
-                  `<option value="${e.id}">${e.eventNumber}. ${e.name}</option>`
+                  `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
                 ).join("")}
               </select>
             </div>
@@ -337,7 +337,7 @@
               <label class="form-label">Select Event</label>
               <select class="form-select" id="lock-event-select">
                 <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} — Trading: ${e.tradingOpen ? "Open" : "Locked"}</option>`).join("")}
+                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"} · Trading: ${e.tradingOpen ? "Open" : "Locked"}</option>`).join("")}
               </select>
             </div>
             <div class="form-actions">
