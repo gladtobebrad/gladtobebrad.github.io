@@ -155,7 +155,7 @@
                     </label>
                     <span class="text-xs text-muted" id="avatar-file-name">No file chosen</span>
                   </div>
-                  <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${profile?.avatarUrl || ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
+                  <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
                 </div>
                 <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
               </div>
@@ -338,6 +338,7 @@
         const file = e.target.files[0];
         if (!file) return;
         document.getElementById("avatar-file-name").textContent = file.name;
+        document.getElementById("avatar-url-input").value = "";
         // Show local preview immediately
         const preview = document.querySelector(".profile-edit__avatar img, .profile-edit__avatar div");
         if (preview && preview.tagName === "IMG") preview.src = URL.createObjectURL(file);
