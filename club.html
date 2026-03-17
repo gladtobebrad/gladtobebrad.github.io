@@ -254,15 +254,15 @@
                     <tr>
                       <th>Player</th>
                       ${tourEvents.map((e) => `
-                        <th class="text-right" style="white-space:nowrap;font-size:0.7rem">
-                          ${e.name.split(" ").slice(-2).join(" ")}
+                        <th class="text-right sortable-col" data-event-id="${e.id}" style="white-space:nowrap;font-size:0.7rem;cursor:pointer;user-select:none" title="Sort by ${e.name}">
+                          ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                         </th>
                       `).join("")}
                     </tr>
                   </thead>
                   <tbody>
                     ${entries.map((entry) => `
-                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
+                      <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
                         <td style="white-space:nowrap">
                           <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
                             ${entry.teamName || entry.displayName || "—"}
@@ -271,7 +271,7 @@
                         ${tourEvents.map((e) => {
                           const pts = eventScores[entry.userId]?.[e.id];
                           const isCompleted = e.status === "completed";
-                          return `<td class="text-right" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
+                          return `<td class="text-right" data-event-pts="${e.id}" data-pts="${isCompleted && pts != null ? pts : -1}" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
                             ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
                           </td>`;
                         }).join("")}
@@ -297,6 +297,32 @@
           </div>
         ` : `<p class="text-muted text-sm mb-3">You're in 3 clubs (maximum).</p>`}
       `;
+
+      // Click-to-sort event-by-event columns
+      const sortState = {}; // tableIndex → { eventId, dir }
+      document.querySelectorAll(".sortable-col").forEach((th) => {
+        th.addEventListener("click", () => {
+          const eventId = th.dataset.eventId;
+          const tbody = th.closest("table").querySelector("tbody");
+          const tableKey = th.closest("table").dataset.tourKey || th.closest("table");
+          const prev = sortState[tableKey] || {};
+          const dir = (prev.eventId === eventId && prev.dir === "desc") ? "asc" : "desc";
+          sortState[tableKey] = { eventId, dir };
+
+          // Update arrow indicators
+          th.closest("thead").querySelectorAll(".sort-arrow").forEach((a) => { a.textContent = "▲▼"; a.style.opacity = "0.4"; });
+          th.querySelector(".sort-arrow").textContent = dir === "desc" ? "▼" : "▲";
+          th.querySelector(".sort-arrow").style.opacity = "1";
+
+          const rows = [...tbody.querySelectorAll("tr")];
+          rows.sort((a, b) => {
+            const aVal = parseInt(a.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
+            const bVal = parseInt(b.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
+            return dir === "desc" ? bVal - aVal : aVal - bVal;
+          });
+          rows.forEach((r) => tbody.appendChild(r));
+        });
+      });
 
       document.getElementById("btn-leave-club")?.addEventListener("click", async () => {
         if (!confirm(`Are you sure you want to ${isOwner ? "delete this club" : "leave"}?`)) return;
