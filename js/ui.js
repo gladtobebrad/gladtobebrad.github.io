@@ -4,6 +4,7 @@ import { getCurrentUser, getUserProfile, signIn, signOut, onAuth } from "./auth.
 
 const NAV_ITEMS = [
   { title: "Dashboard", href: "index.html" },
+  { title: "My Profile", href: "profile.html", id: "nav-my-profile" },
   { title: "My Team", href: "team.html" },
   { title: "Players", href: "players.html" },
   { title: "Data", href: "data.html" },
@@ -27,7 +28,7 @@ export function renderHeader() {
       </button>
       <ul class="nav-links" id="nav-links">
         ${NAV_ITEMS.map((item) =>
-          `<li><a href="${item.href}">${item.title}</a></li>`
+          `<li><a href="${item.href}"${item.id ? ` id="${item.id}"` : ""}>${item.title}</a></li>`
         ).join("")}
       </ul>
       <div class="nav-auth" id="nav-auth"></div>
@@ -46,6 +47,8 @@ export function renderHeader() {
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
+      const profileLink = document.getElementById("nav-my-profile");
+      if (profileLink) profileLink.href = `profile.html?id=${user.uid}`;
       const photoSrc = profile?.avatarUrl || user.photoURL;
       const photo = photoSrc
         ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`

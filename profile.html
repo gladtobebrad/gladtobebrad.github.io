@@ -38,10 +38,10 @@
         return;
       }
       showLoading(main);
-      await renderProfile(main);
+      await renderProfile(main, user);
     });
 
-    async function renderProfile(container) {
+    async function renderProfile(container, currentUser) {
       const params = new URLSearchParams(window.location.search);
       const userId = params.get("id");
 
@@ -269,9 +269,12 @@
         container.innerHTML = `
           <!-- Avatar + Name -->
           <div class="flex gap-2 mb-4" style="align-items:center">
-            ${avatarUrl
-              ? `<img src="${avatarUrl}" alt="" class="avatar-lg" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-              : `<div class="avatar-lg avatar-lg--empty">${(displayName || "?")[0]}</div>`}
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;flex-shrink:0">
+              ${avatarUrl
+                ? `<img src="${avatarUrl}" alt="" class="avatar-lg" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                : `<div class="avatar-lg avatar-lg--empty">${(displayName || "?")[0]}</div>`}
+              ${currentUser?.uid === userId ? `<a href="index.html" class="btn btn--outline btn--sm" style="font-size:0.72rem;padding:0.2rem 0.6rem;white-space:nowrap">Edit Profile</a>` : ""}
+            </div>
             <div>
               <h1 class="page-title" style="margin-bottom:0">${teamName}</h1>
               ${teamName !== displayName ? `<p class="text-muted">${displayName}</p>` : ""}
