@@ -115,26 +115,51 @@
           .filter(e => (e.tour || "mens") === tour)
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
-        const headers = ["Surfer", ...tourEvents.map(e => `Ev ${e.eventNumber}`)];
-        const rows = popularitySurfers.map(surfer => {
-          const row = [surfer.name];
-          for (const event of tourEvents) {
-            const data = eventData[event.id];
-            if (data && data.totalTeams > 0) {
-              const count = data.percentages[surfer.id] || 0;
-              const pct = ((count / data.totalTeams) * 100).toFixed(1);
-              row.push(`${pct}%`);
-            } else {
-              row.push("—");
-            }
-          }
-          return row;
-        });
-
         content = `
           <div class="card">
             <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
-            ${renderTable(headers, rows)}
+            <div style="overflow-x:auto">
+              <table class="data-table" id="surfers-table">
+                <thead><tr>
+                  <th class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Surfer <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span>
+                  </th>
+                  <th class="sortable-col text-right" data-col="rank" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Rank <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                  </th>
+                  <th class="sortable-col text-right" data-col="value" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Value <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                  </th>
+                  ${tourEvents.map((e, i) => `
+                    <th class="sortable-col text-right" data-col="${i + 3}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.8rem">
+                      Ev ${e.eventNumber} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                    </th>
+                  `).join("")}
+                </tr></thead>
+                <tbody>
+                  ${popularitySurfers.map(surfer => {
+                    const eventCells = tourEvents.map(event => {
+                      const data = eventData[event.id];
+                      if (data && data.totalTeams > 0) {
+                        const count = data.percentages[surfer.id] || 0;
+                        return ((count / data.totalTeams) * 100).toFixed(1);
+                      }
+                      return null;
+                    });
+                    return `<tr
+                      data-name="${surfer.name.toLowerCase()}"
+                      data-rank="${surfer.rank || 999}"
+                      data-value="${surfer.value || 0}"
+                      ${eventCells.map((v, i) => `data-ev${i}="${v ?? -1}"`).join(" ")}>
+                      <td>${surfer.name}</td>
+                      <td class="text-right">${surfer.rank || "—"}</td>
+                      <td class="text-right">$${surfer.value ? (surfer.value/1_000_000).toFixed(2) + "M" : "—"}</td>
+                      ${eventCells.map(v => `<td class="text-right">${v != null ? v + "%" : "—"}</td>`).join("")}
+                    </tr>`;
+                  }).join("")}
+                </tbody>
+              </table>
+            </div>
           </div>`;
 
       container.innerHTML = `
@@ -147,6 +172,48 @@
         btn.addEventListener("click", () => {
           activeTab = btn.dataset.tab;
           render(container);
+        });
+      });
+
+      // Sortable columns
+      container.querySelectorAll(".sortable-col").forEach(th => {
+        th.addEventListener("click", () => {
+          const col = th.dataset.col;
+          const table = th.closest("table");
+          const tbody = table.querySelector("tbody");
+          const prev = th.dataset.dir;
+          const dir = prev === "asc" ? "desc" : "asc";
+
+          table.querySelectorAll(".sortable-col").forEach(h => {
+            h.dataset.dir = "";
+            h.querySelector(".sort-arrow").textContent = "▲▼";
+            h.querySelector(".sort-arrow").style.opacity = "0.4";
+          });
+          th.dataset.dir = dir;
+          th.querySelector(".sort-arrow").textContent = dir === "asc" ? "▲" : "▼";
+          th.querySelector(".sort-arrow").style.opacity = "1";
+
+          const rows = [...tbody.querySelectorAll("tr")];
+          rows.sort((a, b) => {
+            let av, bv;
+            if (col === "0") {
+              av = a.dataset.name;
+              bv = b.dataset.name;
+              return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+            } else if (col === "rank") {
+              av = parseFloat(a.dataset.rank);
+              bv = parseFloat(b.dataset.rank);
+            } else if (col === "value") {
+              av = parseFloat(a.dataset.value);
+              bv = parseFloat(b.dataset.value);
+            } else {
+              const idx = parseInt(col) - 3;
+              av = parseFloat(a.dataset[`ev${idx}`] ?? -1);
+              bv = parseFloat(b.dataset[`ev${idx}`] ?? -1);
+            }
+            return dir === "asc" ? av - bv : bv - av;
+          });
+          rows.forEach(r => tbody.appendChild(r));
         });
       });
     }
