@@ -26,7 +26,7 @@
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
       getTeamsForEvent, lockTeamsForEvent,
-      saveLeaderboardEntry, getLeaderboard, getUser, getAllUsers,
+      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, getUser, getAllUsers,
       getAllClubs, deleteClub
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
@@ -782,6 +782,7 @@
           const completedEvents = events.filter((e) => e.resultsEntered || e.status === "completed");
 
           async function calcAndSaveTour(tour) {
+            await clearLeaderboard(SEASON, tour); // wipe stale entries first
             const tourEvents = completedEvents.filter((e) => (e.tour || "mens") === tour);
             const userScores = {};
             for (const ev of tourEvents) {

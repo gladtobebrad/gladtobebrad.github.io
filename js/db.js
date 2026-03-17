@@ -143,7 +143,16 @@ export async function saveLeaderboardEntry(userId, season, tour, data) {
     season,
     tour,
     ...data
-  }, { merge: true });
+  });
+}
+
+export async function clearLeaderboard(season, tour) {
+  const snap = await getDocs(collection(db, "leaderboard"));
+  const batch = writeBatch(db);
+  snap.docs
+    .filter((d) => d.data().season === season && d.data().tour === tour)
+    .forEach((d) => batch.delete(d.ref));
+  await batch.commit();
 }
 
 // ── Users ────────────────────────────────────────────
