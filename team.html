@@ -360,7 +360,7 @@
               </div>
             </div>
             <div class="surfer-list surfer-list--grid" id="available-list">
-              ${renderAvailable(available, onRoster, alternate?.surferId, remaining)}
+              ${renderAvailable(available, onRoster, alternate?.surferId, remaining, altCap)}
             </div>
           </div>
 
@@ -372,7 +372,7 @@
       wireTourTabs(container, user);
     }
 
-    function renderAvailable(surfers, onRoster, altSurferId, remaining) {
+    function renderAvailable(surfers, onRoster, altSurferId, remaining, altCap = 4_000_000) {
       if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
       return surfers.map((s) => {
         const isAlt = s.id === altSurferId;
