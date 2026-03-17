@@ -240,44 +240,49 @@
         </div>
 
         <!-- Event-by-Event Scores -->
-        ${eventColumns.length > 0 ? `
-          <div class="card mb-3">
-            <div class="card__header"><span class="card__title">Event-by-Event</span></div>
-            <div style="overflow-x:auto">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    ${eventColumns.map((e) => `
-                      <th class="text-right" style="white-space:nowrap;font-size:0.7rem">
-                        ${e.name.split(" ").slice(-2).join(" ")}<br>
-                        <span style="color:var(--color-warm-brown);font-weight:400">${e.tour === "womens" ? "W" : "M"}</span>
-                      </th>
-                    `).join("")}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${mensMemberEntries.map((entry) => `
-                    <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                      <td style="white-space:nowrap">
-                        <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
-                          ${entry.teamName || entry.displayName || "—"}
-                        </a>
-                      </td>
-                      ${eventColumns.map((e) => {
-                        const pts = eventScores[entry.userId]?.[e.id];
-                        const isCompleted = e.status === "completed";
-                        return `<td class="text-right" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
-                          ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
-                        </td>`;
-                      }).join("")}
+        ${["mens", "womens"].map((tour) => {
+          const tourLabel = tour === "mens" ? "Men's CT" : "Women's CT";
+          const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
+          const entries = tour === "mens" ? mensMemberEntries : womensMemberEntries;
+          if (!tourEvents.length) return "";
+          return `
+            <div class="card mb-3">
+              <div class="card__header"><span class="card__title">Event-by-Event — ${tourLabel}</span></div>
+              <div style="overflow-x:auto">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      ${tourEvents.map((e) => `
+                        <th class="text-right" style="white-space:nowrap;font-size:0.7rem">
+                          ${e.name.split(" ").slice(-2).join(" ")}
+                        </th>
+                      `).join("")}
                     </tr>
-                  `).join("")}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${entries.map((entry) => `
+                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
+                        <td style="white-space:nowrap">
+                          <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
+                            ${entry.teamName || entry.displayName || "—"}
+                          </a>
+                        </td>
+                        ${tourEvents.map((e) => {
+                          const pts = eventScores[entry.userId]?.[e.id];
+                          const isCompleted = e.status === "completed";
+                          return `<td class="text-right" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
+                            ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
+                          </td>`;
+                        }).join("")}
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        ` : ""}
+          `;
+        }).join("")}
 
         <!-- Join another club -->
         ${canJoinMore ? `
