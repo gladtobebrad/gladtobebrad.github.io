@@ -85,18 +85,15 @@
         const displayName = playerDoc.displayName || "Anonymous";
         const adsCoins = playerDoc.adsCoins ?? 10;
 
-        // Load current event teams if trading is locked
+        // Load current events and rosters for both tours
         const [mensEvent, womensEvent] = await Promise.all([
           getCurrentEventForTour("mens", SEASON),
           getCurrentEventForTour("womens", SEASON)
         ]);
-        const currentTeams = [];
-        for (const ev of [mensEvent, womensEvent].filter(Boolean)) {
-          if (!ev.tradingOpen) {
-            const team = await getTeam(userId, ev.id);
-            if (team) currentTeams.push({ event: ev, team, label: ev.tour === "womens" ? "Women's CT" : "Men's CT" });
-          }
-        }
+        const [mensCurrentTeam, womensCurrentTeam] = await Promise.all([
+          mensEvent ? getTeam(userId, mensEvent.id) : Promise.resolve(null),
+          womensEvent ? getTeam(userId, womensEvent.id) : Promise.resolve(null),
+        ]);
 
         // Load all events — team + score per event, split by tour
         const mensEvents = events.filter((e) => (e.tour || "mens") === "mens");
@@ -123,120 +120,201 @@
           loadEventRosters(womensEvents)
         ]);
 
+        // Compute per-tour standings from rosters
+        const toStandings = (rosters) => {
+          const scored = rosters.filter(r => r.score).map(r => r.score.totalPoints).sort((a, b) => b - a);
+          return {
+            eventsPlayed: scored.length,
+            best9: scored.slice(0, 9).reduce((s, p) => s + p, 0),
+          };
+        };
+        const mensStandings = toStandings(mensRosters);
+        const womensStandings = toStandings(womensRosters);
+
+        // Helper: render a team photo strip
+        // large=true → 4-per-row grid with bigger photos (current roster)
+        // large=false → small flex-wrap strip (event cards)
+        const renderStrip = (team, score, large = false, tour = "mens") => {
+          if (!team) return `<p class="text-muted text-sm">No team submitted.</p>`;
+          const photoSize = large ? "80px" : "44px";
+          const surferWidth = large ? "80px" : "48px";
+          const shortName = (fullName) => {
+            const parts = fullName.trim().split(" ");
+            return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : parts[0];
+          };
+
+          if (large) {
+            const rosterSize = tour === "womens" ? 5 : 8; // required surfer slots
+            const slots = [];
+
+            // Surfer slots — grey circle only if the user left this spot unfilled
+            for (let i = 0; i < rosterSize; i++) {
+              if (i < team.surfers.length) {
+                slots.push({ type: "surfer", s: team.surfers[i], i });
+              } else {
+                slots.push({ type: "grey" });
+              }
+            }
+
+            // Alt slot — grey circle only if no alt picked
+            slots.push(team.alternate ? { type: "alt", s: team.alternate } : { type: "grey" });
+
+            // Pad to 10 with invisible placeholders (no circle, just grid space)
+            while (slots.length < 10) slots.push({ type: "invisible" });
+
+            const slotHtml = slots.map((slot) => {
+              if (slot.type === "invisible") {
+                return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
+                  <div style="width:${photoSize};height:${photoSize}"></div>
+                  <span style="font-size:0.62rem;color:transparent">—</span>
+                </div>`;
+              }
+              if (slot.type === "grey") {
+                // grey: unfilled required spot — show grey circle, no name row
+                const isAltSlot = slots.indexOf(slot) === rosterSize; // last required slot = alt
+                return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
+                  <div style="position:relative;width:${photoSize};height:${photoSize}">
+                    <div style="width:100%;height:100%;border-radius:50%;background:var(--color-beige);opacity:0.35"></div>
+                    ${isAltSlot ? `<span style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:0.5rem;font-weight:700;color:var(--color-warm-gray);background:rgba(255,255,255,0.85);border-radius:4px;padding:0 3px;line-height:1.4;white-space:nowrap">ALT</span>` : ""}
+                  </div>
+                  <span style="font-size:0.62rem;color:transparent">—</span>
+                </div>`;
+              }
+              if (slot.type === "alt") {
+                const d = surferMap[slot.s.surferId] || {};
+                const altName = d.name || slot.s.surferId.replace(/-/g, " ");
+                const p = d.photoUrl
+                  ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.8" alt="">`
+                  : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.8">${altName[0]}</div>`;
+                return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
+                  <div style="position:relative;width:${photoSize};height:${photoSize}">
+                    ${p}
+                    <span style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:0.5rem;font-weight:700;color:var(--color-warm-gray);background:rgba(255,255,255,0.85);border-radius:4px;padding:0 3px;line-height:1.4;white-space:nowrap">ALT${score?.alternateUsed ? "✓" : ""}</span>
+                  </div>
+                  <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-warm-brown)">${shortName(altName)}</span>
+                </div>`;
+              }
+              // type === "surfer"
+              const data = surferMap[slot.s.surferId] || {};
+              const sc = score?.surferScores?.[slot.i];
+              const name = data.name || slot.s.surferId.replace(/-/g, " ");
+              const photo = data.photoUrl
+                ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
+                : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
+              return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
+                ${photo}
+                <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>
+                ${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}
+              </div>`;
+            }).join("");
+
+            return `<div style="display:grid;grid-template-columns:repeat(5,80px);gap:0.5rem;margin-top:0.5rem">${slotHtml}</div>`;
+          }
+
+          // Small strip (event cards)
+          const surferHtml = team.surfers.map((s, i) => {
+            const data = surferMap[s.surferId] || {};
+            const sc = score?.surferScores?.[i];
+            const name = data.name || s.surferId.replace(/-/g, " ");
+            const photo = data.photoUrl
+              ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
+              : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
+              ${photo}
+              <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>
+              ${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}
+            </div>`;
+          }).join("");
+          const altHtml = team.alternate ? (() => {
+            const d = surferMap[team.alternate.surferId] || {};
+            const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
+            const p = d.photoUrl
+              ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.75" alt="">`
+              : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.75">${altName[0]}</div>`;
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${p}<span style="font-size:0.62rem;color:var(--color-warm-brown)">ALT${score?.alternateUsed ? "✓" : ""}</span></div>`;
+          })() : "";
+          return `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${surferHtml}${altHtml}</div>`;
+        };
+
+        // Helper: render a single past/upcoming event card (compact)
+        const renderEventCard = (event, team, score) => `
+          <div class="card mb-3">
+            <div class="card__header">
+              <span class="card__title" style="font-size:0.9rem">${event.name}</span>
+              <span class="text-sm" style="font-weight:600">
+                ${score ? `${score.totalPoints} pts` : event.status === "live" ? "🔴 Live" : statusBadge(event.status)}
+              </span>
+            </div>
+            ${renderStrip(team, score, false)}
+          </div>`;
+
+        // Helper: standings card for one tour
+        const renderStandings = (label, standings) => `
+          <div class="card mb-3">
+            <div class="card__header">
+              <span class="card__title">Season ${SEASON} — ${label}</span>
+            </div>
+            <div class="grid grid--2 text-center mt-2">
+              <div>
+                <p class="text-xs text-muted">Best 9 Total</p>
+                <p style="font-size:1.4rem;font-weight:600">${standings.eventsPlayed > 0 ? standings.best9 : "—"}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted">Events Played</p>
+                <p style="font-size:1.4rem;font-weight:600">${standings.eventsPlayed > 0 ? standings.eventsPlayed : "—"}</p>
+              </div>
+            </div>
+          </div>`;
+
         container.innerHTML = `
-          <div class="flex gap-2 mb-3" style="align-items:center">
+          <!-- Avatar + Name -->
+          <div class="flex gap-2 mb-4" style="align-items:center">
             ${avatarUrl
               ? `<img src="${avatarUrl}" alt="" class="avatar-lg" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
               : `<div class="avatar-lg avatar-lg--empty">${(displayName || "?")[0]}</div>`}
             <div>
               <h1 class="page-title" style="margin-bottom:0">${teamName}</h1>
               ${teamName !== displayName ? `<p class="text-muted">${displayName}</p>` : ""}
+              <span class="ads-coin-badge" style="margin-top:0.4rem">🪙 ${adsCoins} ADScoin</span>
             </div>
           </div>
 
-          <!-- Season Summary -->
-          <div class="card mb-3">
-            <div class="card__header">
-              <span class="card__title">Season ${SEASON} Standings</span>
-              <span class="ads-coin-badge">🪙 ${adsCoins} ADScoin</span>
-            </div>
-            <div class="grid grid--3 text-center mt-2">
-              <div>
-                <p class="text-xs text-muted">Rank</p>
-                <p style="font-size:1.5rem;font-weight:600">${rank || "—"}</p>
-              </div>
-              <div>
-                <p class="text-xs text-muted">Best 9 Total</p>
-                <p style="font-size:1.5rem;font-weight:600">${lbEntry?.bestNineTotal || 0}</p>
-              </div>
-              <div>
-                <p class="text-xs text-muted">Events Played</p>
-                <p style="font-size:1.5rem;font-weight:600">${lbEntry?.eventsPlayed || 0}</p>
-              </div>
-            </div>
-          </div>
+          <!-- 2-column layout: Mens LHS, Womens RHS -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
 
-          <!-- Current Event Teams (visible when trading locked) -->
-          ${currentTeams.length > 0 ? `
-            <h2 class="mb-2">Current Roster${currentTeams.length > 1 ? "s" : ""}</h2>
-            <div class="grid grid--2 mb-4">
-              ${currentTeams.map(({ event, team, label }) => `
-                <div class="card">
+            <!-- LHS: Men's CT -->
+            <div>
+              <h2 class="mb-3">Men's CT</h2>
+              ${renderStandings("Men's CT", mensStandings)}
+              ${mensEvent ? `
+                <div class="card mb-3">
                   <div class="card__header">
-                    <span class="card__title">${label} — ${event.name}</span>
-                    <span class="text-sm text-muted">${formatSalary(team.totalSpent || 0)} spent</span>
+                    <span class="card__title">Current Roster</span>
+                    <span class="text-sm text-muted">${mensEvent.name}</span>
                   </div>
-                  <div class="team-photo-strip">
-                    ${team.surfers.map((s) => {
-                      const data = surferMap[s.surferId] || {};
-                      const photo = data.photoUrl
-                        ? `<img src="${data.photoUrl}" class="team-strip__photo" alt="">`
-                        : `<div class="team-strip__photo team-strip__photo--empty">${(data.name || "?")[0]}</div>`;
-                      return `<div class="team-strip__surfer">
-                        ${photo}
-                        <span class="team-strip__name">${(data.name || s.surferId.replace(/-/g, " ")).split(" ").pop()}</span>
-                      </div>`;
-                    }).join("")}
-                    ${team.alternate ? (() => {
-                      const altData = surferMap[team.alternate.surferId] || {};
-                      const altPhoto = altData.photoUrl
-                        ? `<img src="${altData.photoUrl}" class="team-strip__photo team-strip__photo--alt" alt="">`
-                        : `<div class="team-strip__photo team-strip__photo--empty team-strip__photo--alt">${(altData.name || "?")[0]}</div>`;
-                      return `<div class="team-strip__surfer">
-                        ${altPhoto}
-                        <span class="team-strip__name" style="color:var(--color-warm-brown)">ALT</span>
-                      </div>`;
-                    })() : ""}
-                  </div>
+                  ${renderStrip(mensCurrentTeam, null, true, "mens")}
                 </div>
-              `).join("")}
+              ` : ""}
+              ${mensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
             </div>
-          ` : ""}
 
-          <!-- Event Rosters by Tour -->
-          ${[{ label: "Men's CT", rosters: mensRosters }, { label: "Women's CT", rosters: womensRosters }]
-            .filter(({ rosters }) => rosters.length > 0)
-            .map(({ label, rosters }) => `
-              <h2 class="mb-2">${label}</h2>
-              <div class="grid grid--2 mb-4">
-                ${rosters.map(({ event, team, score }) => `
-                  <div class="card">
-                    <div class="card__header">
-                      <span class="card__title">${event.name}</span>
-                      <span class="text-sm" style="font-weight:600">
-                        ${score ? `${score.totalPoints} pts` : event.status === "live" ? "🔴 Live" : "Upcoming"}
-                      </span>
-                    </div>
-                    ${team ? `
-                      <div class="team-photo-strip">
-                        ${team.surfers.map((s, i) => {
-                          const data = surferMap[s.surferId] || {};
-                          const sc = score?.surferScores?.[i];
-                          const photo = data.photoUrl
-                            ? `<img src="${data.photoUrl}" class="team-strip__photo" alt="">`
-                            : `<div class="team-strip__photo team-strip__photo--empty">${(data.name || "?")[0]}</div>`;
-                          return `<div class="team-strip__surfer">
-                            ${photo}
-                            <span class="team-strip__name">${(data.name || s.surferId.replace(/-/g, " ")).split(" ").pop()}</span>
-                            ${sc ? `<span class="team-strip__name" style="color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}
-                          </div>`;
-                        }).join("")}
-                        ${team.alternate ? (() => {
-                          const altData = surferMap[team.alternate.surferId] || {};
-                          const altPhoto = altData.photoUrl
-                            ? `<img src="${altData.photoUrl}" class="team-strip__photo team-strip__photo--alt" alt="">`
-                            : `<div class="team-strip__photo team-strip__photo--empty team-strip__photo--alt">${(altData.name || "?")[0]}</div>`;
-                          return `<div class="team-strip__surfer">
-                            ${altPhoto}
-                            <span class="team-strip__name" style="color:var(--color-warm-brown)">ALT${score?.alternateUsed ? "✓" : ""}</span>
-                          </div>`;
-                        })() : ""}
-                      </div>
-                    ` : `<p class="text-muted text-sm">No team submitted.</p>`}
+            <!-- RHS: Women's CT -->
+            <div>
+              <h2 class="mb-3">Women's CT</h2>
+              ${renderStandings("Women's CT", womensStandings)}
+              ${womensEvent ? `
+                <div class="card mb-3">
+                  <div class="card__header">
+                    <span class="card__title">Current Roster</span>
+                    <span class="text-sm text-muted">${womensEvent.name}</span>
                   </div>
-                `).join("")}
-              </div>
-            `).join("")}
+                  ${renderStrip(womensCurrentTeam, null, true, "womens")}
+                </div>
+              ` : ""}
+              ${womensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
+            </div>
+
+          </div>
 
           <div class="mt-3">
             <a href="players.html" class="btn btn--outline">&larr; Back to Players</a>
