@@ -4,7 +4,7 @@
 
 const TEAM_RULES = {
   mens: { rosterSize: 8, salaryCap: 50_000_000 },
-  womens: { rosterSize: 5, salaryCap: 31_000_000 }
+  womens: { rosterSize: 5, salaryCap: 35_000_000 }
 };
 
 /**
