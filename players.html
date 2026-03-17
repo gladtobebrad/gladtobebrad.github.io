@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getAllUsers, getLeaderboard } from "./js/db.js";
+    import { getAllUsers, getLeaderboard, getEvents } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -32,24 +32,30 @@
 
     onAuth(async (user, profile) => {
       const main = document.getElementById("app-main");
-      if (!user) {
-        showAuthGate(main);
-        return;
-      }
+      if (!user) { showAuthGate(main); return; }
       showLoading(main);
       await renderPage(main);
     });
 
     async function renderPage(container) {
       try {
-        const [users, mensLb, womensLb] = await Promise.all([
+        const [users, mensLb, womensLb, events] = await Promise.all([
           getAllUsers(),
           getLeaderboard(SEASON, "mens"),
-          getLeaderboard(SEASON, "womens")
+          getLeaderboard(SEASON, "womens"),
+          getEvents(SEASON)
         ]);
 
         const userMap = {};
         users.forEach(u => { userMap[u.id] = u; });
+
+        // Completed events per tour, sorted by eventNumber
+        const mensEvents = events
+          .filter(e => (e.tour || "mens") === "mens" && e.status === "completed")
+          .sort((a, b) => a.eventNumber - b.eventNumber);
+        const womensEvents = events
+          .filter(e => e.tour === "womens" && e.status === "completed")
+          .sort((a, b) => a.eventNumber - b.eventNumber);
 
         function buildStandings(lb) {
           lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
@@ -62,41 +68,55 @@
               teamName: u.teamName || entry.teamName || u.displayName || "—",
               avatarUrl: u.avatarUrl || u.photoUrl || entry.avatarUrl || "",
               bestNineTotal: entry.bestNineTotal || 0,
-              eventsPlayed: entry.eventsPlayed || 0
+              allEventsTotal: entry.allEventsTotal || 0,
+              eventsPlayed: entry.eventsPlayed || 0,
+              eventScores: entry.eventScores || {}
             };
           });
         }
 
-        function standingsTable(players, tableId) {
+        function standingsTable(players, tourEvents, tableId) {
           if (!players.length) return `<p class="text-muted">No standings yet.</p>`;
           return `
-            <table class="data-table" id="${tableId}">
-              <thead><tr>
-                <th class="sortable-col" data-col="rank" data-dir="asc" style="cursor:pointer;user-select:none"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
-                <th>Player</th>
-                <th class="text-right sortable-col" data-col="bestNineTotal" data-dir="" style="cursor:pointer;user-select:none">Best 9 <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
-                <th class="text-right sortable-col" data-col="eventsPlayed" data-dir="" style="cursor:pointer;user-select:none">Events <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
-              </tr></thead>
-              <tbody>
-                ${players.map(p => `
-                  <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'"
-                    data-rank="${p.rank}" data-best="${p.bestNineTotal}" data-events="${p.eventsPlayed}">
-                    <td><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
-                    <td class="flex gap-1" style="align-items:center">
-                      ${p.avatarUrl
-                        ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-                        : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
-                      <div>
-                        <strong>${p.teamName}</strong>
-                        ${p.teamName !== p.displayName ? `<span class="text-xs text-muted" style="margin-left:0.5rem">${p.displayName}</span>` : ""}
-                      </div>
-                    </td>
-                    <td class="text-right">${p.bestNineTotal}</td>
-                    <td class="text-right">${p.eventsPlayed}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="${tableId}">
+                <thead><tr>
+                  <th class="sortable-col" data-col="rank" data-dir="asc" style="cursor:pointer;user-select:none"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
+                  <th>Player</th>
+                  <th class="text-right sortable-col" data-col="bestNineTotal" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">Best 9 <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
+                  <th class="text-right sortable-col" data-col="allEventsTotal" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">Total <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
+                  ${tourEvents.map(e => `
+                    <th class="text-right sortable-col" data-col="evt_${e.id}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.7rem">
+                      ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                    </th>
+                  `).join("")}
+                </tr></thead>
+                <tbody>
+                  ${players.map(p => `
+                    <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'"
+                      data-rank="${p.rank}" data-best="${p.bestNineTotal}" data-total="${p.allEventsTotal}"
+                      ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
+                      <td><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
+                      <td class="flex gap-1" style="align-items:center">
+                        ${p.avatarUrl
+                          ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                          : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
+                        <div>
+                          <strong>${p.teamName}</strong>
+                          ${p.teamName !== p.displayName ? `<span class="text-xs text-muted" style="margin-left:0.5rem">${p.displayName}</span>` : ""}
+                        </div>
+                      </td>
+                      <td class="text-right"><strong>${p.bestNineTotal}</strong></td>
+                      <td class="text-right text-muted">${p.allEventsTotal}</td>
+                      ${tourEvents.map(e => {
+                        const pts = p.eventScores[e.id];
+                        return `<td class="text-right">${pts != null ? pts : "—"}</td>`;
+                      }).join("")}
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
           `;
         }
 
@@ -108,26 +128,26 @@
           <p class="text-muted mb-3">${users.length} registered player${users.length !== 1 ? "s" : ""}</p>
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Men's CT</span></div>
-            ${standingsTable(mensPlayers, "table-mens")}
+            ${standingsTable(mensPlayers, mensEvents, "table-mens")}
           </div>
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Women's CT</span></div>
-            ${standingsTable(womensPlayers, "table-womens")}
+            ${standingsTable(womensPlayers, womensEvents, "table-womens")}
           </div>
           <div class="mt-3">
             <a href="index.html" class="btn btn--outline">&larr; Back to Dashboard</a>
           </div>
         `;
+
         // Wire up sortable column headers
         container.querySelectorAll(".sortable-col").forEach((th) => {
           th.addEventListener("click", () => {
             const col = th.dataset.col;
             const table = th.closest("table");
             const tbody = table.querySelector("tbody");
-            // Toggle direction
             const prev = th.dataset.dir;
             const dir = prev === "asc" ? "desc" : "asc";
-            // Reset all headers in this table
+
             table.querySelectorAll(".sortable-col").forEach((h) => {
               h.dataset.dir = "";
               h.querySelector(".sort-arrow").textContent = "▲▼";
@@ -137,12 +157,18 @@
             th.querySelector(".sort-arrow").textContent = dir === "asc" ? "▲" : "▼";
             th.querySelector(".sort-arrow").style.opacity = "1";
 
-            const colMap = { rank: "data-rank", bestNineTotal: "data-best", eventsPlayed: "data-events" };
-            const attr = colMap[col];
             const rows = [...tbody.querySelectorAll("tr")];
             rows.sort((a, b) => {
-              const av = parseFloat(a.getAttribute(attr) ?? 0);
-              const bv = parseFloat(b.getAttribute(attr) ?? 0);
+              let av, bv;
+              if (col.startsWith("evt_")) {
+                const evtId = col.slice(4);
+                av = parseFloat(a.dataset[`evt-${evtId}`] ?? a.getAttribute(`data-evt-${evtId}`) ?? -1);
+                bv = parseFloat(b.dataset[`evt-${evtId}`] ?? b.getAttribute(`data-evt-${evtId}`) ?? -1);
+              } else {
+                const attrMap = { rank: "rank", bestNineTotal: "best", allEventsTotal: "total" };
+                av = parseFloat(a.dataset[attrMap[col]] ?? 0);
+                bv = parseFloat(b.dataset[attrMap[col]] ?? 0);
+              }
               return dir === "asc" ? av - bv : bv - av;
             });
             rows.forEach(r => tbody.appendChild(r));
