@@ -150,7 +150,12 @@ export async function clearLeaderboard(season, tour) {
   const snap = await getDocs(collection(db, "leaderboard"));
   const batch = writeBatch(db);
   snap.docs
-    .filter((d) => d.data().season === season && d.data().tour === tour)
+    .filter((d) => {
+      const data = d.data();
+      if (data.season !== season) return false;
+      // Delete matching tour OR legacy entries with no tour field
+      return data.tour === tour || data.tour == null;
+    })
     .forEach((d) => batch.delete(d.ref));
   await batch.commit();
 }
