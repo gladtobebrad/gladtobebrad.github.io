@@ -180,8 +180,8 @@
 
   <script type="module">
     import { initAuth, requireAuth, getCurrentUser } from "./js/auth.js";
-    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam } from "./js/db.js";
-    import { validateTeam, calculateRemaining, getTeamRules, buildRevertTeam } from "./js/team.js";
+    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam } from "./js/db.js";
+    import { validateTeam, calculateRemaining, getTeamRules } from "./js/team.js";
     import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -582,16 +582,15 @@
       // Revert
       document.getElementById("btn-revert")?.addEventListener("click", async () => {
         if (!currentEvent) return;
-        const prev = await getPreviousTeam(user.uid, currentEvent.eventNumber, SEASON);
-        if (!prev) {
-          toast("No previous team to revert to.", "info");
+        const saved = await getTeam(user.uid, currentEvent.id);
+        if (!saved || !saved.surfers?.length) {
+          toast("No saved team to revert to.", "info");
           return;
         }
-        const reverted = buildRevertTeam(prev);
-        roster = reverted.surfers;
-        alternate = reverted.alternate;
+        roster = [...saved.surfers];
+        alternate = saved.alternate ? { ...saved.alternate } : null;
         renderTeamPage(container, user);
-        toast("Team reverted to previous event roster.", "success");
+        toast("Team reverted to last saved roster.", "success");
       });
 
       // Save
