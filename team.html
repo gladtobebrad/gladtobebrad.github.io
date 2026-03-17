@@ -253,8 +253,8 @@
       const spent = rules.salaryCap - remaining;
       const pct = Math.min((spent / rules.salaryCap) * 100, 100);
       const overCap = remaining < 0;
-      const altCap = (currentEvent.tour || "mens") === "womens" ? 8_000_000 : 4_000_000;
-      const altCapLabel = (currentEvent.tour || "mens") === "womens" ? "$8M" : "$4M";
+      const altCap = (currentEvent.tour || "mens") === "womens" ? 5_000_000 : 4_000_000;
+      const altCapLabel = (currentEvent.tour || "mens") === "womens" ? "$5M" : "$4M";
 
       // Surfers on roster (by id)
       const onRoster = new Set(roster.map((s) => s.surferId));

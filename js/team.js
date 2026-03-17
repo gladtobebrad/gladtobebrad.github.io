@@ -4,7 +4,7 @@
 
 const TEAM_RULES = {
   mens: { rosterSize: 8, salaryCap: 50_000_000 },
-  womens: { rosterSize: 5, salaryCap: 48_000_000 }
+  womens: { rosterSize: 5, salaryCap: 31_000_000 }
 };
 
 /**
@@ -43,7 +43,7 @@ export function validateTeam(surfers, alternate, tour, surferData = {}) {
   }
 
   // Alternate threshold: $4M for men's, $8M for women's
-  const altCap = tour === "womens" ? 8_000_000 : 4_000_000;
+  const altCap = tour === "womens" ? 5_000_000 : 4_000_000;
   if (alternate?.surferId) {
     const altData = surferData[alternate.surferId];
     if (altData && (altData.value || 0) >= altCap) {
