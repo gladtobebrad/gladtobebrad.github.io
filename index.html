@@ -42,12 +42,13 @@
     });
 
     async function renderDashboard(container, user, profile) {
-      let mensEvent, womensEvent, leaderboard, events;
+      let mensEvent, womensEvent, mensLeaderboard, womensLeaderboard, events;
       try {
-        [mensEvent, womensEvent, leaderboard, events] = await Promise.all([
+        [mensEvent, womensEvent, mensLeaderboard, womensLeaderboard, events] = await Promise.all([
           getCurrentEventForTour("mens", SEASON),
           getCurrentEventForTour("womens", SEASON),
-          getLeaderboard(SEASON),
+          getLeaderboard(SEASON, "mens"),
+          getLeaderboard(SEASON, "womens"),
           getEvents(SEASON)
         ]);
       } catch (err) {
@@ -98,18 +99,26 @@
       [allMensTeams, allWomensTeams] = await Promise.all([enrichTeams(mensEvent), enrichTeams(womensEvent)]);
       allTeamsData = allMensTeams; // legacy
 
-      // Enrich leaderboard with fresh user profile data (avatar, team name)
-      for (const entry of leaderboard) {
-        const userDoc = await getUser(entry.userId);
-        if (userDoc) {
-          entry.avatarUrl = userDoc.avatarUrl || "";
-          entry.teamName = userDoc.teamName || entry.teamName || userDoc.displayName || "";
-          entry.displayName = userDoc.displayName || entry.displayName || "";
+      // Enrich and sort both leaderboards
+      const enrichLeaderboard = async (lb) => {
+        for (const entry of lb) {
+          const userDoc = await getUser(entry.userId);
+          if (userDoc) {
+            entry.avatarUrl = userDoc.avatarUrl || "";
+            entry.teamName = userDoc.teamName || entry.teamName || userDoc.displayName || "";
+            entry.displayName = userDoc.displayName || entry.displayName || "";
+          }
         }
-      }
+        lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+        return lb;
+      };
+      await Promise.all([enrichLeaderboard(mensLeaderboard), enrichLeaderboard(womensLeaderboard)]);
 
-      // Sort leaderboard by bestNineTotal
-      leaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+      // Find user's rank in each tour
+      const mensRank = mensLeaderboard.findIndex((e) => e.userId === user.uid) + 1;
+      const womensRank = womensLeaderboard.findIndex((e) => e.userId === user.uid) + 1;
+      const mensEntry = mensLeaderboard.find((e) => e.userId === user.uid);
+      const womensEntry = womensLeaderboard.find((e) => e.userId === user.uid);
 
       // Load club data — show first club's mini leaderboard on dashboard
       const userDoc = await getUser(user.uid);
@@ -119,8 +128,8 @@
       if (clubIds.length > 0) {
         club = await getClub(clubIds[0]);
         if (club) {
-          const memberLeaderboard = leaderboard.filter((e) => club.memberIds.includes(e.userId));
-          memberLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+          // Use men's leaderboard for club mini-standings (primary tour)
+          const memberLeaderboard = mensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
           clubMembers = memberLeaderboard.slice(0, 5);
         }
       }
@@ -248,30 +257,25 @@
           <div>
             <div class="card mb-3">
               <div class="card__header">
-                <span class="card__title">Season Standings</span>
+                <span class="card__title">Your Season Rank</span>
+                <a href="players.html" class="btn btn--outline btn--sm">Full Standings →</a>
               </div>
-              ${leaderboard.length > 0 ? `
+              ${(mensLeaderboard.length > 0 || womensLeaderboard.length > 0) ? `
                 <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Team</th>
-                      <th class="text-right">Best 9</th>
-                      <th class="text-right">Total</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>Tour</th><th class="text-right">Rank</th><th class="text-right">Best 9</th><th class="text-right">Total</th></tr></thead>
                   <tbody>
-                    ${leaderboard.map((entry, i) => `
-                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                        <td><span class="leaderboard-rank leaderboard-rank--${i + 1}">${i + 1}</span></td>
-                        <td class="flex gap-1" style="align-items:center">
-                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-                          ${entry.teamName || entry.displayName || "—"}
-                        </td>
-                        <td class="text-right">${entry.bestNineTotal || 0}</td>
-                        <td class="text-right text-muted">${entry.allEventsTotal || 0}</td>
-                      </tr>
-                    `).join("")}
+                    ${mensLeaderboard.length > 0 ? `<tr>
+                      <td>Men's CT</td>
+                      <td class="text-right"><strong>${mensRank > 0 ? `#${mensRank} of ${mensLeaderboard.length}` : "—"}</strong></td>
+                      <td class="text-right">${mensEntry?.bestNineTotal ?? "—"}</td>
+                      <td class="text-right text-muted">${mensEntry?.allEventsTotal ?? "—"}</td>
+                    </tr>` : ""}
+                    ${womensLeaderboard.length > 0 ? `<tr>
+                      <td>Women's CT</td>
+                      <td class="text-right"><strong>${womensRank > 0 ? `#${womensRank} of ${womensLeaderboard.length}` : "—"}</strong></td>
+                      <td class="text-right">${womensEntry?.bestNineTotal ?? "—"}</td>
+                      <td class="text-right text-muted">${womensEntry?.allEventsTotal ?? "—"}</td>
+                    </tr>` : ""}
                   </tbody>
                 </table>
               ` : `<p class="text-muted">No standings yet. Results will appear after the first event.</p>`}

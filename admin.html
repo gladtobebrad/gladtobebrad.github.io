@@ -783,60 +783,62 @@
         output.innerHTML = `<div class="loading"><div class="spinner"></div><p>Updating leaderboard...</p></div>`;
 
         try {
-          // Get all completed events with results
           const completedEvents = events.filter((e) => e.resultsEntered || e.status === "completed");
 
-          // For each user, accumulate event scores
-          const userScores = {}; // userId → { eventScores, displayName, teamName }
-
-          for (const ev of completedEvents) {
-            const [results, teams] = await Promise.all([
-              getResults(ev.id),
-              getTeamsForEvent(ev.id)
-            ]);
-            for (const team of teams) {
-              const score = scoreTeam(team, results, ev.tour || "mens");
-              if (!userScores[team.userId]) {
-                const userDoc = await getUser(team.userId);
-                userScores[team.userId] = {
-                  displayName: userDoc?.displayName || "",
-                  teamName: userDoc?.teamName || userDoc?.displayName || "",
-                  avatarUrl: userDoc?.avatarUrl || "",
-                  eventScores: {}
-                };
+          async function calcAndSaveTour(tour) {
+            const tourEvents = completedEvents.filter((e) => (e.tour || "mens") === tour);
+            const userScores = {};
+            for (const ev of tourEvents) {
+              const [results, teams] = await Promise.all([getResults(ev.id), getTeamsForEvent(ev.id)]);
+              for (const team of teams) {
+                const score = scoreTeam(team, results, tour);
+                if (!userScores[team.userId]) {
+                  const userDoc = await getUser(team.userId);
+                  userScores[team.userId] = {
+                    displayName: userDoc?.displayName || "",
+                    teamName: userDoc?.teamName || userDoc?.displayName || "",
+                    avatarUrl: userDoc?.avatarUrl || "",
+                    eventScores: {}
+                  };
+                }
+                userScores[team.userId].eventScores[ev.id] = score.totalPoints;
               }
-              userScores[team.userId].eventScores[ev.id] = score.totalPoints;
             }
+            const entries = Object.entries(userScores).map(([userId, data]) => ({ userId, ...data }));
+            const standings = calculateSeasonStandings(entries);
+            for (const entry of standings) {
+              await saveLeaderboardEntry(entry.userId, SEASON, tour, {
+                displayName: entry.displayName,
+                teamName: entry.teamName,
+                eventScores: entry.eventScores,
+                bestNineTotal: entry.bestNineTotal,
+                allEventsTotal: entry.allEventsTotal,
+                eventsPlayed: entry.eventsPlayed
+              });
+            }
+            return standings;
           }
 
-          // Calculate standings and save to leaderboard
-          const entries = Object.entries(userScores).map(([userId, data]) => ({
-            userId,
-            ...data
-          }));
-          const standings = calculateSeasonStandings(entries);
+          const [mensStandings, womensStandings] = await Promise.all([
+            calcAndSaveTour("mens"),
+            calcAndSaveTour("womens")
+          ]);
 
-          for (const entry of standings) {
-            await saveLeaderboardEntry(entry.userId, SEASON, {
-              displayName: entry.displayName,
-              teamName: entry.teamName,
-              eventScores: entry.eventScores,
-              bestNineTotal: entry.bestNineTotal,
-              allEventsTotal: entry.allEventsTotal,
-              eventsPlayed: entry.eventsPlayed
-            });
+          function standingsTable(standings) {
+            if (!standings.length) return `<p class="text-muted text-sm">No entries yet.</p>`;
+            return `<table class="data-table">
+              <thead><tr><th>#</th><th>Team</th><th>Best 9</th><th>Total</th><th>Events</th></tr></thead>
+              <tbody>${standings.map((s, i) => `
+                <tr><td>${i + 1}</td><td>${s.teamName}</td><td><strong>${s.bestNineTotal}</strong></td><td>${s.allEventsTotal}</td><td>${s.eventsPlayed}</td></tr>
+              `).join("")}</tbody>
+            </table>`;
           }
 
           output.innerHTML = `
-            <h4>Leaderboard Updated (${standings.length} players)</h4>
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Team</th><th>Best 9</th><th>Total</th><th>Events</th></tr></thead>
-              <tbody>
-                ${standings.map((s, i) => `
-                  <tr><td>${i + 1}</td><td>${s.teamName}</td><td><strong>${s.bestNineTotal}</strong></td><td>${s.allEventsTotal}</td><td>${s.eventsPlayed}</td></tr>
-                `).join("")}
-              </tbody>
-            </table>
+            <h4 style="margin-bottom:0.25rem">Men's CT (${mensStandings.length} players)</h4>
+            ${standingsTable(mensStandings)}
+            <h4 style="margin:1rem 0 0.25rem">Women's CT (${womensStandings.length} players)</h4>
+            ${standingsTable(womensStandings)}
           `;
           toast("Leaderboard updated!", "success");
         } catch (err) {

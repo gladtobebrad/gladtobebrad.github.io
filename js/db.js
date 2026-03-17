@@ -129,18 +129,19 @@ export async function lockTeamsForEvent(eventId, locked = true) {
 
 // ── Leaderboard ──────────────────────────────────────
 
-export async function getLeaderboard(season = 2026) {
+export async function getLeaderboard(season = 2026, tour = null) {
   const snap = await getDocs(collection(db, "leaderboard"));
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((e) => e.season === season);
+    .filter((e) => e.season === season && (tour === null || e.tour === tour));
 }
 
-export async function saveLeaderboardEntry(userId, season, data) {
-  const docId = `${userId}_${season}`;
+export async function saveLeaderboardEntry(userId, season, tour, data) {
+  const docId = `${userId}_${season}_${tour}`;
   await setDoc(doc(db, "leaderboard", docId), {
     userId,
     season,
+    tour,
     ...data
   }, { merge: true });
 }
