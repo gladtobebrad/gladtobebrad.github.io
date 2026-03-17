@@ -130,14 +130,34 @@
       const avatarPreview = avatarUrl
         ? `<img src="${avatarUrl}" alt="" class="avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
         : `<div class="avatar-preview avatar-preview--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
+      const avatarPreviewLg = avatarUrl
+        ? `<img src="${avatarUrl}" alt="" class="avatar-preview" style="width:110px;height:110px;font-size:2rem" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+        : `<div class="avatar-preview avatar-preview--empty" style="width:110px;height:110px;font-size:2rem">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
 
       const adsCoins = profile?.adsCoins ?? 10;
+      const clubLabel = clubIds.length > 0
+        ? (club ? club.name : "") + (clubIds.length > 1 ? ` · +${clubIds.length - 1} more` : "")
+        : "No clubs yet";
       const teamNameSection = `<div class="card mb-3">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <h4 style="margin:0">Your Profile</h4>
               <span class="ads-coin-badge">🪙 ${adsCoins} ADScoin</span>
             </div>
-            <div class="profile-edit">
+
+            <!-- Read-only view (default) -->
+            <div id="profile-view" class="profile-edit" style="margin-top:1rem">
+              <div class="profile-edit__avatar" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem">
+                ${avatarPreviewLg}
+                <button class="btn btn--outline btn--sm" id="btn-edit-profile" style="white-space:nowrap;font-size:0.75rem">Edit Profile</button>
+              </div>
+              <div class="profile-edit__fields">
+                <div style="font-weight:700;font-size:1.1rem">${profile?.teamName || user.displayName || "—"}</div>
+                <div class="text-sm text-muted" style="margin-top:0.25rem">${clubLabel}</div>
+              </div>
+            </div>
+
+            <!-- Edit form (hidden by default) -->
+            <div id="profile-edit-form" class="profile-edit" style="display:none;margin-top:1rem">
               <div class="profile-edit__avatar">
                 ${avatarPreview}
               </div>
@@ -157,7 +177,10 @@
                   </div>
                   <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
                 </div>
-                <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
+                <div style="display:flex;gap:0.5rem">
+                  <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
+                  <button class="btn btn--outline btn--sm" id="btn-cancel-profile">Cancel</button>
+                </div>
               </div>
             </div>
           </div>`;
@@ -317,6 +340,16 @@
         </div>
 
       `;
+
+      // Profile view toggle
+      document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
+        document.getElementById("profile-view").style.display = "none";
+        document.getElementById("profile-edit-form").style.display = "flex";
+      });
+      document.getElementById("btn-cancel-profile")?.addEventListener("click", () => {
+        document.getElementById("profile-edit-form").style.display = "none";
+        document.getElementById("profile-view").style.display = "flex";
+      });
 
       // File picker preview
       document.getElementById("avatar-file-input")?.addEventListener("change", (e) => {
