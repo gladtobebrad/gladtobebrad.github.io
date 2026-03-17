@@ -233,10 +233,17 @@ export async function deleteClub(clubId, memberIds) {
 
 // ── Previous team snapshot (for revert) ──────────────
 
-export async function getPreviousTeam(userId, currentEventNumber, season = 2026) {
-  // Find the event before the current one
+export async function getPreviousTeam(userId, currentEventId, tour, season = 2026) {
   const events = await getEvents(season);
-  const prevEvent = events.find((e) => e.eventNumber === currentEventNumber - 1);
-  if (!prevEvent) return null;
-  return getTeam(userId, prevEvent.id);
+  // All completed events of the same tour before the current one, most recent first
+  const currentEvent = events.find((e) => e.id === currentEventId);
+  const currentNum = currentEvent?.eventNumber ?? Infinity;
+  const candidates = events
+    .filter((e) => e.tour === tour && e.eventNumber < currentNum && e.status === "completed")
+    .sort((a, b) => b.eventNumber - a.eventNumber);
+  for (const ev of candidates) {
+    const team = await getTeam(userId, ev.id);
+    if (team?.surfers?.length) return team;
+  }
+  return null;
 }
