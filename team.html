@@ -253,6 +253,8 @@
       const spent = rules.salaryCap - remaining;
       const pct = Math.min((spent / rules.salaryCap) * 100, 100);
       const overCap = remaining < 0;
+      const altCap = (currentEvent.tour || "mens") === "womens" ? 8_000_000 : 4_000_000;
+      const altCapLabel = (currentEvent.tour || "mens") === "womens" ? "$8M" : "$4M";
 
       // Surfers on roster (by id)
       const onRoster = new Set(roster.map((s) => s.surferId));
@@ -314,7 +316,7 @@
             <div class="mt-3" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
               <div style="flex-shrink:0">
                 <span class="text-sm" style="font-weight:600">Alternate</span>
-                <span class="text-xs text-muted" style="display:block">Under $4M · excl. from cap</span>
+                <span class="text-xs text-muted" style="display:block">Under ${altCapLabel} · excl. from cap</span>
               </div>
               <div id="alternate-slot" style="flex:1;min-width:160px;min-height:52px;display:flex;align-items:center">
                 ${alternate ? (() => {
@@ -388,9 +390,9 @@
               ? `<button class="overlay-btn overlay-btn--drop" data-drop="${s.id}">− Drop</button>`
               : isUnaffordable
                 ? `<button class="overlay-btn overlay-btn--cant" disabled>Can't Afford</button>
-                   ${s.value < 4_000_000 ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
+                   ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
                 : `<button class="overlay-btn overlay-btn--add" data-add="${s.id}" data-value="${s.value}">+ Add</button>
-                   ${s.value < 4_000_000 ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
+                   ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
         );
         return `
           <div class="surfer-row available-card${rowClass}" data-bracket="${s.priceBracket || ""}"
@@ -561,8 +563,8 @@
           altSlot.classList.remove("drop-zone--over");
           try {
             const { id, value, bracket } = JSON.parse(e.dataTransfer.getData("application/json"));
-            if (parseInt(value) >= 4_000_000) {
-              toast("Alternate must be under $4M.", "error");
+            if (parseInt(value) >= altCap) {
+              toast(`Alternate must be under ${altCapLabel}.`, "error");
               return;
             }
             if (roster.some((s) => s.surferId === id)) return;
