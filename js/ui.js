@@ -6,11 +6,10 @@ const NAV_ITEMS = [
   { title: "Dashboard", href: "index.html" },
   { title: "My Profile", href: "profile.html", id: "nav-my-profile" },
   { title: "My Team", href: "team.html" },
-  { title: "Players", href: "players.html" },
+  { title: "Club", href: "club.html" }, 
   { title: "Data", href: "data.html" },
   { title: "Surfers", href: "surfers.html" },
-  { title: "Club", href: "club.html" },
-  { title: "Back to Site", href: "/" }
+  { title: "Players", href: "players.html" },
 ];
 
 /**
@@ -22,7 +21,7 @@ export function renderHeader() {
 
   header.innerHTML = `
     <div class="nav-inner">
-      <a href="index.html" class="nav-brand">Fantasy Surf League</a>
+      <a href="profile.html" class="nav-brand" id="nav-brand-link">Fantasy Surf League</a>
       <button class="nav-toggle" aria-label="Toggle menu">
         <span></span><span></span><span></span>
       </button>
@@ -49,6 +48,8 @@ export function renderHeader() {
     if (user) {
       const profileLink = document.getElementById("nav-my-profile");
       if (profileLink) profileLink.href = `profile.html?id=${user.uid}`;
+      const brandLink = document.getElementById("nav-brand-link");
+      if (brandLink) brandLink.href = `profile.html?id=${user.uid}`;
       const photoSrc = profile?.avatarUrl || user.photoURL;
       const photo = photoSrc
         ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
