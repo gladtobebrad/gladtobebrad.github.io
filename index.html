@@ -113,9 +113,11 @@
       const userDoc = await getUser(user.uid);
       const clubIds = getUserClubIds(userDoc);
       let club = null;
+      let allClubs = [];
       let clubMembers = [];
       if (clubIds.length > 0) {
-        club = await getClub(clubIds[0]);
+        allClubs = (await Promise.all(clubIds.map(id => getClub(id)))).filter(Boolean);
+        club = allClubs[0] || null;
         if (club) {
           // Use men's leaderboard for club mini-standings (primary tour)
           const memberLeaderboard = mensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
@@ -133,8 +135,8 @@
         : `<div class="avatar-preview avatar-preview--empty" style="width:110px;height:110px;font-size:2rem">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
 
       const adsCoins = profile?.adsCoins ?? 10;
-      const clubLabel = clubIds.length > 0
-        ? (club ? club.name : "") + (clubIds.length > 1 ? ` · +${clubIds.length - 1} more` : "")
+      const clubLabel = allClubs.length > 0
+        ? allClubs.map(c => `<a href="club.html?id=${c.id}" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${c.name}</a>`).join(" · ")
         : "No clubs yet";
       const teamNameSection = `<div class="card mb-3">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -166,12 +168,12 @@
                 </div>
                 <div class="form-group mb-1">
                   <label class="form-label">Profile Photo</label>
-                  <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                  <div id="avatar-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
                     <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
                       Choose File
                       <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
                     </label>
-                    <span class="text-xs text-muted" id="avatar-file-name">No file chosen</span>
+                    <span class="text-xs text-muted" id="avatar-file-name">or drag &amp; drop here</span>
                   </div>
                   <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
                 </div>
@@ -273,8 +275,8 @@
             ${club ? `
             <div class="card mb-3">
               <div class="card__header">
-                <span class="card__title">${club.name}${clubIds.length > 1 ? ` <span class="text-xs text-muted">(+${clubIds.length - 1} more)</span>` : ""}</span>
-                <a href="club.html" class="btn btn--outline btn--sm">View Club →</a>
+                <span class="card__title">${club.name}</span>
+                <a href="club.html?id=${club.id}" class="btn btn--outline btn--sm">View Club →</a>
               </div>
               ${clubMembers.length > 0 ? `
                 <table class="data-table">
@@ -344,16 +346,32 @@
         document.getElementById("profile-view").style.display = "flex";
       });
 
-      // File picker preview
-      document.getElementById("avatar-file-input")?.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+      // File picker + drag-and-drop
+      const applyFile = (file) => {
+        if (!file || !file.type.startsWith("image/")) return;
         document.getElementById("avatar-file-name").textContent = file.name;
         document.getElementById("avatar-url-input").value = "";
-        // Show local preview immediately
         const preview = document.querySelector(".profile-edit__avatar img, .profile-edit__avatar div");
         if (preview && preview.tagName === "IMG") preview.src = URL.createObjectURL(file);
-      });
+        // Assign to the file input so save handler picks it up
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        document.getElementById("avatar-file-input").files = dt.files;
+      };
+
+      document.getElementById("avatar-file-input")?.addEventListener("change", (e) => applyFile(e.target.files[0]));
+
+      const dropZone = document.getElementById("avatar-drop-zone");
+      if (dropZone) {
+        dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.style.borderColor = "var(--color-primary)"; dropZone.style.background = "rgba(0,0,0,0.03)"; });
+        dropZone.addEventListener("dragleave", () => { dropZone.style.borderColor = ""; dropZone.style.background = ""; });
+        dropZone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          dropZone.style.borderColor = "";
+          dropZone.style.background = "";
+          applyFile(e.dataTransfer.files[0]);
+        });
+      }
 
       // Profile save handler
       document.getElementById("btn-save-profile")?.addEventListener("click", async () => {
@@ -364,7 +382,7 @@
 
         const file = document.getElementById("avatar-file-input")?.files[0];
         const urlInput = document.getElementById("avatar-url-input")?.value.trim();
-        let avatarUrl = urlInput || "";
+        let avatarUrl = urlInput || profile?.avatarUrl || "";
 
         if (file) {
           t("Uploading photo…", "info");
