@@ -99,20 +99,9 @@
       [allMensTeams, allWomensTeams] = await Promise.all([enrichTeams(mensEvent), enrichTeams(womensEvent)]);
       allTeamsData = allMensTeams; // legacy
 
-      // Enrich and sort both leaderboards
-      const enrichLeaderboard = async (lb) => {
-        for (const entry of lb) {
-          const userDoc = await getUser(entry.userId);
-          if (userDoc) {
-            entry.avatarUrl = userDoc.avatarUrl || "";
-            entry.teamName = userDoc.teamName || entry.teamName || userDoc.displayName || "";
-            entry.displayName = userDoc.displayName || entry.displayName || "";
-          }
-        }
-        lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
-        return lb;
-      };
-      await Promise.all([enrichLeaderboard(mensLeaderboard), enrichLeaderboard(womensLeaderboard)]);
+      // Sort both leaderboards — trust teamName/avatarUrl already stored in leaderboard docs
+      mensLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+      womensLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
 
       // Find user's rank in each tour
       const mensRank = mensLeaderboard.findIndex((e) => e.userId === user.uid) + 1;

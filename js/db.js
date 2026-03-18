@@ -1,7 +1,8 @@
 import { db } from "./firebase-config.js";
 import {
   collection, doc, getDoc, setDoc, getDocs, updateDoc,
-  writeBatch, serverTimestamp, deleteDoc, arrayUnion, arrayRemove
+  writeBatch, serverTimestamp, deleteDoc, arrayUnion, arrayRemove,
+  query, where
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
 // ── Surfers ──────────────────────────────────────────
@@ -73,10 +74,8 @@ export async function deleteEvent(eventId) {
 // ── Results ──────────────────────────────────────────
 
 export async function getResults(eventId) {
-  const snap = await getDocs(collection(db, "results"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((r) => r.eventId === eventId);
+  const snap = await getDocs(query(collection(db, "results"), where("eventId", "==", eventId)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function saveResult(eventId, surferId, data) {
@@ -112,10 +111,8 @@ export async function saveTeam(userId, eventId, teamData) {
 }
 
 export async function getTeamsForEvent(eventId) {
-  const snap = await getDocs(collection(db, "teams"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((t) => t.eventId === eventId);
+  const snap = await getDocs(query(collection(db, "teams"), where("eventId", "==", eventId)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function lockTeamsForEvent(eventId, locked = true) {
