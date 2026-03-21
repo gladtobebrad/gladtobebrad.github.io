@@ -52,8 +52,53 @@
     .data-table td { vertical-align: middle; }
     .text-center { text-align: center; }
     .avg-cell { font-weight: 500; color: var(--color-warm-black); }
-    .year-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
     .search-wrap { margin-bottom: 1rem; }
+
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.75rem 0;
+    }
+    .section-toggle h2 { margin: 0; font-size: 1.2rem; }
+    .section-arrow {
+      font-size: 1.2rem;
+      transition: transform 0.2s;
+      color: var(--color-warm-gray);
+    }
+    .section-arrow.collapsed { transform: rotate(-90deg); }
+    .section-body.collapsed { display: none; }
+
+    .loc-btn {
+      padding: 0.3rem 0.75rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--color-charcoal);
+    }
+    .loc-btn:hover { border-color: var(--color-sage); background: var(--color-cream); }
+    .loc-btn.active {
+      background: var(--color-charcoal);
+      color: var(--color-warm-white);
+      border-color: var(--color-charcoal);
+    }
+
+    .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable:hover { color: var(--color-warm-black); }
+    .sort-arrow { font-size: 0.65rem; margin-left: 0.2rem; }
+
+    #event-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--color-warm-white);
+      z-index: 1;
+      box-shadow: 0 1px 0 var(--color-beige);
+    }
   </style>
 </head>
 <body>
@@ -67,9 +112,6 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script>
-    // If module scripts fail to parse/load (older browser, cached old file, etc.),
-    // the page would otherwise sit on the spinner forever. This failsafe makes
-    // the failure visible with next-step instructions.
     window.__dataBoot = { started: false, rendered: false };
     setTimeout(() => {
       const main = document.getElementById("app-main");
@@ -79,30 +121,22 @@
           <h1 class="page-title">Surfer Data</h1>
           <div class="card">
             <p class="text-muted">The Data page script did not start.</p>
-            <p class="text-muted">Try a hard refresh, or open <code>data.html?v=1</code>. If it still fails, check the browser Console for the first error.</p>
-          </div>
-        `;
+            <p class="text-muted">Try a hard refresh, or open <code>data.html?v=1</code>.</p>
+          </div>`;
         return;
       }
       if (!window.__dataBoot.rendered) {
         main.innerHTML = `
           <h1 class="page-title">Surfer Data</h1>
-          <div class="card">
-            <p class="text-muted">Still loading…</p>
-            <p class="text-muted">Open DevTools and check Network for <code>wsl_2024_mens.json</code> / <code>wsl_2025_mens.json</code> and Console for errors.</p>
-          </div>
-        `;
+          <div class="card"><p class="text-muted">Still loading…</p></div>`;
       }
     }, 4000);
   </script>
 
   <script type="module">
-    // Avoid top-level await so the page works on older mobile browsers.
     async function boot() {
       window.__dataBoot.started = true;
-      // This page is meant to work even if auth/firebase is unavailable (e.g. local
-      // file previews, ad-blocked CDNs, or missing network). We try to load the
-      // shared auth/nav modules, but we don't block the data UI on them.
+
       let onAuth = null;
       try {
         const auth = await import("./js/auth.js");
@@ -112,7 +146,7 @@
         ui.renderFooter();
         onAuth = auth.onAuth;
       } catch (err) {
-        console.warn("Auth/UI modules failed to load; continuing without them:", err);
+        console.warn("Auth/UI modules failed to load:", err);
         const header = document.getElementById("app-header");
         const footer = document.getElementById("app-footer");
         if (header) header.innerHTML = `<div class="nav-inner"><a href="index.html" class="nav-brand">Fantasy Surf League</a></div>`;
@@ -120,28 +154,37 @@
       }
 
       // ── Location name mapping ─────────────────────────────
-      // Keep a small exact map for known historical names, plus patterns that
-      // make the page resilient to sponsor/title changes.
       const LOCATION_MAP = {
         "Lexus Pipe Pro":                          "Pipeline",
+        "Billabong Pro Pipeline":                  "Pipeline",
         "Hurley Pro Sunset Beach":                 "Sunset Beach",
         "Surf Abu Dhabi Pro":                      "Abu Dhabi",
         "MEO Rip Curl Pro Portugal":               "Portugal",
+        "MEO Portugal Pro":                        "Portugal",
         "Surf City El Salvador Pro":               "El Salvador",
         "Rip Curl Pro Bells Beach":                "Bells Beach",
         "Bonsoy Gold Coast Pro":                   "Gold Coast",
         "Western Australia Margaret River Pro":    "Margaret River",
+        "Margaret River Pro":                      "Margaret River",
         "Lexus Trestles Pro":                      "Trestles",
         "VIVO Rio Pro":                            "Rio de Janeiro",
+        "Oi Rio Pro":                              "Rio de Janeiro",
         "Corona Open J-Bay":                       "J-Bay",
+        "Corona Cero Open J-Bay":                  "J-Bay",
         "SHISEIDO Tahiti Pro":                     "Tahiti",
+        "Outerknown Tahiti Pro":                   "Tahiti",
+        "Lexus Tahiti Pro":                        "Tahiti",
         "Tahiti Pro":                              "Tahiti",
         "Corona Fiji Pro":                         "Fiji",
         "Lexus WSL Finals":                        "WSL Finals",
+        "Rip Curl WSL Finals":                     "WSL Finals",
+        "Lexus WSL Finals Fiji":                   "WSL Finals",
+        "Surf Ranch Pro":                          "Surf Ranch",
+        "Quiksilver/ROXY Pro G-Land":              "G-Land",
       };
 
       const LOCATION_PATTERNS = [
-        { re: /\bpipe\b/i, loc: "Pipeline" },
+        { re: /\bpipe/i, loc: "Pipeline" },
         { re: /\bsunset\b/i, loc: "Sunset Beach" },
         { re: /\babu\s+dhabi\b/i, loc: "Abu Dhabi" },
         { re: /\bportugal\b/i, loc: "Portugal" },
@@ -155,6 +198,8 @@
         { re: /\btahiti\b/i, loc: "Tahiti" },
         { re: /\bfiji\b/i, loc: "Fiji" },
         { re: /\bfinals\b/i, loc: "WSL Finals" },
+        { re: /\bsurf\s+ranch\b/i, loc: "Surf Ranch" },
+        { re: /\bg-?land\b/i, loc: "G-Land" },
       ];
 
       function locationForEvent(eventName) {
@@ -167,176 +212,375 @@
         return eventName;
       }
 
-      // Canonical display order for locations
       const LOCATION_ORDER = [
         "Pipeline", "Sunset Beach", "Abu Dhabi", "Portugal",
         "El Salvador", "Bells Beach", "Gold Coast", "Margaret River",
-        "Trestles", "Rio de Janeiro", "J-Bay", "Tahiti", "Fiji", "WSL Finals",
+        "G-Land", "Surf Ranch", "Trestles", "Rio de Janeiro",
+        "J-Bay", "Tahiti", "Fiji", "WSL Finals",
       ];
 
       // ── Load data ─────────────────────────────────────────
-      let datasets = [];
-      try {
-        if (location.protocol === "file:") {
-          throw new Error("This page can’t load JSON when opened from a local file. Run a local web server (e.g. `python3 -m http.server`) and open `http://localhost:8000/data.html`.");
-        }
-        datasets = await Promise.all([
-          fetch("./data/wsl_2024_mens.json").then(r => r.json()),
-          fetch("./data/wsl_2025_mens.json").then(r => r.json()),
-        ]);
-      } catch (err) {
+      if (location.protocol === "file:") {
         document.getElementById("app-main").innerHTML =
-          `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">Failed to load data: ${err.message}</p></div>`;
+          `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">This page can't load JSON from a local file. Run a local web server.</p></div>`;
         return;
       }
 
-    // ── Build surfer index ────────────────────────────────
-    // surferIndex[name][location][year] = place (number | null)
-    const surferIndex = {};
-    const allYears = [];
+      // Fetch helper — returns [] if file doesn't exist yet
+      const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    for (const ds of datasets) {
-      const { year, events, surfers } = ds;
-      allYears.push(year);
-      for (const surfer of surfers) {
-        if (!surferIndex[surfer.name]) surferIndex[surfer.name] = {};
-        for (let i = 0; i < events.length; i++) {
-          const loc = locationForEvent(events[i]);
-          const place = surfer.places[i] ?? null;
-          if (!surferIndex[surfer.name][loc]) surferIndex[surfer.name][loc] = {};
-          surferIndex[surfer.name][loc][year] = place;
-        }
+      const [mensData, womensData] = await Promise.all([
+        Promise.all([
+          tryFetch("./data/wsl_results/wsl_2022_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2023_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2024_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2025_mens.json"),
+        ]).then(arr => arr.filter(Boolean)),
+        Promise.all([
+          tryFetch("./data/wsl_results/wsl_2022_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2023_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2024_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2025_womens.json"),
+        ]).then(arr => arr.filter(Boolean)),
+      ]);
+
+      if (mensData.length === 0 && womensData.length === 0) {
+        document.getElementById("app-main").innerHTML =
+          `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">No data files found.</p></div>`;
+        return;
       }
-    }
 
-    const sortedNames = Object.keys(surferIndex).sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+      // ── Build indices per tour ─────────────────────────────
+      function buildIndices(datasets) {
+        const surferIdx = {};
+        const locationIdx = {};
+        const years = [...new Set(datasets.map(d => d.year))].sort();
+        for (const ds of datasets) {
+          const { year, events, surfers } = ds;
+          for (const surfer of surfers) {
+            if (!surferIdx[surfer.name]) surferIdx[surfer.name] = {};
+            for (let i = 0; i < events.length; i++) {
+              const loc = locationForEvent(events[i]);
+              const place = surfer.places[i] ?? null;
+              if (!surferIdx[surfer.name][loc]) surferIdx[surfer.name][loc] = {};
+              surferIdx[surfer.name][loc][year] = place;
+              if (!locationIdx[loc]) locationIdx[loc] = {};
+              if (!locationIdx[loc][surfer.name]) locationIdx[loc][surfer.name] = {};
+              locationIdx[loc][surfer.name][year] = place;
+            }
+          }
+        }
+        const names = Object.keys(surferIdx).sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+        const locations = [
+          ...LOCATION_ORDER.filter(l => locationIdx[l]),
+          ...Object.keys(locationIdx).filter(l => !LOCATION_ORDER.includes(l)).sort(),
+        ];
+        return { surferIndex: surferIdx, locationIndex: locationIdx, allYears: years, sortedNames: names, allLocations: locations };
+      }
 
-    // ── Helpers ───────────────────────────────────────────
-    function ordinal(n) {
-      if (n === null || n === undefined) return "—";
-      const s = ["th","st","nd","rd"];
-      const v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    }
+      const tours = {};
+      if (mensData.length > 0) tours.mens = buildIndices(mensData);
+      if (womensData.length > 0) tours.womens = buildIndices(womensData);
+      const availableTours = Object.keys(tours);
 
-    function placeClass(n) {
-      if (n === null) return "place-null";
-      if (n === 1) return "place-1";
-      if (n === 2) return "place-2";
-      if (n === 3) return "place-3";
-      if (n <= 8) return "place-5";
-      if (n <= 12) return "place-9";
-      if (n <= 16) return "place-13";
-      return "place-33";
-    }
+      // ── Helpers ───────────────────────────────────────────
+      function ordinal(n) {
+        if (n === null || n === undefined) return "—";
+        const s = ["th","st","nd","rd"];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      }
 
-    function placeBadge(n) {
-      if (n === null) return `<span class="place-null text-muted">—</span>`;
-      return `<span class="place-badge ${placeClass(n)}">${ordinal(n)}</span>`;
-    }
+      function placeClass(n) {
+        if (n === null) return "place-null";
+        if (n === 1) return "place-1";
+        if (n === 2) return "place-2";
+        if (n === 3) return "place-3";
+        if (n <= 8) return "place-5";
+        if (n <= 12) return "place-9";
+        if (n <= 16) return "place-13";
+        return "place-33";
+      }
 
-    // ── Render ────────────────────────────────────────────
-    let selectedSurfer = sortedNames[0];
-    let filterText = "";
+      function placeBadge(n) {
+        if (n === null) return `<span class="place-null text-muted">—</span>`;
+        return `<span class="place-badge ${placeClass(n)}">${ordinal(n)}</span>`;
+      }
 
-    function visibleNames() {
-      const q = filterText.toLowerCase();
-      return q ? sortedNames.filter(n => n.toLowerCase().includes(q)) : sortedNames;
-    }
+      function calcStats(yearData) {
+        const vals = Object.values(yearData).filter(v => v !== null);
+        if (vals.length === 0) return { avg: null, best: null, worst: null };
+        return {
+          avg: +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1),
+          best: Math.min(...vals),
+          worst: Math.max(...vals),
+        };
+      }
 
-    function renderPage() {
-      const main = document.getElementById("app-main");
+      // ── State ─────────────────────────────────────────────
+      let selectedTour = availableTours[0];
+      let selectedSurfer = tours[selectedTour].sortedNames[0];
+      let surferFilter = "";
+      let selectedLocation = tours[selectedTour].allLocations[0];
+      let eventSortCol = "avg";
+      let eventSortAsc = true;
+      let sectionOpen = { event: true, surfer: true };
 
-      const name = selectedSurfer;
-      const locData = surferIndex[name] || {};
+      function visibleNames() {
+        const q = surferFilter.toLowerCase();
+        const names = tours[selectedTour].sortedNames;
+        return q ? names.filter(n => n.toLowerCase().includes(q)) : names;
+      }
 
-      // Build ordered list of locations this surfer has data for
-      const usedLocs = new Set(Object.keys(locData));
-      const ordered = [
-        ...LOCATION_ORDER.filter(l => usedLocs.has(l)),
-        ...[...usedLocs].filter(l => !LOCATION_ORDER.includes(l)).sort((a, b) => a.localeCompare(b)),
-      ];
+      // ── Sort arrow helper ─────────────────────────────────
+      function sortArrow(col) {
+        if (col !== eventSortCol) return "";
+        return `<span class="sort-arrow">${eventSortAsc ? "▲" : "▼"}</span>`;
+      }
 
-      // Table header — show years that have at least one result for this surfer
-      const activeYears = allYears.filter(y =>
-        ordered.some(loc => locData[loc]?.[y] !== undefined)
-      );
+      // ── Render ────────────────────────────────────────────
+      function renderPage() {
+        const main = document.getElementById("app-main");
+        const t = tours[selectedTour];
 
-      const headerCells = activeYears.map(y => `<th class="text-center">${y}</th>`).join("");
+        // Tour tabs
+        const allTourKeys = ["mens", "womens"];
+        const tourTabs = `<div class="tour-tabs mb-3">${allTourKeys.map(tour =>
+          `<button class="tour-tab ${tour === selectedTour ? "tour-tab--active" : ""}" data-tour="${tour}">${tour === "mens" ? "Men's CT" : "Women's CT"}</button>`
+        ).join("")}</div>`;
 
-      const rows = ordered.map(loc => {
-        const yearPlaces = activeYears.map(y => locData[loc]?.[y] ?? null);
-        const valid = yearPlaces.filter(p => p !== null);
-        const avg = valid.length > 0
-          ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
-          : null;
+        // No data for this tour yet
+        if (!t) {
+          main.innerHTML = `
+            <h1 class="page-title">Surfer Data</h1>
+            ${tourTabs}
+            <div class="card"><p class="text-muted">Women's CT data coming soon.</p></div>
+          `;
+          main.querySelectorAll("[data-tour]").forEach(btn => {
+            btn.addEventListener("click", () => {
+              selectedTour = btn.dataset.tour;
+              const nt = tours[selectedTour];
+              if (nt) { selectedSurfer = nt.sortedNames[0]; selectedLocation = nt.allLocations[0]; }
+              surferFilter = ""; eventSortCol = "avg"; eventSortAsc = true;
+              renderPage();
+            });
+          });
+          return;
+        }
 
-        const cells = yearPlaces.map(p => `<td class="text-center">${placeBadge(p)}</td>`).join("");
+        const { surferIndex, locationIndex, allYears, sortedNames, allLocations } = t;
 
-        return `<tr>
-          <td>${loc}</td>
-          ${cells}
-          <td class="text-center avg-cell">${avg !== null ? avg : "—"}</td>
-        </tr>`;
-      }).join("");
+        // ── Results by Event ──────────────────────────────
+        const locData = locationIndex[selectedLocation] || {};
+        const locSurfers = Object.entries(locData).map(([name, yearData]) => {
+          const stats = calcStats(yearData);
+          return { name, yearData, ...stats };
+        });
 
-      // Surfer button list
-      const names = visibleNames();
-      const btnList = names.map(n =>
-        `<button class="surfer-btn${n === selectedSurfer ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
-      ).join("");
+        // Sort
+        locSurfers.sort((a, b) => {
+          let aVal, bVal;
+          if (eventSortCol === "name") {
+            return eventSortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+          } else if (["avg", "best", "worst"].includes(eventSortCol)) {
+            aVal = a[eventSortCol];
+            bVal = b[eventSortCol];
+          } else {
+            // Year column
+            const yr = parseInt(eventSortCol);
+            aVal = a.yearData[yr] ?? null;
+            bVal = b.yearData[yr] ?? null;
+          }
+          if (aVal === null && bVal === null) return 0;
+          if (aVal === null) return 1;
+          if (bVal === null) return -1;
+          return eventSortAsc ? aVal - bVal : bVal - aVal;
+        });
 
-      main.innerHTML = `
-        <h1 class="page-title">Surfer Data</h1>
-        <div class="grid grid--sidebar">
-          <div class="card" style="align-self:start">
-            <div class="card__header"><span class="card__title">Surfers</span></div>
-            <div class="search-wrap">
-              <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${filterText}">
+        const locBtns = allLocations.map(l =>
+          `<button class="loc-btn${l === selectedLocation ? " active" : ""}" data-loc="${l}">${l}</button>`
+        ).join("");
+
+        const eventRows = locSurfers.map(s => {
+          const yearCells = allYears.map(y =>
+            `<td class="text-center">${placeBadge(s.yearData[y] ?? null)}</td>`
+          ).join("");
+          return `<tr>
+            <td>${s.name}</td>
+            <td class="text-center avg-cell">${s.avg !== null ? s.avg : "—"}</td>
+            <td class="text-center">${placeBadge(s.best)}</td>
+            <td class="text-center">${placeBadge(s.worst)}</td>
+            ${yearCells}
+          </tr>`;
+        }).join("");
+
+        // ── Results by Surfer ─────────────────────────────
+        const name = selectedSurfer;
+        const sData = surferIndex[name] || {};
+        const usedLocs = new Set(Object.keys(sData));
+        const orderedLocs = [
+          ...LOCATION_ORDER.filter(l => usedLocs.has(l)),
+          ...[...usedLocs].filter(l => !LOCATION_ORDER.includes(l)).sort(),
+        ];
+        const activeYears = allYears.filter(y =>
+          orderedLocs.some(loc => sData[loc]?.[y] !== undefined)
+        );
+
+        const surferRows = orderedLocs.map(loc => {
+          const yearPlaces = activeYears.map(y => sData[loc]?.[y] ?? null);
+          const valid = yearPlaces.filter(p => p !== null);
+          const avg = valid.length > 0
+            ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
+            : null;
+          const cells = yearPlaces.map(p => `<td class="text-center">${placeBadge(p)}</td>`).join("");
+          return `<tr>
+            <td>${loc}</td>
+            ${cells}
+            <td class="text-center avg-cell">${avg !== null ? avg : "—"}</td>
+          </tr>`;
+        }).join("");
+
+        const names = visibleNames();
+        const btnList = names.map(n =>
+          `<button class="surfer-btn${n === selectedSurfer ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
+        ).join("");
+
+        main.innerHTML = `
+          <h1 class="page-title">Surfer Data</h1>
+          ${tourTabs}
+
+          <!-- RESULTS BY EVENT -->
+          <div class="card mb-3">
+            <div class="section-toggle" data-section="event">
+              <h2>Results per Location</h2>
+              <span class="section-arrow ${sectionOpen.event ? "" : "collapsed"}">▼</span>
             </div>
-            <div class="surfer-grid" id="surfer-list">${btnList}</div>
-          </div>
-          <div>
-            <div class="card">
-              <div class="card__header">
-                <span class="card__title">${name}</span>
-                <span class="text-sm text-muted">Place by location</span>
-              </div>
-              ${rows.length > 0 ? `
-              <table class="data-table">
+            <div class="section-body ${sectionOpen.event ? "" : "collapsed"}" id="section-event">
+              <div class="surfer-grid" style="margin-bottom:1rem">${locBtns}</div>
+              ${eventRows.length > 0 ? `
+              <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+              <table class="data-table" id="event-table" style="margin:0">
                 <thead>
                   <tr>
-                    <th>Location</th>
-                    ${headerCells}
-                    <th class="text-center">Avg</th>
+                    <th class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
+                    <th class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
+                    <th class="sortable text-center" data-sort="best">Best ${sortArrow("best")}</th>
+                    <th class="sortable text-center" data-sort="worst">Worst ${sortArrow("worst")}</th>
+                    ${allYears.map(y => `<th class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
                   </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${eventRows}</tbody>
               </table>
-              ` : `<p class="text-muted">No data available.</p>`}
+              </div>
+              ` : `<p class="text-muted">No data for this location.</p>`}
             </div>
           </div>
-        </div>
-      `;
 
-      // Events
-      document.getElementById("surfer-search").addEventListener("input", e => {
-        filterText = e.target.value;
-        renderPage();
-        const searchEl = document.getElementById("surfer-search");
-        searchEl.focus();
-        searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
-      });
+          <!-- RESULTS BY SURFER -->
+          <div class="card mb-3">
+            <div class="section-toggle" data-section="surfer">
+              <h2>Results by Surfer</h2>
+              <span class="section-arrow ${sectionOpen.surfer ? "" : "collapsed"}">▼</span>
+            </div>
+            <div class="section-body ${sectionOpen.surfer ? "" : "collapsed"}" id="section-surfer">
+              <div class="grid grid--sidebar">
+                <div style="align-self:start">
+                  <div class="search-wrap">
+                    <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${surferFilter}">
+                  </div>
+                  <div class="surfer-grid" id="surfer-list">${btnList}</div>
+                </div>
+                <div>
+                  <div class="card__header" style="margin-bottom:0.5rem">
+                    <span class="card__title">${name}</span>
+                    <span class="text-sm text-muted">Place by location</span>
+                  </div>
+                  ${surferRows.length > 0 ? `
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Location</th>
+                        ${activeYears.map(y => `<th class="text-center">${y}</th>`).join("")}
+                        <th class="text-center">Avg</th>
+                      </tr>
+                    </thead>
+                    <tbody>${surferRows}</tbody>
+                  </table>
+                  ` : `<p class="text-muted">No data available.</p>`}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
 
-      document.getElementById("surfer-list").addEventListener("click", e => {
-        const btn = e.target.closest(".surfer-btn");
-        if (!btn) return;
-        selectedSurfer = btn.dataset.name;
-        renderPage();
-      });
-    }
+        // ── Event listeners ─────────────────────────────────
+        // Tour tabs
+        main.querySelectorAll("[data-tour]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            selectedTour = btn.dataset.tour;
+            const nt = tours[selectedTour];
+            if (nt) {
+              selectedSurfer = nt.sortedNames[0];
+              selectedLocation = nt.allLocations[0];
+            }
+            surferFilter = "";
+            eventSortCol = "avg";
+            eventSortAsc = true;
+            renderPage();
+          });
+        });
 
-      // Render immediately; auth only affects header UI.
+        // Section toggles
+        main.querySelectorAll(".section-toggle").forEach(el => {
+          el.addEventListener("click", () => {
+            const key = el.dataset.section;
+            sectionOpen[key] = !sectionOpen[key];
+            renderPage();
+          });
+        });
+
+        // Location buttons
+        main.querySelectorAll(".loc-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            selectedLocation = btn.dataset.loc;
+            eventSortCol = "avg";
+            eventSortAsc = true;
+            renderPage();
+          });
+        });
+
+        // Sortable headers
+        main.querySelectorAll(".sortable").forEach(th => {
+          th.addEventListener("click", () => {
+            const col = th.dataset.sort;
+            if (eventSortCol === col) {
+              eventSortAsc = !eventSortAsc;
+            } else {
+              eventSortCol = col;
+              eventSortAsc = true;
+            }
+            renderPage();
+          });
+        });
+
+        // Surfer search
+        document.getElementById("surfer-search")?.addEventListener("input", e => {
+          surferFilter = e.target.value;
+          renderPage();
+          const searchEl = document.getElementById("surfer-search");
+          searchEl.focus();
+          searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
+        });
+
+        // Surfer buttons
+        document.getElementById("surfer-list")?.addEventListener("click", e => {
+          const btn = e.target.closest(".surfer-btn");
+          if (!btn) return;
+          selectedSurfer = btn.dataset.name;
+          renderPage();
+        });
+      }
+
       renderPage();
       window.__dataBoot.rendered = true;
       onAuth?.(() => renderPage());
