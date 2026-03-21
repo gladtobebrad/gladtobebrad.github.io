@@ -664,7 +664,7 @@
 
         const eventTour = ev?.tour || "mens";
         const eventSurfers = surfers
-          .filter((s) => (s.tour || "mens") === eventTour)
+          .filter((s) => (s.tour || "mens") === eventTour && s.active !== false)
           .sort((a, b) => (a.rank || 99) - (b.rank || 99));
         const maxPos = (eventTour === "womens" ? WOMEN_SCORING : MEN_SCORING).length - 1;
 
