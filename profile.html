@@ -90,10 +90,13 @@
           getCurrentEventForTour("mens", SEASON),
           getCurrentEventForTour("womens", SEASON)
         ]);
-        const [mensCurrentTeam, womensCurrentTeam] = await Promise.all([
-          mensEvent ? getTeam(userId, mensEvent.id) : Promise.resolve(null),
-          womensEvent ? getTeam(userId, womensEvent.id) : Promise.resolve(null),
-        ]);
+        const isOwn = currentUser?.uid === userId;
+        const mensCurrentTeam = mensEvent && (isOwn || mensEvent.tradingOpen === false)
+          ? await getTeam(userId, mensEvent.id) : null;
+        const womensCurrentTeam = womensEvent && (isOwn || womensEvent.tradingOpen === false)
+          ? await getTeam(userId, womensEvent.id) : null;
+        const mensLocked = !mensEvent || mensEvent.tradingOpen === false;
+        const womensLocked = !womensEvent || womensEvent.tradingOpen === false;
 
         // Load all events — team + score per event, split by tour
         const mensEvents = events.filter((e) => (e.tour || "mens") === "mens");
@@ -295,7 +298,9 @@
                     <span class="card__title">Current Roster</span>
                     <span class="text-sm text-muted">${mensEvent.name}</span>
                   </div>
-                  ${renderStrip(mensCurrentTeam, null, true, "mens")}
+                  ${!isOwn && !mensLocked
+                    ? `<p class="text-sm text-muted" style="padding:0.5rem 0">Roster hidden until trading closes.</p>`
+                    : renderStrip(mensCurrentTeam, null, true, "mens")}
                 </div>
               ` : ""}
               ${mensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
@@ -311,7 +316,9 @@
                     <span class="card__title">Current Roster</span>
                     <span class="text-sm text-muted">${womensEvent.name}</span>
                   </div>
-                  ${renderStrip(womensCurrentTeam, null, true, "womens")}
+                  ${!isOwn && !womensLocked
+                    ? `<p class="text-sm text-muted" style="padding:0.5rem 0">Roster hidden until trading closes.</p>`
+                    : renderStrip(womensCurrentTeam, null, true, "womens")}
                 </div>
               ` : ""}
               ${womensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
