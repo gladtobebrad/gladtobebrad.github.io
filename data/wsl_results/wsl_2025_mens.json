@@ -1,0 +1,579 @@
+{
+  "year": 2025,
+  "tour": "mens",
+  "events": [
+    "Lexus Pipe Pro",
+    "Surf Abu Dhabi Pro",
+    "MEO Rip Curl Pro Portugal",
+    "Surf City El Salvador Pro",
+    "Rip Curl Pro Bells Beach",
+    "Bonsoy Gold Coast Pro",
+    "Western Australia Margaret River Pro",
+    "Lexus Trestles Pro",
+    "VIVO Rio Pro",
+    "Corona Open J-Bay",
+    "Tahiti Pro"
+  ],
+  "surfers": [
+    {
+      "name": "Yago Dora",
+      "places": [
+        33,
+        5,
+        1,
+        5,
+        9,
+        5,
+        13,
+        1,
+        5,
+        2,
+        9
+      ]
+    },
+    {
+      "name": "Griffin Colapinto",
+      "places": [
+        13,
+        9,
+        13,
+        13,
+        3,
+        13,
+        2,
+        3,
+        2,
+        3,
+        2
+      ]
+    },
+    {
+      "name": "Jordy Smith",
+      "places": [
+        13,
+        9,
+        9,
+        1,
+        5,
+        5,
+        1,
+        9,
+        5,
+        9,
+        9
+      ]
+    },
+    {
+      "name": "Italo Ferreira",
+      "places": [
+        3,
+        1,
+        2,
+        5,
+        13,
+        13,
+        13,
+        9,
+        5,
+        9,
+        5
+      ]
+    },
+    {
+      "name": "Jack Robinson",
+      "places": [
+        13,
+        3,
+        5,
+        13,
+        1,
+        33,
+        13,
+        3,
+        9,
+        9,
+        1
+      ]
+    },
+    {
+      "name": "Ethan Ewing",
+      "places": [
+        9,
+        3,
+        3,
+        5,
+        5,
+        13,
+        13,
+        5,
+        3,
+        5,
+        5
+      ]
+    },
+    {
+      "name": "Kanoa Igarashi",
+      "places": [
+        9,
+        5,
+        9,
+        13,
+        2,
+        3,
+        9,
+        2,
+        9,
+        5,
+        13
+      ]
+    },
+    {
+      "name": "Filipe Toledo",
+      "places": [
+        9,
+        9,
+        5,
+        13,
+        9,
+        1,
+        13,
+        9,
+        9,
+        3,
+        13
+      ]
+    },
+    {
+      "name": "Leonardo Fioravanti",
+      "places": [
+        2,
+        13,
+        9,
+        9,
+        9,
+        13,
+        5,
+        9,
+        9,
+        5,
+        9
+      ]
+    },
+    {
+      "name": "Cole Houshmand",
+      "places": [
+        13,
+        13,
+        9,
+        3,
+        13,
+        13,
+        13,
+        5,
+        1,
+        9,
+        5
+      ]
+    },
+    {
+      "name": "Barron Mamiya",
+      "places": [
+        1,
+        13,
+        3,
+        13,
+        13,
+        9,
+        3,
+        9,
+        13,
+        9,
+        13
+      ]
+    },
+    {
+      "name": "Connor O'Leary",
+      "places": [
+        13,
+        9,
+        13,
+        9,
+        9,
+        13,
+        5,
+        5,
+        13,
+        1,
+        13
+      ]
+    },
+    {
+      "name": "Miguel Pupo",
+      "places": [
+        5,
+        5,
+        13,
+        5,
+        13,
+        5,
+        9,
+        13,
+        3,
+        13,
+        13
+      ]
+    },
+    {
+      "name": "Jake Marshall",
+      "places": [
+        5,
+        13,
+        13,
+        13,
+        5,
+        9,
+        9,
+        9,
+        5,
+        9,
+        9
+      ]
+    },
+    {
+      "name": "Crosby Colapinto",
+      "places": [
+        33,
+        33,
+        13,
+        3,
+        13,
+        13,
+        3,
+        9,
+        9,
+        9,
+        3
+      ]
+    },
+    {
+      "name": "Marco Mignot",
+      "places": [
+        13,
+        33,
+        5,
+        9,
+        13,
+        9,
+        9,
+        13,
+        13,
+        5,
+        9
+      ]
+    },
+    {
+      "name": "Joao Chianca",
+      "places": [
+        9,
+        13,
+        33,
+        9,
+        13,
+        9,
+        9,
+        9,
+        13,
+        9,
+        9
+      ]
+    },
+    {
+      "name": "Joel Vaughan",
+      "places": [
+        9,
+        9,
+        9,
+        13,
+        9,
+        33,
+        13,
+        5,
+        9,
+        13,
+        13
+      ]
+    },
+    {
+      "name": "Alan Cleland",
+      "places": [
+        9,
+        33,
+        13,
+        9,
+        13,
+        9,
+        9,
+        13,
+        9,
+        13,
+        9
+      ]
+    },
+    {
+      "name": "Rio Waida",
+      "places": [
+        13,
+        2,
+        5,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        13,
+        9
+      ]
+    },
+    {
+      "name": "Seth Moniz",
+      "places": [
+        9,
+        33,
+        9,
+        13,
+        9,
+        9,
+        33,
+        13,
+        9,
+        13,
+        13
+      ]
+    },
+    {
+      "name": "Alejo Muniz",
+      "places": [
+        13,
+        13,
+        13,
+        9,
+        13,
+        3,
+        33,
+        13,
+        13,
+        13,
+        33
+      ]
+    },
+    {
+      "name": "Matthew McGillivray",
+      "places": [
+        13,
+        13,
+        13,
+        2,
+        13,
+        33,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Liam O'Brien",
+      "places": [
+        13,
+        9,
+        9,
+        33,
+        13,
+        9,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Jackson Bunch",
+      "places": [
+        13,
+        5,
+        13,
+        13,
+        13,
+        13,
+        9,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "George Pittar",
+      "places": [
+        5,
+        13,
+        33,
+        9,
+        13,
+        13,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Ian Gouveia",
+      "places": [
+        3,
+        13,
+        33,
+        13,
+        33,
+        13,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Samuel Pupo",
+      "places": [
+        33,
+        13,
+        13,
+        13,
+        5,
+        13,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Imaikalani deVault",
+      "places": [
+        33,
+        33,
+        9,
+        33,
+        13,
+        13,
+        5,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Deivid Silva",
+      "places": [
+        13,
+        9,
+        13,
+        13,
+        33,
+        9,
+        33,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Ian Gentil",
+      "places": [
+        13,
+        13,
+        13,
+        33,
+        9,
+        13,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Ramzi Boukhiam",
+      "places": [
+        13,
+        13,
+        13,
+        9,
+        33,
+        33,
+        33,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Edgard Groggia",
+      "places": [
+        13,
+        13,
+        13,
+        33,
+        33,
+        13,
+        13,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Ryan Callinan",
+      "places": [
+        13,
+        13,
+        33,
+        13,
+        13,
+        33,
+        33,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "name": "Gabriel Medina",
+      "places": [
+        33,
+        33,
+        33,
+        33,
+        33,
+        33,
+        33,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  ]
+}
