@@ -124,6 +124,43 @@ export async function lockTeamsForEvent(eventId, locked = true) {
   await batch.commit();
 }
 
+// For every registered user who has no team for eventId, copy their most recent
+// previous team for the same tour. Called automatically when trading is locked.
+export async function carryForwardTeams(eventId, season = 2026) {
+  const [allUsers, existingTeams, events] = await Promise.all([
+    getAllUsers(),
+    getTeamsForEvent(eventId),
+    getEvents(season),
+  ]);
+  const currentEvent = events.find((e) => e.id === eventId);
+  if (!currentEvent) return 0;
+  const tour = currentEvent.tour || "mens";
+  const currentNum = currentEvent.eventNumber ?? Infinity;
+  const prevEvents = events
+    .filter((e) => (e.tour || "mens") === tour && e.eventNumber < currentNum && e.status === "completed")
+    .sort((a, b) => b.eventNumber - a.eventNumber);
+
+  const submittedUserIds = new Set(existingTeams.map((t) => t.userId));
+  let carried = 0;
+  for (const user of allUsers) {
+    if (submittedUserIds.has(user.id)) continue;
+    // Find most recent team for this user on this tour
+    let prevTeam = null;
+    for (const ev of prevEvents) {
+      const t = await getTeam(user.id, ev.id);
+      if (t?.surfers?.length) { prevTeam = t; break; }
+    }
+    if (!prevTeam) continue;
+    await saveTeam(user.id, eventId, {
+      surfers: prevTeam.surfers,
+      alternate: prevTeam.alternate || null,
+      carriedForward: true,
+    });
+    carried++;
+  }
+  return carried;
+}
+
 // ── Leaderboard ──────────────────────────────────────
 
 export async function getLeaderboard(season = 2026, tour = null) {
