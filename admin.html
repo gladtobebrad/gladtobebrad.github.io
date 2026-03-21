@@ -25,7 +25,7 @@
       getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
-      getTeamsForEvent, lockTeamsForEvent,
+      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams,
       saveLeaderboardEntry, clearLeaderboard, getLeaderboard, getUser, getAllUsers,
       getAllClubs, deleteClub
     } from "./js/db.js";
@@ -784,20 +784,20 @@
           async function calcAndSaveTour(tour) {
             await clearLeaderboard(SEASON, tour); // wipe stale entries first
             const tourEvents = completedEvents.filter((e) => (e.tour || "mens") === tour);
+            // Seed all registered users so everyone appears in standings (0 for missed events)
             const userScores = {};
+            for (const u of users) {
+              userScores[u.id] = {
+                displayName: u.displayName || "",
+                teamName: u.teamName || u.displayName || "",
+                avatarUrl: u.avatarUrl || "",
+                eventScores: {}
+              };
+            }
             for (const ev of tourEvents) {
               const [results, teams] = await Promise.all([getResults(ev.id), getTeamsForEvent(ev.id)]);
               for (const team of teams) {
                 const score = scoreTeam(team, results, tour);
-                if (!userScores[team.userId]) {
-                  const userDoc = await getUser(team.userId);
-                  userScores[team.userId] = {
-                    displayName: userDoc?.displayName || "",
-                    teamName: userDoc?.teamName || userDoc?.displayName || "",
-                    avatarUrl: userDoc?.avatarUrl || "",
-                    eventScores: {}
-                  };
-                }
                 userScores[team.userId].eventScores[ev.id] = score.totalPoints;
               }
             }
@@ -850,8 +850,9 @@
         if (!eventId) { toast("Select an event.", "error"); return; }
         try {
           await saveEvent(eventId, { tradingOpen: false, status: "live" });
+          const carried = await carryForwardTeams(eventId, SEASON);
           await lockTeamsForEvent(eventId, true);
-          toast("Trading locked. All teams frozen.", "success");
+          toast(`Trading locked. All teams frozen.${carried > 0 ? ` ${carried} roster(s) carried forward from last event.` : ""}`, "success");
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) { toast("Error: " + err.message, "error"); }
