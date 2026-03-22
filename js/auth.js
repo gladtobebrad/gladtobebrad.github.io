@@ -1,7 +1,6 @@
 import { auth, db } from "./firebase-config.js";
 import {
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut as firebaseSignOut
@@ -18,12 +17,14 @@ let currentUserProfile = null;
 let authResolved = false;
 const authCallbacks = [];
 
-// Sign in with Google (redirect — more reliable across browsers/domains)
+// Sign in with Google popup
 export async function signIn() {
   try {
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (err) {
-    console.error("Sign-in error:", err);
+    if (err.code !== "auth/popup-closed-by-user") {
+      console.error("Sign-in error:", err);
+    }
   }
 }
 
@@ -77,11 +78,6 @@ async function ensureUserProfile(user) {
 
 // Initialize auth listener — call once on page load
 export function initAuth() {
-  // Handle redirect result from signInWithRedirect
-  getRedirectResult(auth).catch((err) => {
-    console.error("Redirect sign-in error:", err);
-  });
-
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
