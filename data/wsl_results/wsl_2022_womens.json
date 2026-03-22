@@ -1,0 +1,38 @@
+{
+  "year": 2022,
+  "tour": "womens",
+  "events": [
+    "Billabong Pro Pipeline",
+    "Hurley Pro Sunset Beach",
+    "MEO Portugal Pro",
+    "Rip Curl Pro Bells Beach",
+    "Margaret River Pro",
+    "Quiksilver/ROXY Pro G-Land",
+    "Surf City El Salvador Pro",
+    "Oi Rio Pro",
+    "Corona Open J-Bay",
+    "Outerknown Tahiti Pro"
+  ],
+  "surfers": [
+    { "name": "Stephanie Gilmore", "places": ["INJ", 9, 3, 5, 5, 5, 1, 9, 3, 5] },
+    { "name": "Carissa Moore", "places": [2, 9, 3, 2, 9, 2, 5, 1, 3, 5] },
+    { "name": "Johanne Defay", "places": [5, 5, 5, 5, 5, 1, 3, 2, 5, 9] },
+    { "name": "Tatiana Weston-Webb", "places": [9, 9, 1, 9, 9, 3, 9, 3, 1, 3] },
+    { "name": "Brisa Hennessy", "places": [5, 1, 9, 3, 5, 5, 9, 9, 5, 2] },
+    { "name": "Lakey Peterson", "places": [3, 9, 2, 9, 9, 5, 2, 5, 9, 5] },
+    { "name": "Courtney Conlogue", "places": [17, 9, 5, 3, 3, 9, 5, 9, 9, 1] },
+    { "name": "Tyler Wright", "places": [3, 9, 5, 1, 9, 9, "INJ", "INJ", 2, 9] },
+    { "name": "Gabriela Bryan", "places": [9, 3, 9, 9, 2, 9, 9, 3, 5, 9] },
+    { "name": "Isabella Nichols", "places": [5, 9, 9, 9, 1, 9, 5, 5, 9, 9] },
+    { "name": "Caroline Marks", "places": [17, "INJ", "INJ", "INJ", "INJ", 9, 3, 5, 5, 5] },
+    { "name": "Sally Fitzgibbons", "places": [9, 9, 9, 5, 9] },
+    { "name": "Malia Manuel", "places": [5, 2, 9, 9, 9] },
+    { "name": "India Robinson", "places": [9, 5, 5, 9, 9] },
+    { "name": "Molly Picklum", "places": [9, 5, 9, 17, 5] },
+    { "name": "Bronte Macaulay", "places": [null, 17, 9, 5, 3] },
+    { "name": "Luana Silva", "places": [9, 5, 9, 9, 9] },
+    { "name": "Moana Jones Wong", "places": [1, 17] },
+    { "name": "Bettylou Sakura Johnson", "places": [9, 3, 17, 17, 17] },
+    { "name": "Alyssa Spencer", "places": [null, null, null, 9, null] }
+  ]
+}

@@ -136,7 +136,7 @@
     },
     {
       "name": "Kelly Slater",
-      "places": [13, 13, null, 13, 13, null, null, null, null, null]
+      "places": [13, 13, "INJ", 13, 13, null, null, null, null, null]
     },
     {
       "name": "Eli Hanneman",
@@ -148,11 +148,11 @@
     },
     {
       "name": "Joao Chianca",
-      "places": [33, 33, 33, 33, 33, null, null, null, null, null]
+      "places": ["INJ", "INJ", "INJ", "INJ", "INJ", null, null, null, null, null]
     },
     {
       "name": "Filipe Toledo",
-      "places": [33, null, null, null, null, null, null, null, null, null]
+      "places": ["INJ", null, null, null, null, null, null, null, null, null]
     }
   ]
 }
