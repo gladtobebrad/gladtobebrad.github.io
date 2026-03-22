@@ -26,7 +26,8 @@
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams,
-      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion, getUser, getAllUsers,
+      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
+      savePlayerDirectory, getUser, getAllUsers,
       getAllClubs, deleteClub
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
@@ -352,6 +353,7 @@
           <div class="card">
             <div class="card__header">
               <span class="card__title">Registered Players (${users.length})</span>
+              <button class="btn btn--sm btn--outline" id="btn-refresh-directory">Refresh Player Directory</button>
             </div>
             ${users.length > 0 ? `
               <table class="data-table">
@@ -943,6 +945,20 @@
           output.innerHTML = `<p class="text-muted">Error: ${err.message}</p>`;
           toast("Seed failed: " + err.message, "error");
         }
+      });
+
+      // ── REFRESH PLAYER DIRECTORY ──
+      document.getElementById("btn-refresh-directory")?.addEventListener("click", async () => {
+        try {
+          const snapshot = users.map(u => ({
+            id: u.id,
+            displayName: u.displayName || "Anonymous",
+            teamName: u.teamName || "",
+            avatarUrl: u.avatarUrl || u.photoUrl || ""
+          }));
+          await savePlayerDirectory(snapshot);
+          toast(`Player directory updated (${snapshot.length} players).`, "success");
+        } catch (err) { toast("Error: " + err.message, "error"); }
       });
 
       document.getElementById("btn-seed-events")?.addEventListener("click", async () => {

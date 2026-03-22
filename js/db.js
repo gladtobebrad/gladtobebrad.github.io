@@ -231,6 +231,24 @@ export async function clearLeaderboard(season, tour) {
   await batch.commit();
 }
 
+// ── Player Directory (meta/players snapshot) ─────────
+
+export async function savePlayerDirectory(players) {
+  await setDoc(doc(db, "meta", "players"), { players, updatedAt: Date.now() });
+  try { sessionStorage.removeItem("player_directory"); } catch {}
+}
+
+export async function getPlayerDirectory() {
+  try {
+    const cached = sessionStorage.getItem("player_directory");
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  const snap = await getDoc(doc(db, "meta", "players"));
+  const players = snap.exists() ? (snap.data().players || []) : [];
+  try { sessionStorage.setItem("player_directory", JSON.stringify(players)); } catch {}
+  return players;
+}
+
 // ── Users ────────────────────────────────────────────
 
 export async function getUser(userId) {
