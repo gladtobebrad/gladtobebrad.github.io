@@ -163,16 +163,11 @@ export async function carryForwardTeams(eventId, season = 2026) {
 
 // ── Leaderboard ──────────────────────────────────────
 
-const LB_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
 export async function getLeaderboard(season = 2026, tour = null) {
   const cacheKey = `lb_${season}_${tour}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      const { data, ts } = JSON.parse(cached);
-      if (Date.now() - ts < LB_CACHE_TTL) return data;
-    }
+    if (cached) return JSON.parse(cached);
   } catch {}
 
   const constraints = [where("season", "==", season)];
@@ -180,7 +175,7 @@ export async function getLeaderboard(season = 2026, tour = null) {
   const snap = await getDocs(query(collection(db, "leaderboard"), ...constraints));
   const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  try { sessionStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
+  try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
   return data;
 }
 
@@ -193,6 +188,7 @@ export async function saveLeaderboardEntry(userId, season, tour, data) {
     ...data
   });
   try { sessionStorage.removeItem(`lb_${season}_${tour}`); } catch {}
+
 }
 
 export async function clearLeaderboard(season, tour) {
