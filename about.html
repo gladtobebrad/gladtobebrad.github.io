@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Fantasy Surf League</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/fantasy.css">
+  <style>
+    .about-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--color-beige);
+      margin-bottom: 2rem;
+    }
+    .about-tab {
+      padding: 0.65rem 1.4rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--color-sage);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s;
+    }
+    .about-tab.active {
+      color: var(--color-charcoal);
+      border-bottom-color: var(--color-charcoal);
+      font-weight: 600;
+    }
+    .about-tab:hover:not(.active) { color: var(--color-charcoal); }
+    .about-panel { display: none; }
+    .about-panel.active { display: block; }
+    .about-panel h2 {
+      font-family: 'Lora', serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--color-charcoal);
+      margin: 2rem 0 0.5rem;
+    }
+    .about-panel h2:first-child { margin-top: 0; }
+    .about-panel p {
+      color: var(--color-charcoal);
+      line-height: 1.7;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+    .about-panel ul {
+      margin: 0 0 1rem 1.25rem;
+      padding: 0;
+      line-height: 1.7;
+      font-size: 0.95rem;
+      color: var(--color-charcoal);
+    }
+    .about-panel li { margin-bottom: 0.35rem; }
+    .scoring-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 0.25rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .scoring-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0.6rem;
+      background: var(--color-off-white, #f8f7f4);
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .scoring-row .finish { color: var(--color-sage); font-weight: 500; }
+    .scoring-row .pts { font-weight: 600; color: var(--color-charcoal); }
+    .rule-note {
+      background: var(--color-beige, #ede8df);
+      border-left: 3px solid var(--color-sage);
+      padding: 0.75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+      color: var(--color-charcoal);
+      line-height: 1.6;
+    }
+    .faq-q {
+      font-weight: 600;
+      color: var(--color-charcoal);
+      margin: 1.75rem 0 0.35rem;
+      font-size: 0.95rem;
+    }
+    .faq-q:first-of-type { margin-top: 0; }
+    .faq-a {
+      color: var(--color-charcoal);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-bottom: 0;
+    }
+    .divider { border: none; border-top: 1px solid var(--color-beige); margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+
+  <main class="app-main" id="app-main">
+    <h1 class="page-title">About Fantasy Surf League</h1>
+    <p class="text-muted mb-3" style="max-width:640px">Fantasy Surf League is a free-to-play fantasy game built around the WSL Championship Tour. Draft a roster of professional surfers, manage your salary cap, and compete against friends across the full season.</p>
+
+    <div class="about-tabs">
+      <button class="about-tab active" data-panel="how-to-play">How to Play</button>
+      <button class="about-tab" data-panel="faq">FAQ</button>
+      <button class="about-tab" data-panel="rules">Rules</button>
+    </div>
+
+    <!-- HOW TO PLAY -->
+    <div class="about-panel active" id="panel-how-to-play">
+      <div class="card" style="max-width:800px">
+
+        <h2>Object</h2>
+        <p>Build a team of professional surfers that accumulates the highest combined points across the 2026 WSL Championship Tour season. Standings are determined by your best nine event scores. The team with the highest best-nine total at season's end wins.</p>
+
+        <h2>Picking Your Team</h2>
+        <p>Each team manager drafts surfers from the WSL CT roster subject to a salary cap. Surfer values are set before the season and may be updated between events based on performance.</p>
+        <ul>
+          <li><strong>Men's CT:</strong> 8 surfers + 1 alternate · $50,000,000 salary cap</li>
+          <li><strong>Women's CT:</strong> 5 surfers + 1 alternate · $35,000,000 salary cap</li>
+        </ul>
+        <p>The cost of a surfer against your cap is locked at the price you paid when you added them. If you drop a surfer and re-add them later, you pay their current market value, which may have changed. After making your selections, click <strong>Save</strong> to lock in your roster.</p>
+
+        <h2>The Alternate Slot</h2>
+        <p>In addition to your main roster, each team carries one alternate. If a rostered surfer does not compete in an event due to injury or withdrawal, your alternate automatically substitutes in for scoring purposes.</p>
+        <ul>
+          <li><strong>Men's CT:</strong> alternate must be valued under $4,000,000</li>
+          <li><strong>Women's CT:</strong> alternate must be valued under $5,000,000</li>
+        </ul>
+        <p>The alternate slot does not carry over between events — you must re-select your alternate before each event. Only the first non-competing rostered surfer is replaced; if multiple surfers miss an event, the alternate covers one slot only.</p>
+
+        <h2>Making Trades</h2>
+        <p>Trading is open between events. You may make as many changes as you like provided your roster remains within the salary cap at the time each surfer is added. Once you are satisfied with your team, click <strong>Save</strong> to confirm.</p>
+
+        <div class="rule-note">
+          Trading closes at the start of the first heat of each event and reopens once that event concludes. No changes can be made while an event is live.
+        </div>
+
+        <h2>The Revert Button</h2>
+        <p>After the first event of each tour, a <strong>Revert</strong> button is available on your team page. This restores your roster to the exact lineup you carried into the most recently completed event on that tour — useful if you accidentally drop a surfer or want to undo changes. After reverting, you must still click <strong>Save</strong> to confirm.</p>
+
+        <h2>Point Scoring</h2>
+        <p>Points are awarded based on each surfer's official finishing position in the WSL CT event. Your team score for an event is the sum of points earned by all rostered surfers (plus any alternate substitution).</p>
+
+        <p><strong>Men's CT — Finish → Points (36 competitors)</strong></p>
+        <div class="scoring-grid">
+          <div class="scoring-row"><span class="finish">1st</span><span class="pts">200</span></div>
+          <div class="scoring-row"><span class="finish">2nd</span><span class="pts">145</span></div>
+          <div class="scoring-row"><span class="finish">3rd</span><span class="pts">125</span></div>
+          <div class="scoring-row"><span class="finish">4th</span><span class="pts">124</span></div>
+          <div class="scoring-row"><span class="finish">5th</span><span class="pts">103</span></div>
+          <div class="scoring-row"><span class="finish">6th</span><span class="pts">102</span></div>
+          <div class="scoring-row"><span class="finish">7th</span><span class="pts">101</span></div>
+          <div class="scoring-row"><span class="finish">8th</span><span class="pts">100</span></div>
+          <div class="scoring-row"><span class="finish">9th</span><span class="pts">75</span></div>
+          <div class="scoring-row"><span class="finish">10th</span><span class="pts">74</span></div>
+          <div class="scoring-row"><span class="finish">11th</span><span class="pts">73</span></div>
+          <div class="scoring-row"><span class="finish">12th</span><span class="pts">72</span></div>
+          <div class="scoring-row"><span class="finish">13th</span><span class="pts">71</span></div>
+          <div class="scoring-row"><span class="finish">14th</span><span class="pts">70</span></div>
+          <div class="scoring-row"><span class="finish">15th</span><span class="pts">69</span></div>
+          <div class="scoring-row"><span class="finish">16th</span><span class="pts">68</span></div>
+          <div class="scoring-row"><span class="finish">17th</span><span class="pts">48</span></div>
+          <div class="scoring-row"><span class="finish">18th</span><span class="pts">47</span></div>
+          <div class="scoring-row"><span class="finish">19th</span><span class="pts">46</span></div>
+          <div class="scoring-row"><span class="finish">20th</span><span class="pts">45</span></div>
+          <div class="scoring-row"><span class="finish">21st</span><span class="pts">44</span></div>
+          <div class="scoring-row"><span class="finish">22nd</span><span class="pts">43</span></div>
+          <div class="scoring-row"><span class="finish">23rd</span><span class="pts">42</span></div>
+          <div class="scoring-row"><span class="finish">24th</span><span class="pts">41</span></div>
+          <div class="scoring-row"><span class="finish">25th</span><span class="pts">40</span></div>
+          <div class="scoring-row"><span class="finish">26th</span><span class="pts">39</span></div>
+          <div class="scoring-row"><span class="finish">27th</span><span class="pts">38</span></div>
+          <div class="scoring-row"><span class="finish">28th</span><span class="pts">37</span></div>
+          <div class="scoring-row"><span class="finish">29th</span><span class="pts">36</span></div>
+          <div class="scoring-row"><span class="finish">30th</span><span class="pts">35</span></div>
+          <div class="scoring-row"><span class="finish">31st</span><span class="pts">34</span></div>
+          <div class="scoring-row"><span class="finish">32nd</span><span class="pts">33</span></div>
+          <div class="scoring-row"><span class="finish">33rd</span><span class="pts">13</span></div>
+          <div class="scoring-row"><span class="finish">34th</span><span class="pts">12</span></div>
+          <div class="scoring-row"><span class="finish">35th</span><span class="pts">11</span></div>
+          <div class="scoring-row"><span class="finish">36th</span><span class="pts">10</span></div>
+        </div>
+
+        <p><strong>Women's CT — Finish → Points (24 competitors)</strong></p>
+        <div class="scoring-grid">
+          <div class="scoring-row"><span class="finish">1st</span><span class="pts">250</span></div>
+          <div class="scoring-row"><span class="finish">2nd</span><span class="pts">225</span></div>
+          <div class="scoring-row"><span class="finish">3rd</span><span class="pts">200</span></div>
+          <div class="scoring-row"><span class="finish">4th</span><span class="pts">190</span></div>
+          <div class="scoring-row"><span class="finish">5th</span><span class="pts">135</span></div>
+          <div class="scoring-row"><span class="finish">6th</span><span class="pts">130</span></div>
+          <div class="scoring-row"><span class="finish">7th</span><span class="pts">125</span></div>
+          <div class="scoring-row"><span class="finish">8th</span><span class="pts">120</span></div>
+          <div class="scoring-row"><span class="finish">9th</span><span class="pts">88</span></div>
+          <div class="scoring-row"><span class="finish">10th</span><span class="pts">86</span></div>
+          <div class="scoring-row"><span class="finish">11th</span><span class="pts">84</span></div>
+          <div class="scoring-row"><span class="finish">12th</span><span class="pts">82</span></div>
+          <div class="scoring-row"><span class="finish">13th</span><span class="pts">80</span></div>
+          <div class="scoring-row"><span class="finish">14th</span><span class="pts">78</span></div>
+          <div class="scoring-row"><span class="finish">15th</span><span class="pts">76</span></div>
+          <div class="scoring-row"><span class="finish">16th</span><span class="pts">74</span></div>
+          <div class="scoring-row"><span class="finish">17th</span><span class="pts">45</span></div>
+          <div class="scoring-row"><span class="finish">18th</span><span class="pts">40</span></div>
+        </div>
+
+        <h2>Season Standings &amp; Best Nine</h2>
+        <p>Overall season standings are determined by each team's best nine event scores. This means you can miss or have a poor event without it necessarily costing you the season. Tiebreakers are resolved by comparing all-events total; if still tied, the highest individual surfer score from the most recent event is used, working down the roster until the tie breaks.</p>
+
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="about-panel" id="panel-faq">
+      <div class="card" style="max-width:800px">
+
+        <p class="faq-q">How do I sign in?</p>
+        <p class="faq-a">Fantasy Surf League uses Google sign-in. Click <strong>Sign In with Google</strong> on the home page and authenticate with any Google account. No separate password is required.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">Is it free to play?</p>
+        <p class="faq-a">Yes. Fantasy Surf League is completely free.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">I can't edit my team — why?</p>
+        <p class="faq-a">Trading closes at the start of each WSL CT event and reopens once the event concludes. If trading is closed, the team page will indicate this. You will not be able to make changes until the event ends.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">Why can't I add a certain surfer?</p>
+        <p class="faq-a">There are two reasons a surfer may be unavailable: (1) their value would push your total roster cost over the salary cap — you would need to drop another surfer to free up space; or (2) you are trying to add them to the alternate slot but their value exceeds the alternate cap ($4M men's / $5M women's).</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">I dropped a surfer and now I can't afford to re-add them. What happened?</p>
+        <p class="faq-a">Surfer values can change between events. Your salary cap cost for a surfer is locked at the price you paid when you added them. Once you drop a surfer, they return to their current market value — which may be higher than what you originally paid. Use the <strong>Revert</strong> button before saving if you made changes by accident.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">When do surfer values change?</p>
+        <p class="faq-a">Values may be updated between events based on CT results and season performance. Check the Surfers page for current pricing.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">How does the alternate work?</p>
+        <p class="faq-a">If one of your rostered surfers does not compete in an event (due to injury or withdrawal), your alternate is automatically substituted in for that surfer's scoring slot. Only one substitution is made per event regardless of how many rostered surfers sit out. The alternate slot must be re-selected before each event — it does not carry forward.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">How are season ties broken?</p>
+        <p class="faq-a">Ties in season standings are broken first by all-events total points. If still tied, the tiebreaker compares each team's highest individual surfer score from the most recent completed event, then the second-highest, and so on down the roster until the tie is resolved.</p>
+
+        <hr class="divider">
+
+        <p class="faq-q">Can I be in multiple clubs?</p>
+        <p class="faq-a">Each account belongs to one club at a time. Club standings are a filtered view of the overall season standings.</p>
+
+      </div>
+    </div>
+
+    <!-- RULES -->
+    <div class="about-panel" id="panel-rules">
+      <div class="card" style="max-width:800px">
+
+        <h2>Registration</h2>
+        <p>To participate, sign in with a Google account via the home page. Registration is free and open throughout the season. Registering before the first event of the season is strongly recommended — event scores only apply to teams active at the time of that event.</p>
+
+        <h2>Eligibility</h2>
+        <p>Fantasy Surf League is open to all registered users. There are no geographic restrictions. This is a skill-based game; no purchase or payment is necessary to enter or win.</p>
+
+        <h2>Conduct</h2>
+        <p>All participants agree to abide by these rules. The administrators of Fantasy Surf League reserve the right to disqualify any participant who:</p>
+        <ul>
+          <li>Provides false registration information</li>
+          <li>Attempts to manipulate scores or standings through automated means</li>
+          <li>Exploits bugs or unintended system behavior to gain an unfair advantage</li>
+          <li>Engages in conduct detrimental to other participants or the integrity of the game</li>
+        </ul>
+        <p>Decisions made by Fantasy Surf League administrators are final.</p>
+
+        <h2>Scoring Integrity</h2>
+        <p>All surfer finish positions are entered based on official WSL Championship Tour results. In the event of an error in results entry, scores will be corrected and standings recalculated. Fantasy Surf League is not affiliated with or endorsed by the WSL.</p>
+
+        <h2>Event Cancellations</h2>
+        <p>If a scheduled WSL CT event is canceled or does not produce official results, no points will be awarded for that event and it will not count toward the best-nine calculation.</p>
+
+        <h2>Privacy</h2>
+        <p>Fantasy Surf League uses Google authentication. Your Google display name and profile photo are used for team identification within the game. No personal data is sold or shared with third parties. See Google's privacy policy for details on data handled through Google Sign-In.</p>
+
+        <h2>Modifications</h2>
+        <p>Fantasy Surf League reserves the right to modify rules, scoring, surfer values, or salary caps at any time. Material changes will be communicated to registered players. Continued participation after any change constitutes acceptance of the updated rules.</p>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="app-footer" id="app-footer"></footer>
+
+  <script type="module">
+    import { initAuth, onAuth } from "./js/auth.js";
+    import { renderHeader, renderFooter } from "./js/ui.js";
+
+    initAuth();
+    renderHeader();
+    renderFooter();
+
+    // Tab switching
+    document.querySelectorAll(".about-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".about-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".about-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+      });
+    });
+  </script>
+
+</body>
+</html>

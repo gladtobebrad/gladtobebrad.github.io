@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { title: "Data", href: "data.html" },
   { title: "Surfers", href: "surfers.html" },
   { title: "Players", href: "players.html" },
+  { title: "About", href: "about.html" },
 ];
 
 /**
