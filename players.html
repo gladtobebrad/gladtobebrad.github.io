@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getLeaderboard, getEvents } from "./js/db.js";
+    import { getLeaderboard, getEvents, getAllUsers } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -53,23 +53,43 @@
           .filter(e => e.tour === "womens" && e.status === "completed")
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
+        // If no leaderboard data yet, fall back to all registered users (pre-season)
+        let allUsers = null;
+        if (!mensLb.length && !womensLb.length) {
+          allUsers = await getAllUsers();
+        }
+
         function buildStandings(lb) {
-          lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
-          return lb.map((entry, i) => ({
-            id: entry.userId,
+          if (lb.length) {
+            lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+            return lb.map((entry, i) => ({
+              id: entry.userId,
+              rank: i + 1,
+              displayName: entry.displayName || "Anonymous",
+              teamName: entry.teamName || entry.displayName || "—",
+              avatarUrl: entry.avatarUrl || "",
+              bestNineTotal: entry.bestNineTotal || 0,
+              allEventsTotal: entry.allEventsTotal || 0,
+              eventsPlayed: entry.eventsPlayed || 0,
+              eventScores: entry.eventScores || {}
+            }));
+          }
+          // Pre-season fallback: show all users with no scores
+          return (allUsers || []).map((u, i) => ({
+            id: u.id,
             rank: i + 1,
-            displayName: entry.displayName || "Anonymous",
-            teamName: entry.teamName || entry.displayName || "—",
-            avatarUrl: entry.avatarUrl || "",
-            bestNineTotal: entry.bestNineTotal || 0,
-            allEventsTotal: entry.allEventsTotal || 0,
-            eventsPlayed: entry.eventsPlayed || 0,
-            eventScores: entry.eventScores || {}
+            displayName: u.displayName || "Anonymous",
+            teamName: u.teamName || u.displayName || "—",
+            avatarUrl: u.avatarUrl || u.photoUrl || "",
+            bestNineTotal: 0,
+            allEventsTotal: 0,
+            eventsPlayed: 0,
+            eventScores: {}
           }));
         }
 
         function standingsTable(players, tourEvents, tableId) {
-          if (!players.length) return `<p class="text-muted">No standings yet.</p>`;
+          if (!players.length) return `<p class="text-muted">No players yet.</p>`;
           return `
             <div style="overflow-x:auto">
               <table class="data-table" id="${tableId}">
