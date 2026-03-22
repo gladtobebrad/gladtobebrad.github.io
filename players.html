@@ -54,9 +54,20 @@
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
         // If no leaderboard data yet, fall back to all registered users (pre-season)
+        // Cached in sessionStorage so each user only pays the 1,000 reads once per session
         let allUsers = null;
         if (!mensLb.length && !womensLb.length) {
-          allUsers = await getAllUsers();
+          try {
+            const cached = sessionStorage.getItem("all_users");
+            if (cached) {
+              allUsers = JSON.parse(cached);
+            } else {
+              allUsers = await getAllUsers();
+              sessionStorage.setItem("all_users", JSON.stringify(allUsers));
+            }
+          } catch {
+            allUsers = await getAllUsers();
+          }
         }
 
         function buildStandings(lb) {
