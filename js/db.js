@@ -163,11 +163,39 @@ export async function carryForwardTeams(eventId, season = 2026) {
 
 // ── Leaderboard ──────────────────────────────────────
 
+// In-memory version cache — one Firestore read per session to check freshness
+let _lbVersion = null;
+
+async function fetchLeaderboardVersion() {
+  if (_lbVersion !== null) return _lbVersion;
+  try {
+    const snap = await getDoc(doc(db, "meta", "leaderboard"));
+    _lbVersion = snap.exists() ? (snap.data().version || 0) : 0;
+  } catch {
+    _lbVersion = 0;
+  }
+  return _lbVersion;
+}
+
+// Call once after recalculating standings — bumps version so all clients re-fetch
+export async function touchLeaderboardVersion() {
+  const version = Date.now();
+  await setDoc(doc(db, "meta", "leaderboard"), { version });
+  _lbVersion = version;
+  try {
+    Object.keys(localStorage).filter(k => k.startsWith("lb_")).forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
 export async function getLeaderboard(season = 2026, tour = null) {
   const cacheKey = `lb_${season}_${tour}`;
   try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const serverVersion = await fetchLeaderboardVersion();
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const { data, version } = JSON.parse(cached);
+      if (version === serverVersion) return data;
+    }
   } catch {}
 
   const constraints = [where("season", "==", season)];
@@ -175,7 +203,7 @@ export async function getLeaderboard(season = 2026, tour = null) {
   const snap = await getDocs(query(collection(db, "leaderboard"), ...constraints));
   const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(cacheKey, JSON.stringify({ data, version: _lbVersion || 0 })); } catch {}
   return data;
 }
 
@@ -187,8 +215,6 @@ export async function saveLeaderboardEntry(userId, season, tour, data) {
     tour,
     ...data
   });
-  try { sessionStorage.removeItem(`lb_${season}_${tour}`); } catch {}
-
 }
 
 export async function clearLeaderboard(season, tour) {

@@ -26,7 +26,7 @@
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams,
-      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, getUser, getAllUsers,
+      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion, getUser, getAllUsers,
       getAllClubs, deleteClub
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
@@ -820,6 +820,7 @@
             calcAndSaveTour("mens"),
             calcAndSaveTour("womens")
           ]);
+          await touchLeaderboardVersion();
 
           function standingsTable(standings) {
             if (!standings.length) return `<p class="text-muted text-sm">No entries yet.</p>`;
