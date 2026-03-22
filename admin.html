@@ -853,6 +853,23 @@
           await saveEvent(eventId, { tradingOpen: false, status: "live" });
           const carried = await carryForwardTeams(eventId, SEASON);
           await lockTeamsForEvent(eventId, true);
+
+          // Snapshot popularity % into the event doc so Surfers page never needs to fetch all teams
+          const teams = await getTeamsForEvent(eventId);
+          const totalTeams = teams.length;
+          const surferCounts = {};
+          for (const team of teams) {
+            const surferIds = new Set();
+            if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
+            if (team.alternate) surferIds.add(team.alternate.surferId);
+            for (const sid of surferIds) surferCounts[sid] = (surferCounts[sid] || 0) + 1;
+          }
+          const popularityPct = {};
+          for (const [sid, count] of Object.entries(surferCounts)) {
+            popularityPct[sid] = parseFloat(((count / totalTeams) * 100).toFixed(1));
+          }
+          await saveEvent(eventId, { popularityPct, totalTeams });
+
           toast(`Trading locked. All teams frozen.${carried > 0 ? ` ${carried} roster(s) carried forward from last event.` : ""}`, "success");
           events = await getEvents(SEASON);
           renderAdmin(container);

@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getEvents, getTeamsForEvent, getSurfers } from "./js/db.js";
+    import { getEvents, getSurfers } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, renderTable } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -51,27 +51,13 @@
           getSurfers()
         ]);
 
+        // Popularity data is pre-computed and stored on the event doc when trading locks
         for (const event of events) {
-          let percentages = {};
-          let totalTeams = 0;
-          if (event.tradingOpen === false) {
-            const teams = await getTeamsForEvent(event.id);
-            totalTeams = teams.length;
-            if (totalTeams > 0) {
-              const surferCounts = {};
-              for (const team of teams) {
-                const surferIds = new Set();
-                if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
-                if (team.alternate) surferIds.add(team.alternate.surferId);
-                for (const sid of surferIds) {
-                  surferCounts[sid] = (surferCounts[sid] || 0) + 1;
-                }
-              }
-              percentages = surferCounts;
-            }
-          }
-          // Key by eventId, not eventNumber — mens/womens are separate
-          eventData[event.id] = { event, percentages, totalTeams };
+          eventData[event.id] = {
+            event,
+            popularityPct: event.popularityPct || {},
+            totalTeams: event.totalTeams || 0
+          };
         }
 
         render(container);
@@ -141,8 +127,8 @@
                     const eventCells = tourEvents.map(event => {
                       const data = eventData[event.id];
                       if (data && data.totalTeams > 0) {
-                        const count = data.percentages[surfer.id] || 0;
-                        return ((count / data.totalTeams) * 100).toFixed(1);
+                        const pct = data.popularityPct[surfer.id];
+                        return pct != null ? pct.toFixed(1) : "0.0";
                       }
                       return null;
                     });
