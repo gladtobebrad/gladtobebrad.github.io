@@ -21,7 +21,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getAllUsers, getLeaderboard, getEvents } from "./js/db.js";
+    import { getLeaderboard, getEvents } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -39,15 +39,11 @@
 
     async function renderPage(container) {
       try {
-        const [users, mensLb, womensLb, events] = await Promise.all([
-          getAllUsers(),
+        const [mensLb, womensLb, events] = await Promise.all([
           getLeaderboard(SEASON, "mens"),
           getLeaderboard(SEASON, "womens"),
           getEvents(SEASON)
         ]);
-
-        const userMap = {};
-        users.forEach(u => { userMap[u.id] = u; });
 
         // Completed events per tour, sorted by eventNumber
         const mensEvents = events
@@ -59,20 +55,17 @@
 
         function buildStandings(lb) {
           lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
-          return lb.map((entry, i) => {
-            const u = userMap[entry.userId] || {};
-            return {
-              id: entry.userId,
-              rank: i + 1,
-              displayName: u.displayName || entry.displayName || "Anonymous",
-              teamName: u.teamName || entry.teamName || u.displayName || "—",
-              avatarUrl: u.avatarUrl || u.photoUrl || entry.avatarUrl || "",
-              bestNineTotal: entry.bestNineTotal || 0,
-              allEventsTotal: entry.allEventsTotal || 0,
-              eventsPlayed: entry.eventsPlayed || 0,
-              eventScores: entry.eventScores || {}
-            };
-          });
+          return lb.map((entry, i) => ({
+            id: entry.userId,
+            rank: i + 1,
+            displayName: entry.displayName || "Anonymous",
+            teamName: entry.teamName || entry.displayName || "—",
+            avatarUrl: entry.avatarUrl || "",
+            bestNineTotal: entry.bestNineTotal || 0,
+            allEventsTotal: entry.allEventsTotal || 0,
+            eventsPlayed: entry.eventsPlayed || 0,
+            eventScores: entry.eventScores || {}
+          }));
         }
 
         function standingsTable(players, tourEvents, tableId) {
@@ -125,7 +118,7 @@
 
         container.innerHTML = `
           <h1 class="page-title">Season Standings</h1>
-          <p class="text-muted mb-3">${users.length} registered player${users.length !== 1 ? "s" : ""}</p>
+          <p class="text-muted mb-3">${mensLb.length} men's / ${womensLb.length} women's players</p>
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Men's CT</span></div>
             ${standingsTable(mensPlayers, mensEvents, "table-mens")}

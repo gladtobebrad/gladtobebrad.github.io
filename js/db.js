@@ -164,10 +164,10 @@ export async function carryForwardTeams(eventId, season = 2026) {
 // ── Leaderboard ──────────────────────────────────────
 
 export async function getLeaderboard(season = 2026, tour = null) {
-  const snap = await getDocs(collection(db, "leaderboard"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((e) => e.season === season && (tour === null || e.tour === tour));
+  const constraints = [where("season", "==", season)];
+  if (tour) constraints.push(where("tour", "==", tour));
+  const snap = await getDocs(query(collection(db, "leaderboard"), ...constraints));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function saveLeaderboardEntry(userId, season, tour, data) {
