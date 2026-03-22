@@ -26,11 +26,18 @@
     .place-13 { background: var(--color-beige); color: var(--color-warm-black); }
     .place-33 { background: #fce4ec; color: #880e4f; }
     .place-null { color: var(--color-warm-gray); }
+    .place-inj { background: #5c1a1a; color: #ff6b6b; }
 
     .surfer-grid {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .surfer-grid-4col {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.4rem;
       margin-bottom: 1.5rem;
     }
     .surfer-btn {
@@ -72,11 +79,11 @@
     .section-body.collapsed { display: none; }
 
     .loc-btn {
-      padding: 0.3rem 0.75rem;
+      padding: 0.25rem 0.5rem;
       border: 1px solid var(--color-beige);
       border-radius: var(--radius-md);
       background: var(--color-warm-white);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       cursor: pointer;
       transition: var(--transition);
       color: var(--color-charcoal);
@@ -88,11 +95,24 @@
       border-color: var(--color-charcoal);
     }
 
+    .loc-select {
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.8rem;
+      color: var(--color-charcoal);
+      cursor: pointer;
+      width: 5.5rem;
+    }
+    .loc-select:focus { border-color: var(--color-sage); outline: none; }
+
     .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     .sortable:hover { color: var(--color-warm-black); }
     .sort-arrow { font-size: 0.65rem; margin-left: 0.2rem; }
 
-    #event-table thead th {
+    #event-table thead th,
+    #surfer-table thead th {
       position: sticky;
       top: 0;
       background: var(--color-warm-white);
@@ -176,6 +196,9 @@
         "Lexus Tahiti Pro":                        "Tahiti",
         "Tahiti Pro":                              "Tahiti",
         "Corona Fiji Pro":                         "Fiji",
+        "Fiji Pro":                                "Fiji",
+        "Corona Cero New Zealand Pro":             "New Zealand",
+        "Lexus Pipe Masters":                      "Pipeline",
         "Lexus WSL Finals":                        "WSL Finals",
         "Rip Curl WSL Finals":                     "WSL Finals",
         "Lexus WSL Finals Fiji":                   "WSL Finals",
@@ -200,6 +223,7 @@
         { re: /\bfinals\b/i, loc: "WSL Finals" },
         { re: /\bsurf\s+ranch\b/i, loc: "Surf Ranch" },
         { re: /\bg-?land\b/i, loc: "G-Land" },
+        { re: /\bnew\s*zealand\b/i, loc: "New Zealand" },
       ];
 
       function locationForEvent(eventName) {
@@ -216,7 +240,14 @@
         "Pipeline", "Sunset Beach", "Abu Dhabi", "Portugal",
         "El Salvador", "Bells Beach", "Gold Coast", "Margaret River",
         "G-Land", "Surf Ranch", "Trestles", "Rio de Janeiro",
-        "J-Bay", "Tahiti", "Fiji", "WSL Finals",
+        "J-Bay", "Tahiti", "Fiji", "New Zealand", "WSL Finals",
+      ];
+
+      // 2026 season locations (in event order) — controls which locations show in "Results per Location"
+      const CURRENT_SEASON_LOCATIONS = [
+        "Bells Beach", "Margaret River", "Gold Coast", "New Zealand",
+        "El Salvador", "Rio de Janeiro", "Tahiti", "Fiji",
+        "Trestles", "Abu Dhabi", "Portugal", "Pipeline",
       ];
 
       // ── Load data ─────────────────────────────────────────
@@ -270,12 +301,21 @@
             }
           }
         }
-        const names = Object.keys(surferIdx).sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
-        const locations = [
+        // Active surfers = those in the most recent year's data
+        const latestYear = Math.max(...years);
+        const latestDataset = datasets.find(d => d.year === latestYear);
+        const activeNames = new Set(latestDataset ? latestDataset.surfers.map(s => s.name) : []);
+        const names = Object.keys(surferIdx)
+          .filter(n => activeNames.has(n))
+          .sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+        // Only show current season locations as buttons
+        const locations = CURRENT_SEASON_LOCATIONS.filter(l => locationIdx[l]);
+        // All locations for the "More" dropdown
+        const allLocationsFull = [
           ...LOCATION_ORDER.filter(l => locationIdx[l]),
           ...Object.keys(locationIdx).filter(l => !LOCATION_ORDER.includes(l)).sort(),
-        ];
-        return { surferIndex: surferIdx, locationIndex: locationIdx, allYears: years, sortedNames: names, allLocations: locations };
+        ].filter(l => !CURRENT_SEASON_LOCATIONS.includes(l) && l !== "WSL Finals");
+        return { surferIndex: surferIdx, locationIndex: locationIdx, allYears: years, sortedNames: names, allLocations: locations, allLocationsFull, activeNames };
       }
 
       const tours = {};
@@ -304,11 +344,12 @@
 
       function placeBadge(n) {
         if (n === null) return `<span class="place-null text-muted">—</span>`;
+        if (n === "INJ") return `<span class="place-badge place-inj">INJ</span>`;
         return `<span class="place-badge ${placeClass(n)}">${ordinal(n)}</span>`;
       }
 
       function calcStats(yearData) {
-        const vals = Object.values(yearData).filter(v => v !== null);
+        const vals = Object.values(yearData).filter(v => v !== null && v !== "INJ");
         if (vals.length === 0) return { avg: null, best: null, worst: null };
         return {
           avg: +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1),
@@ -372,10 +413,12 @@
 
         // ── Results by Event ──────────────────────────────
         const locData = locationIndex[selectedLocation] || {};
-        const locSurfers = Object.entries(locData).map(([name, yearData]) => {
-          const stats = calcStats(yearData);
-          return { name, yearData, ...stats };
-        });
+        const locSurfers = Object.entries(locData)
+          .filter(([name]) => t.activeNames.has(name))
+          .map(([name, yearData]) => {
+            const stats = calcStats(yearData);
+            return { name, yearData, ...stats };
+          });
 
         // Sort
         locSurfers.sort((a, b) => {
@@ -391,15 +434,20 @@
             aVal = a.yearData[yr] ?? null;
             bVal = b.yearData[yr] ?? null;
           }
-          if (aVal === null && bVal === null) return 0;
-          if (aVal === null) return 1;
-          if (bVal === null) return -1;
+          if ((aVal === null || aVal === "INJ") && (bVal === null || bVal === "INJ")) return 0;
+          if (aVal === null || aVal === "INJ") return 1;
+          if (bVal === null || bVal === "INJ") return -1;
           return eventSortAsc ? aVal - bVal : bVal - aVal;
         });
 
+        const isDropdownLoc = !allLocations.includes(selectedLocation) && t.allLocationsFull.includes(selectedLocation);
         const locBtns = allLocations.map(l =>
           `<button class="loc-btn${l === selectedLocation ? " active" : ""}" data-loc="${l}">${l}</button>`
-        ).join("");
+        ).join("")
+        + `<select class="loc-select" id="loc-more">
+            <option value="" ${isDropdownLoc ? "" : "selected"}>More…</option>
+            ${t.allLocationsFull.map(l => `<option value="${l}" ${l === selectedLocation ? "selected" : ""}>${l}</option>`).join("")}
+          </select>`;
 
         const eventRows = locSurfers.map(s => {
           const yearCells = allYears.map(y =>
@@ -428,7 +476,7 @@
 
         const surferRows = orderedLocs.map(loc => {
           const yearPlaces = activeYears.map(y => sData[loc]?.[y] ?? null);
-          const valid = yearPlaces.filter(p => p !== null);
+          const valid = yearPlaces.filter(p => p !== null && p !== "INJ");
           const avg = valid.length > 0
             ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
             : null;
@@ -456,7 +504,7 @@
               <span class="section-arrow ${sectionOpen.event ? "" : "collapsed"}">▼</span>
             </div>
             <div class="section-body ${sectionOpen.event ? "" : "collapsed"}" id="section-event">
-              <div class="surfer-grid" style="margin-bottom:1rem">${locBtns}</div>
+              <div class="surfer-grid" style="margin-bottom:1rem;gap:0.35rem;align-items:center">${locBtns}</div>
               ${eventRows.length > 0 ? `
               <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
               <table class="data-table" id="event-table" style="margin:0">
@@ -483,12 +531,12 @@
               <span class="section-arrow ${sectionOpen.surfer ? "" : "collapsed"}">▼</span>
             </div>
             <div class="section-body ${sectionOpen.surfer ? "" : "collapsed"}" id="section-surfer">
-              <div class="grid grid--sidebar">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
                 <div style="align-self:start">
                   <div class="search-wrap">
                     <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${surferFilter}">
                   </div>
-                  <div class="surfer-grid" id="surfer-list">${btnList}</div>
+                  <div class="surfer-grid-4col" id="surfer-list">${btnList}</div>
                 </div>
                 <div>
                   <div class="card__header" style="margin-bottom:0.5rem">
@@ -496,7 +544,8 @@
                     <span class="text-sm text-muted">Place by location</span>
                   </div>
                   ${surferRows.length > 0 ? `
-                  <table class="data-table">
+                  <div style="overflow:auto;max-height:380px;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+                  <table class="data-table" id="surfer-table" style="margin:0">
                     <thead>
                       <tr>
                         <th>Location</th>
@@ -506,6 +555,7 @@
                     </thead>
                     <tbody>${surferRows}</tbody>
                   </table>
+                  </div>
                   ` : `<p class="text-muted">No data available.</p>`}
                 </div>
               </div>
@@ -547,6 +597,16 @@
             eventSortAsc = true;
             renderPage();
           });
+        });
+
+        // Location "More" dropdown
+        document.getElementById("loc-more")?.addEventListener("change", e => {
+          if (e.target.value) {
+            selectedLocation = e.target.value;
+            eventSortCol = "avg";
+            eventSortAsc = true;
+            renderPage();
+          }
         });
 
         // Sortable headers

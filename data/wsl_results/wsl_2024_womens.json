@@ -1,0 +1,35 @@
+{
+  "year": 2024,
+  "tour": "womens",
+  "events": [
+    "Lexus Pipe Pro",
+    "Hurley Pro Sunset Beach",
+    "MEO Rip Curl Pro Portugal",
+    "Rip Curl Pro Bells Beach",
+    "Western Australia Margaret River Pro",
+    "SHISEIDO Tahiti Pro",
+    "Surf City El Salvador Pro",
+    "VIVO Rio Pro",
+    "Corona Fiji Pro"
+  ],
+  "surfers": [
+    { "name": "Caitlin Simmers", "places": [1, 5, 9, 1, 5, 9, 3, 1, 5] },
+    { "name": "Caroline Marks", "places": [5, 3, 5, 3, 9, 3, 1, 5, 5] },
+    { "name": "Tatiana Weston-Webb", "places": [5, 9, 3, 5, 9, 3, 5, 3, 2] },
+    { "name": "Brisa Hennessy", "places": [3, 3, "INJ", 3, 3, 2, 5, 5, 5] },
+    { "name": "Molly Picklum", "places": [2, 1, 9, 9, 5, 5, 5, 5, 3] },
+    { "name": "Johanne Defay", "places": [5, 5, 1, 2, 9, 9, 5, 9, 5] },
+    { "name": "Gabriela Bryan", "places": [9, 9, 5, 5, 1, 9, 2, 3, 9] },
+    { "name": "Sawyer Lindblad", "places": [9, 9, 9, 5, 2, 5, 9, 2, 9] },
+    { "name": "Bettylou Sakura Johnson", "places": [3, 2, 5, 9, 9, 9, 3, 9, 9] },
+    { "name": "Tyler Wright", "places": [9, 9, 2, 9, 3, 5, 9, "INJ", 3] },
+    { "name": "Lakey Peterson", "places": [17, 5, 3, 9, 9] },
+    { "name": "Luana Silva", "places": [5, 9, 5, 9, 17] },
+    { "name": "Sally Fitzgibbons", "places": [9, 9, 9, 9, 5] },
+    { "name": "Isabella Nichols", "places": [9, 5, 9, 9, 9] },
+    { "name": "India Robinson", "places": [9, 9, 9, 17, 5] },
+    { "name": "Alyssa Spencer", "places": [9, 9, 9, 17, 9] },
+    { "name": "Sophie McCulloch", "places": [null, 17, 9, 9, 9] },
+    { "name": "Carissa Moore", "places": [17] }
+  ]
+}
