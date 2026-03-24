@@ -1,6 +1,8 @@
 import { auth, db } from "./firebase-config.js";
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut as firebaseSignOut
@@ -17,12 +19,19 @@ let currentUserProfile = null;
 let authResolved = false;
 const authCallbacks = [];
 
-// Sign in with Google popup
+// Sign in with Google — popup first, redirect fallback for mobile/Safari
 export async function signIn() {
   try {
     await signInWithPopup(auth, provider);
   } catch (err) {
-    if (err.code !== "auth/popup-closed-by-user") {
+    if (err.code === "auth/popup-blocked" || err.code === "auth/popup-cancelled-by-user") {
+      // Browser blocked the popup — fall back to redirect
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (redirectErr) {
+        console.error("Sign-in redirect error:", redirectErr);
+      }
+    } else if (err.code !== "auth/popup-closed-by-user") {
       console.error("Sign-in error:", err);
     }
   }
@@ -78,6 +87,13 @@ async function ensureUserProfile(user) {
 
 // Initialize auth listener — call once on page load
 export function initAuth() {
+  // Handle returning redirect (mobile fallback) — swallow "missing initial state" gracefully
+  getRedirectResult(auth).catch((err) => {
+    if (err.code !== "auth/missing-initial-state") {
+      console.error("Redirect result error:", err);
+    }
+  });
+
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
