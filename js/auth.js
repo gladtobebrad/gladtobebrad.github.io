@@ -87,9 +87,17 @@ async function ensureUserProfile(user) {
 
 // Initialize auth listener — call once on page load
 export function initAuth() {
-  // Handle returning redirect (mobile fallback) — swallow "missing initial state" gracefully
+  // Handle returning redirect (mobile fallback)
   getRedirectResult(auth).catch((err) => {
-    if (err.code !== "auth/missing-initial-state") {
+    if (err.code === "auth/missing-initial-state" || err.code === "auth/cancelled-popup-request") {
+      // Safari/in-app browser killed the session state — show a helpful message
+      // Insert message below whichever sign-in button is visible
+      const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
+      const msg = document.createElement("p");
+      msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
+      msg.textContent = "Sign-in couldn't complete. Open this page in Safari or Chrome directly rather than from another app.";
+      if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
+    } else {
       console.error("Redirect result error:", err);
     }
   });
