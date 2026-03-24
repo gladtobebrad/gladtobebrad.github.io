@@ -22,7 +22,9 @@ export function renderHeader() {
 
   header.innerHTML = `
     <div class="nav-inner">
-      <a href="profile.html" class="nav-brand" id="nav-brand-link">Fantasy Surf League</a>
+      <a href="index.html" class="nav-brand" id="nav-brand-link">
+        <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:26px;display:block;">
+      </a>
       <button class="nav-toggle" aria-label="Toggle menu">
         <span></span><span></span><span></span>
       </button>
