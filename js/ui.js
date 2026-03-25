@@ -1,4 +1,4 @@
-import { getCurrentUser, getUserProfile, signIn, signOut, onAuth } from "./auth.js";
+import { getCurrentUser, getUserProfile, signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
 
 // ── Navigation ───────────────────────────────────────
 
@@ -174,14 +174,78 @@ export function showLoading(container) {
  * Show sign-in prompt in the main content area when user is not authenticated
  */
 export function showAuthGate(container) {
-  container.innerHTML = `
-    <div class="auth-gate">
-      <h2>Welcome to Fantasy Surf League</h2>
-      <p>Sign in with your Google account to join the game, pick your team, and compete on the leaderboard.</p>
-      <button class="btn btn--primary btn--lg" id="btn-gate-signin">Sign In with Google</button>
-    </div>
-  `;
-  document.getElementById("btn-gate-signin")?.addEventListener("click", signIn);
+  let isRegister = false;
+
+  function render() {
+    container.innerHTML = `
+      <div class="auth-gate" style="max-width:360px;margin:0 auto">
+        <h2>Welcome to Fantasy Surfer</h2>
+        <p style="margin-bottom:1.5rem">Sign in to join the game, pick your team, and compete on the leaderboard.</p>
+
+        <button class="btn btn--primary btn--lg" id="btn-gate-signin" style="width:100%">Sign In with Google</button>
+
+        <div style="display:flex;align-items:center;gap:0.75rem;margin:1.25rem 0">
+          <hr style="flex:1;border:none;border-top:1px solid var(--color-beige)">
+          <span style="font-size:0.8rem;color:var(--color-sage)">or</span>
+          <hr style="flex:1;border:none;border-top:1px solid var(--color-beige)">
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.6rem">
+          ${isRegister ? `<input type="text" id="auth-name" placeholder="Your name" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">` : ""}
+          <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">
+          <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">
+          <button class="btn btn--outline" id="btn-email-submit" style="width:100%">${isRegister ? "Create Account" : "Sign In"}</button>
+          <p id="auth-error" style="color:#b45309;font-size:0.85rem;text-align:center;min-height:1.2rem"></p>
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem">
+            <a href="#" id="auth-toggle" style="color:var(--color-sage)">${isRegister ? "Already have an account?" : "Create an account"}</a>
+            ${!isRegister ? `<a href="#" id="auth-forgot" style="color:var(--color-sage)">Forgot password?</a>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btn-gate-signin")?.addEventListener("click", signIn);
+
+    document.getElementById("btn-email-submit")?.addEventListener("click", async () => {
+      const email = document.getElementById("auth-email")?.value.trim();
+      const password = document.getElementById("auth-password")?.value;
+      const name = document.getElementById("auth-name")?.value.trim();
+      const errEl = document.getElementById("auth-error");
+      errEl.textContent = "";
+      try {
+        if (isRegister) {
+          await registerWithEmail(email, password, name);
+        } else {
+          await signInWithEmail(email, password);
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
+    });
+
+    document.getElementById("auth-toggle")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      isRegister = !isRegister;
+      render();
+    });
+
+    document.getElementById("auth-forgot")?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("auth-email")?.value.trim();
+      const errEl = document.getElementById("auth-error");
+      if (!email) { errEl.textContent = "Enter your email address first."; return; }
+      try {
+        await resetPassword(email);
+        errEl.style.color = "green";
+        errEl.textContent = "Password reset email sent.";
+      } catch (err) {
+        errEl.style.color = "#b45309";
+        errEl.textContent = err.message;
+      }
+    });
+  }
+
+  render();
 }
 
 // ── Generic Table Renderer ───────────────────────────

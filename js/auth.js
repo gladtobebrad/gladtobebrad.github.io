@@ -3,6 +3,10 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   GoogleAuthProvider,
   onAuthStateChanged,
   signOut as firebaseSignOut
@@ -34,6 +38,47 @@ export async function signIn() {
     } else if (err.code !== "auth/popup-closed-by-user") {
       console.error("Sign-in error:", err);
     }
+  }
+}
+
+function friendlyAuthError(code) {
+  const map = {
+    "auth/wrong-password": "Incorrect password.",
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/user-not-found": "No account found with that email.",
+    "auth/email-already-in-use": "An account with that email already exists.",
+    "auth/weak-password": "Password must be at least 6 characters.",
+    "auth/invalid-email": "Invalid email address.",
+    "auth/too-many-requests": "Too many attempts. Try again later.",
+  };
+  return map[code] || "Sign-in failed. Please try again.";
+}
+
+// Sign in with email/password
+export async function signInWithEmail(email, password) {
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (err) {
+    throw new Error(friendlyAuthError(err.code));
+  }
+}
+
+// Register with email/password
+export async function registerWithEmail(email, password, displayName) {
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (displayName) await updateProfile(cred.user, { displayName });
+  } catch (err) {
+    throw new Error(friendlyAuthError(err.code));
+  }
+}
+
+// Send password reset email
+export async function resetPassword(email) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err) {
+    throw new Error(friendlyAuthError(err.code));
   }
 }
 
@@ -77,7 +122,7 @@ async function ensureUserProfile(user) {
       isAdmin: false,
       joinedAt: serverTimestamp(),
       teamName: "",
-      adsCoins: 10,
+      adsCoins: user.providerData.some(p => p.providerId === "google.com") ? 10 : 9,
       clubId: null
     };
     await setDoc(ref, profile);
