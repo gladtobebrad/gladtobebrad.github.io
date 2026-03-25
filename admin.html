@@ -27,7 +27,7 @@
       getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch,
-      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams,
+      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
       saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
       savePlayerDirectory, getUser, getAllUsers,
       getAllClubs, deleteClub
@@ -381,6 +381,12 @@
                 </tbody>
               </table>
             ` : `<p class="text-muted">No players have signed up yet.</p>`}
+          </div>
+
+          <div class="card mt-3">
+            <div class="card__header"><span class="card__title">Season Reset</span></div>
+            <p class="text-muted text-sm mb-3">Deletes all team rosters for all users and events. Use this at the start of a new season. This cannot be undone.</p>
+            <button class="btn btn--danger" id="btn-reset-teams">Reset All Teams</button>
           </div>
         </div>
 
@@ -950,6 +956,14 @@
       });
 
       // ── REFRESH PLAYER DIRECTORY ──
+      document.getElementById("btn-reset-teams")?.addEventListener("click", async () => {
+        if (!confirm("This will delete ALL team rosters for every user and event. This cannot be undone. Are you sure?")) return;
+        try {
+          const count = await clearAllTeams();
+          toast(`All teams cleared (${count} rosters deleted).`, "success");
+        } catch (err) { toast("Error: " + err.message, "error"); }
+      });
+
       document.getElementById("btn-refresh-directory")?.addEventListener("click", async () => {
         try {
           const snapshot = users.map(u => ({

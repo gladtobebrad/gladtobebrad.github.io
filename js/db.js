@@ -124,6 +124,14 @@ export async function lockTeamsForEvent(eventId, locked = true) {
   await batch.commit();
 }
 
+export async function clearAllTeams() {
+  const snap = await getDocs(collection(db, "teams"));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  return snap.docs.length;
+}
+
 // For every registered user who has no team for eventId, copy their most recent
 // previous team for the same tour. Called automatically when trading is locked.
 export async function carryForwardTeams(eventId, season = 2026) {
