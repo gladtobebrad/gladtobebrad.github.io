@@ -22,6 +22,8 @@ let currentUser = undefined;
 let currentUserProfile = null;
 let authResolved = false;
 const authCallbacks = [];
+// Holds display name during registration before onAuthStateChanged fires
+let _pendingDisplayName = null;
 
 // Sign in with Google — popup first, redirect fallback for mobile/Safari
 export async function signIn() {
@@ -66,9 +68,11 @@ export async function signInWithEmail(email, password) {
 // Register with email/password
 export async function registerWithEmail(email, password, displayName) {
   try {
+    _pendingDisplayName = displayName || null;
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (displayName) await updateProfile(cred.user, { displayName });
   } catch (err) {
+    _pendingDisplayName = null;
     throw new Error(friendlyAuthError(err.code));
   }
 }
@@ -115,8 +119,10 @@ async function ensureUserProfile(user) {
   if (snap.exists()) {
     currentUserProfile = snap.data();
   } else {
+    const resolvedName = user.displayName || _pendingDisplayName;
+    _pendingDisplayName = null;
     const profile = {
-      displayName: user.displayName || "Anonymous",
+      displayName: resolvedName || "Anonymous",
       email: user.email || "",
       photoUrl: user.photoURL || "",
       isAdmin: false,

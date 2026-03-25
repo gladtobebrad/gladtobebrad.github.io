@@ -206,7 +206,7 @@ export function showAuthGate(container) {
 
     document.getElementById("btn-gate-signin")?.addEventListener("click", signIn);
 
-    document.getElementById("btn-email-submit")?.addEventListener("click", async () => {
+    async function submitEmailForm() {
       const email = document.getElementById("auth-email")?.value.trim();
       const password = document.getElementById("auth-password")?.value;
       const name = document.getElementById("auth-name")?.value.trim();
@@ -221,6 +221,15 @@ export function showAuthGate(container) {
       } catch (err) {
         errEl.textContent = err.message;
       }
+    }
+
+    document.getElementById("btn-email-submit")?.addEventListener("click", submitEmailForm);
+
+    // Submit on Enter key in any form input
+    ["auth-name", "auth-email", "auth-password"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitEmailForm();
+      });
     });
 
     document.getElementById("auth-toggle")?.addEventListener("click", (e) => {
