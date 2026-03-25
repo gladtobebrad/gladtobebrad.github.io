@@ -142,14 +142,17 @@
 
         container.innerHTML = `
           <h1 class="page-title">Season Standings</h1>
-          <p class="text-muted mb-3">${mensLb.length} men's / ${womensLb.length} women's players</p>
-          <input type="search" id="player-search" placeholder="Search players..." style="width:100%;max-width:320px;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem;margin-bottom:1.25rem;outline:none;">
-          <div class="card mb-3">
-            <div class="card__header"><span class="card__title">Men's CT</span></div>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
+            <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden">
+              <button id="toggle-mens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:var(--color-charcoal);color:#fff">Men's CT</button>
+              <button id="toggle-womens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:400;background:#fff;color:var(--color-sage)">Women's CT</button>
+            </div>
+            <input type="search" id="player-search" placeholder="Search players..." style="flex:1;min-width:160px;max-width:280px;padding:0.4rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem;outline:none;">
+          </div>
+          <div id="panel-mens" class="card mb-3">
             ${standingsTable(mensPlayers, mensEvents, "table-mens")}
           </div>
-          <div class="card mb-3">
-            <div class="card__header"><span class="card__title">Women's CT</span></div>
+          <div id="panel-womens" class="card mb-3" style="display:none">
             ${standingsTable(womensPlayers, womensEvents, "table-womens")}
           </div>
           <div class="mt-3">
@@ -193,7 +196,23 @@
           });
         });
 
-        // Search — filters both tables simultaneously
+        // Tour toggle
+        const btnMens = document.getElementById("toggle-mens");
+        const btnWomens = document.getElementById("toggle-womens");
+        const panelMens = document.getElementById("panel-mens");
+        const panelWomens = document.getElementById("panel-womens");
+        btnMens.addEventListener("click", () => {
+          panelMens.style.display = ""; panelWomens.style.display = "none";
+          btnMens.style.cssText += ";font-weight:600;background:var(--color-charcoal);color:#fff";
+          btnWomens.style.cssText += ";font-weight:400;background:#fff;color:var(--color-sage)";
+        });
+        btnWomens.addEventListener("click", () => {
+          panelWomens.style.display = ""; panelMens.style.display = "none";
+          btnWomens.style.cssText += ";font-weight:600;background:var(--color-charcoal);color:#fff";
+          btnMens.style.cssText += ";font-weight:400;background:#fff;color:var(--color-sage)";
+        });
+
+        // Search — filters active table
         document.getElementById("player-search").addEventListener("input", (e) => {
           const q = e.target.value.toLowerCase().trim();
           container.querySelectorAll("tbody tr").forEach(row => {
