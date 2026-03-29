@@ -112,23 +112,30 @@
       // Load club data
       const userDoc = await getUser(user.uid);
       const clubIds = getUserClubIds(userDoc);
-      let club = null;
       let allClubs = [];
+      let selectedClubIdx = 0;
+      let club = null;
       let clubMembers = [];
       if (clubIds.length > 0) {
         allClubs = (await Promise.all(clubIds.map(id => getClub(id)))).filter(Boolean);
-        club = allClubs[0] || null;
-        if (club) {
-          const memberLeaderboard = mensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
-          clubMembers = memberLeaderboard.slice(0, 5);
-        }
       }
+      const selectClub = (idx) => {
+        selectedClubIdx = idx;
+        club = allClubs[idx] || null;
+        clubMembers = [];
+        if (club) {
+          clubMembers = mensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
+        }
+      };
+      // Default to user's preferred club
+      const defaultIdx = allClubs.findIndex(c => c.id === userDoc?.defaultClubId);
+      selectClub(defaultIdx >= 0 ? defaultIdx : 0);
 
       // Profile info
       const avatarUrl = profile?.avatarUrl || profile?.photoUrl || user.photoURL || "";
       const adsCoins = profile?.adsCoins ?? 10;
       const clubLabel = allClubs.length > 0
-        ? allClubs.map(c => `<a href="club.html?id=${c.id}" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${c.name}</a>`).join(" · ")
+        ? allClubs.map(c => `<a href="club.html?id=${c.id}" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${c.name}</a>`).join("<br>")
         : "No clubs yet";
 
       // ── Rosters tab data (lazy-loaded once) ──
@@ -265,7 +272,8 @@
       function render() {
         const tabs = `
           <div class="tour-tabs mb-3">
-            <button class="tour-tab dash-tab ${activeTab === "homepage" ? "tour-tab--active" : ""}" data-tab="homepage">Homepage</button>
+            <button class="tour-tab dash-tab ${activeTab === "homepage" ? "tour-tab--active" : ""}" data-tab="homepage">Events</button>
+            <button class="tour-tab dash-tab ${activeTab === "standings" ? "tour-tab--active" : ""}" data-tab="standings">Standings</button>
             <button class="tour-tab dash-tab ${activeTab === "rosters" ? "tour-tab--active" : ""}" data-tab="rosters">Rosters</button>
           </div>`;
 
@@ -319,124 +327,128 @@
 
         let content = "";
 
+        // Standings HTML (shared by standings tab)
+        const standingsHtml = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:stretch">
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">League Standings</span>
+                <a href="players.html" class="btn btn--outline btn--sm">Full Standings →</a>
+              </div>
+              <table class="data-table">
+                <thead><tr><th>Tour</th><th class="text-right">Rank</th><th class="text-right">Best 9</th><th class="text-right">Total</th></tr></thead>
+                <tbody>
+                  <tr><td>Men's CT</td><td class="text-right"><strong>${mensRank > 0 ? `#${mensRank} of ${mensLeaderboard.length}` : "—"}</strong></td><td class="text-right">${mensEntry?.bestNineTotal ?? "—"}</td><td class="text-right text-muted">${mensEntry?.allEventsTotal ?? "—"}</td></tr>
+                  <tr><td>Women's CT</td><td class="text-right"><strong>${womensRank > 0 ? `#${womensRank} of ${womensLeaderboard.length}` : "—"}</strong></td><td class="text-right">${womensEntry?.bestNineTotal ?? "—"}</td><td class="text-right text-muted">${womensEntry?.allEventsTotal ?? "—"}</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card__header">
+                ${allClubs.length > 1 ? `
+                  <select id="club-select" style="font-family:inherit;font-size:0.95rem;font-weight:600;border:none;background:none;color:var(--color-charcoal);cursor:pointer;padding:0;margin:0">
+                    ${allClubs.map((c, i) => `<option value="${i}" ${i === selectedClubIdx ? "selected" : ""}>${c.name}</option>`).join("")}
+                  </select>
+                ` : `<span class="card__title">${club ? club.name : "Club Standings"}</span>`}
+                <div style="display:flex;gap:0.4rem;align-items:center">
+                  ${allClubs.length > 1 && club ? `<button id="btn-default-club" class="btn btn--outline btn--sm" style="font-size:0.7rem;padding:0.15rem 0.4rem;${club.id === userDoc?.defaultClubId ? "opacity:0.4;cursor:default" : ""}">${club.id === userDoc?.defaultClubId ? "Default" : "Set Default"}</button>` : ""}
+                  ${club ? `<a href="club.html?id=${club.id}" class="btn btn--outline btn--sm" id="club-view-link">View Club →</a>` : `<a href="club.html" class="btn btn--outline btn--sm">Join a Club →</a>`}
+                </div>
+              </div>
+              <table class="data-table">
+                <thead><tr><th>#</th><th>Team</th><th class="text-right">Best 9</th></tr></thead>
+                <tbody>
+                  ${clubMembers.length > 0 ? (() => {
+                    const userIdx = clubMembers.findIndex(e => e.userId === user.uid);
+                    const userInTop3 = userIdx >= 0 && userIdx < 3;
+                    const showRows = clubMembers.slice(0, userInTop3 ? 4 : 3);
+                    const renderRow = (entry, i) => `
+                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
+                        <td>${i + 1}</td>
+                        <td class="flex gap-1" style="align-items:center">
+                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+                          ${entry.teamName || entry.displayName || "—"}
+                        </td>
+                        <td class="text-right">${entry.bestNineTotal || 0}</td>
+                      </tr>`;
+                    let html = showRows.map((e, i) => renderRow(e, i)).join("");
+                    if (!userInTop3 && userIdx >= 3) {
+                      html += `<tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>`;
+                      html += renderRow(clubMembers[userIdx], userIdx);
+                    }
+                    return html;
+                  })() : `
+                    <tr><td>1</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+                    <tr><td>2</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+                    <tr><td>3</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+                    <tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>
+                    <tr><td>—</td><td class="text-muted">You</td><td class="text-right text-muted">—</td></tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+
         if (activeTab === "homepage") {
           content = `
-            <div class="grid grid--sidebar">
-              <div>
-                <div class="card mb-3">
-                  <div class="card__header"><span class="card__title">Current Events</span></div>
-                  ${mensEvent || womensEvent ? `
-                    ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT", tour: "mens" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT", tour: "womens" }]
-                      .filter(Boolean)
-                      .map(({ ev, team, label, tour }, idx) => `
-                        ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
-                        <div style="display:flex;gap:1rem;align-items:flex-start">
-                          <div style="flex:1;min-width:0">
-                            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
-                              <span class="text-sm" style="font-weight:600">${label}</span>
-                              ${tradingBadge(ev.tradingOpen)}
-                            </div>
-                            <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
-                            <p class="text-muted text-sm">${ev.location || ""}</p>
-                            <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
-                            <div class="mt-1">
-                              <a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>
-                            </div>
+            <!-- Current Events + Schedule side by side -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+              <div class="card">
+                <div class="card__header"><span class="card__title">Current Events</span></div>
+                ${mensEvent || womensEvent ? `
+                  ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT", tour: "mens" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT", tour: "womens" }]
+                    .filter(Boolean)
+                    .map(({ ev, team, label, tour }, idx) => `
+                      ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
+                      <div style="display:flex;gap:1rem;align-items:flex-start">
+                        <div style="flex:1;min-width:0">
+                          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+                            <span class="text-sm" style="font-weight:600">${label}</span>
+                            ${tradingBadge(ev.tradingOpen)}
                           </div>
-                          <div style="flex-shrink:0">
-                            ${team ? renderStrip(team, null, "mid", tour) : `<p class="text-muted text-sm">No team picked yet.</p>`}
+                          <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
+                          <p class="text-muted text-sm">${ev.location || ""}</p>
+                          <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
+                          <div class="mt-1">
+                            <a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>
                           </div>
                         </div>
-                      `).join("")}
-                  ` : `<p class="text-muted">No upcoming events.</p>`}
-                </div>
+                        <div style="flex-shrink:0">
+                          ${team ? renderStrip(team, null, "mid", tour) : `<p class="text-muted text-sm">No team picked yet.</p>`}
+                        </div>
+                      </div>
+                    `).join("")}
+                ` : `<p class="text-muted">No upcoming events.</p>`}
               </div>
-              <div>
-                <div class="card mb-3">
-                  <div class="card__header">
-                    <span class="card__title">Your Season Rank</span>
-                    <a href="players.html" class="btn btn--outline btn--sm">Full Standings →</a>
-                  </div>
-                  ${(mensLeaderboard.length > 0 || womensLeaderboard.length > 0) ? `
-                    <table class="data-table">
-                      <thead><tr><th>Tour</th><th class="text-right">Rank</th><th class="text-right">Best 9</th><th class="text-right">Total</th></tr></thead>
-                      <tbody>
-                        ${mensLeaderboard.length > 0 ? `<tr><td>Men's CT</td><td class="text-right"><strong>${mensRank > 0 ? `#${mensRank} of ${mensLeaderboard.length}` : "—"}</strong></td><td class="text-right">${mensEntry?.bestNineTotal ?? "—"}</td><td class="text-right text-muted">${mensEntry?.allEventsTotal ?? "—"}</td></tr>` : ""}
-                        ${womensLeaderboard.length > 0 ? `<tr><td>Women's CT</td><td class="text-right"><strong>${womensRank > 0 ? `#${womensRank} of ${womensLeaderboard.length}` : "—"}</strong></td><td class="text-right">${womensEntry?.bestNineTotal ?? "—"}</td><td class="text-right text-muted">${womensEntry?.allEventsTotal ?? "—"}</td></tr>` : ""}
-                      </tbody>
-                    </table>
-                  ` : `<p class="text-muted">No standings yet. Results will appear after the first event.</p>`}
-                </div>
-                ${club ? `
-                  <div class="card mb-3">
-                    <div class="card__header">
-                      <span class="card__title">${club.name}</span>
-                      <a href="club.html?id=${club.id}" class="btn btn--outline btn--sm">View Club →</a>
-                    </div>
-                    ${clubMembers.length > 0 ? `
-                      <table class="data-table">
-                        <thead><tr><th>#</th><th>Team</th><th class="text-right">Best 9</th></tr></thead>
-                        <tbody>
-                          ${clubMembers.map((entry, i) => `
-                            <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                              <td>${i + 1}</td>
-                              <td class="flex gap-1" style="align-items:center">
-                                ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-                                ${entry.teamName || entry.displayName || "—"}
-                              </td>
-                              <td class="text-right">${entry.bestNineTotal || 0}</td>
-                            </tr>
-                          `).join("")}
-                        </tbody>
-                      </table>
-                    ` : `<p class="text-muted text-sm">No standings yet.</p>`}
-                  </div>
-                ` : `
-                  <div class="card mb-3">
-                    <div class="card__header"><span class="card__title">Your Club</span></div>
-                    <p class="text-muted text-sm">Compete with friends in a private group.</p>
-                    <a href="club.html" class="btn btn--outline btn--sm mt-2">Join or Create a Club →</a>
-                  </div>
-                `}
-                <div class="card">
-                  <div class="card__header"><span class="card__title">${SEASON} Schedule</span></div>
-                  ${events.length > 0 ? (() => {
-                    const seen = new Set();
-                    const unique = events.filter((e) => {
-                      const key = `${e.eventNumber}-${e.name}`;
-                      if (seen.has(key)) return false;
-                      seen.add(key); return true;
-                    });
-                    return `<div class="surfer-list">
-                      ${unique.map((e) => `
-                        <div class="surfer-row">
-                          <span class="surfer-row__rank">${e.eventNumber}</span>
-                          <span class="surfer-row__name">${e.name}</span>
-                          ${statusBadge(e.status)}
-                        </div>
-                      `).join("")}
-                    </div>`;
-                  })() : `<p class="text-muted">No events scheduled yet.</p>`}
-                </div>
+              <div class="card">
+                <div class="card__header"><span class="card__title">${SEASON} Schedule</span></div>
+                ${events.length > 0 ? (() => {
+                  const seen = new Set();
+                  const unique = events.filter((e) => {
+                    const key = `${e.eventNumber}-${e.name}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key); return true;
+                  });
+                  return `<div class="surfer-list">
+                    ${unique.map((e) => `
+                      <div class="surfer-row">
+                        <span class="surfer-row__rank">${e.eventNumber}</span>
+                        <span class="surfer-row__name">${e.name}</span>
+                        ${statusBadge(e.status)}
+                      </div>
+                    `).join("")}
+                  </div>`;
+                })() : `<p class="text-muted">No events scheduled yet.</p>`}
               </div>
             </div>`;
+        } else if (activeTab === "standings") {
+          content = standingsHtml;
         } else {
           // Rosters tab
-          const toStandings = (rosters) => {
-            const scored = rosters.filter(r => r.score).map(r => r.score.totalPoints).sort((a, b) => b - a);
-            return { eventsPlayed: scored.length, best9: scored.slice(0, 9).reduce((s, p) => s + p, 0) };
-          };
-          const mensStandings = toStandings(mensRosters);
-          const womensStandings = toStandings(womensRosters);
-
-          const mensLocked = !mensEvent || mensEvent.tradingOpen === false;
-          const womensLocked = !womensEvent || womensEvent.tradingOpen === false;
-
           content = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
               <div>
                 <h2 class="mb-3">Men's CT</h2>
-                ${renderStandings("Men's CT", mensStandings)}
                 ${mensEvent ? `
                   <div class="card mb-3">
                     <div class="card__header">
@@ -450,7 +462,6 @@
               </div>
               <div>
                 <h2 class="mb-3">Women's CT</h2>
-                ${renderStandings("Women's CT", womensStandings)}
                 ${womensEvent ? `
                   <div class="card mb-3">
                     <div class="card__header">
@@ -466,7 +477,7 @@
         }
 
         container.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;margin-top:-1rem">
             <h1 class="page-title" style="margin:0">Fantasy Surf League</h1>
             ${profileWidget}
           </div>
@@ -485,6 +496,23 @@
             }
             render();
           });
+        });
+
+        // ── Club dropdown handler ──
+        document.getElementById("club-select")?.addEventListener("change", (e) => {
+          selectClub(parseInt(e.target.value));
+          render();
+        });
+
+        // ── Set default club ──
+        document.getElementById("btn-default-club")?.addEventListener("click", async () => {
+          if (!club || club.id === userDoc?.defaultClubId) return;
+          const { updateUser } = await import("./js/db.js");
+          const { toast: t } = await import("./js/ui.js");
+          await updateUser(user.uid, { defaultClubId: club.id });
+          userDoc.defaultClubId = club.id;
+          t(`${club.name} set as default`, "success");
+          render();
         });
 
         // ── Profile edit handlers ──
