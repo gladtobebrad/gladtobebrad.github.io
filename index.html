@@ -268,60 +268,58 @@
             <button class="tour-tab dash-tab ${activeTab === "rosters" ? "tour-tab--active" : ""}" data-tab="rosters">Rosters</button>
           </div>`;
 
-        // ── Profile card (shared across tabs) ──
+        // ── Profile widget (top-right) ──
+        const avatarSm = avatarUrl
+          ? `<img src="${avatarUrl}" alt="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">`
+          : `<div style="width:80px;height:80px;border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1.5rem;color:var(--color-warm-brown);flex-shrink:0">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
         const avatarPreview = avatarUrl
           ? `<img src="${avatarUrl}" alt="" class="avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
           : `<div class="avatar-preview avatar-preview--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
-        const avatarPreviewLg = avatarUrl
-          ? `<img src="${avatarUrl}" alt="" class="avatar-preview" style="width:110px;height:110px;font-size:2rem" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-          : `<div class="avatar-preview avatar-preview--empty" style="width:110px;height:110px;font-size:2rem">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
 
-        const teamNameSection = `<div class="card mb-3">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <h4 style="margin:0">Your Profile</h4>
-            <span class="ads-coin-badge">🪙 ${adsCoins} ADScoin</span>
-          </div>
-          <div id="profile-view" class="profile-edit" style="margin-top:1rem">
-            <div class="profile-edit__avatar" style="display:flex;flex-direction:column;align-items:center;gap:0.4rem">
-              ${avatarPreviewLg}
-              <button class="btn btn--outline btn--sm" id="btn-edit-profile" style="white-space:nowrap;font-size:0.75rem">Edit Profile</button>
+        const profileWidget = `
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            ${avatarSm}
+            <div style="text-align:right">
+              <div style="font-weight:600;font-size:0.95rem">${profile?.teamName || user.displayName || "—"}</div>
+              <div class="text-xs text-muted">${clubLabel}</div>
             </div>
-            <div class="profile-edit__fields">
-              <div style="font-weight:700;font-size:1.1rem">${profile?.teamName || user.displayName || "—"}</div>
-              <div class="text-sm text-muted" style="margin-top:0.25rem">${clubLabel}</div>
-            </div>
-          </div>
-          <div id="profile-edit-form" class="profile-edit" style="display:none;margin-top:1rem">
-            <div class="profile-edit__avatar">${avatarPreview}</div>
-            <div class="profile-edit__fields">
-              <div class="form-group mb-1">
-                <label class="form-label">Team Name</label>
-                <input type="text" class="search-input" id="team-name-input" placeholder="e.g. michael ciaramella" maxlength="30" value="${profile?.teamName || ""}">
-              </div>
-              <div class="form-group mb-1">
-                <label class="form-label">Profile Photo</label>
-                <div id="avatar-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
-                  <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
-                    Choose File
-                    <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
-                  </label>
-                  <span class="text-xs text-muted" id="avatar-file-name">or drag &amp; drop here</span>
+            <button class="btn btn--outline btn--sm" id="btn-edit-profile" style="white-space:nowrap;font-size:0.72rem;padding:0.2rem 0.5rem">Edit</button>
+          </div>`;
+
+        const editFormModal = `
+          <div id="profile-edit-form" style="display:none;margin-bottom:1rem">
+            <div class="card">
+              <div class="profile-edit">
+                <div class="profile-edit__avatar">${avatarPreview}</div>
+                <div class="profile-edit__fields">
+                  <div class="form-group mb-1">
+                    <label class="form-label">Team Name</label>
+                    <input type="text" class="search-input" id="team-name-input" placeholder="e.g. michael ciaramella" maxlength="30" value="${profile?.teamName || ""}">
+                  </div>
+                  <div class="form-group mb-1">
+                    <label class="form-label">Profile Photo</label>
+                    <div id="avatar-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
+                      <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
+                        Choose File
+                        <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+                      </label>
+                      <span class="text-xs text-muted" id="avatar-file-name">or drag &amp; drop here</span>
+                    </div>
+                    <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
+                  </div>
+                  <div style="display:flex;gap:0.5rem">
+                    <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
+                    <button class="btn btn--outline btn--sm" id="btn-cancel-profile">Cancel</button>
+                  </div>
                 </div>
-                <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
-              </div>
-              <div style="display:flex;gap:0.5rem">
-                <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
-                <button class="btn btn--outline btn--sm" id="btn-cancel-profile">Cancel</button>
               </div>
             </div>
-          </div>
-        </div>`;
+          </div>`;
 
         let content = "";
 
         if (activeTab === "homepage") {
           content = `
-            ${teamNameSection}
             <div class="grid grid--sidebar">
               <div>
                 <div class="card mb-3">
@@ -485,8 +483,12 @@
         }
 
         container.innerHTML = `
-          <h1 class="page-title">Fantasy Surf League</h1>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+            <h1 class="page-title" style="margin:0">Fantasy Surf League</h1>
+            ${profileWidget}
+          </div>
           ${tabs}
+          ${editFormModal}
           ${content}
         `;
 
@@ -502,15 +504,14 @@
           });
         });
 
-        // ── Profile edit handlers (Homepage tab) ──
-        if (activeTab === "homepage") {
+        // ── Profile edit handlers ──
+        {
           document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
-            document.getElementById("profile-view").style.display = "none";
-            document.getElementById("profile-edit-form").style.display = "flex";
+            const form = document.getElementById("profile-edit-form");
+            form.style.display = form.style.display === "none" ? "block" : "none";
           });
           document.getElementById("btn-cancel-profile")?.addEventListener("click", () => {
             document.getElementById("profile-edit-form").style.display = "none";
-            document.getElementById("profile-view").style.display = "flex";
           });
 
           const applyFile = (file) => {
