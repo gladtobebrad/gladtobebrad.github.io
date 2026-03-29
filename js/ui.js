@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { title: "My Team", href: "team.html" },
   { title: "My Club", href: "club.html" },
   { title: "Judges Tower", href: "surfers.html" },
-  { title: "Players", href: "players.html" },
   { title: "About", href: "about.html" },
 ];
 
