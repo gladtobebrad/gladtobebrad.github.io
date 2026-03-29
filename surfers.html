@@ -3,13 +3,126 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surfers — Fantasy Surf League</title>
+  <title>Judges Tower — Fantasy Surf League</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/fantasy.css">
   <link rel="icon" type="image/png" href="img/Fsurf_logo.png">
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
+  <style>
+    .place-badge {
+      display: inline-block;
+      min-width: 2.5rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .place-1  { background: #f5d060; color: #5a4200; }
+    .place-2  { background: #d0d5dd; color: #2f2f2f; }
+    .place-3  { background: #d4a97a; color: #3a2400; }
+    .place-5  { background: #c8e6c9; color: #1b5e20; }
+    .place-9  { background: #e8f4fd; color: #1a3a50; }
+    .place-13 { background: var(--color-beige); color: var(--color-warm-black); }
+    .place-33 { background: #fce4ec; color: #880e4f; }
+    .place-null { color: var(--color-warm-gray); }
+    .place-inj { background: #5c1a1a; color: #ff6b6b; }
+
+    .surfer-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .surfer-grid-4col {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.4rem;
+      margin-bottom: 1.5rem;
+    }
+    .surfer-btn {
+      padding: 0.3rem 0.75rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--color-charcoal);
+    }
+    .surfer-btn:hover { border-color: var(--color-sage); background: var(--color-cream); }
+    .surfer-btn.active {
+      background: var(--color-charcoal);
+      color: var(--color-warm-white);
+      border-color: var(--color-charcoal);
+    }
+    .data-table td { vertical-align: middle; }
+    .text-center { text-align: center; }
+    .avg-cell { font-weight: 500; color: var(--color-warm-black); }
+    .search-wrap { margin-bottom: 1rem; }
+
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.75rem 0;
+    }
+    .section-toggle h2 { margin: 0; font-size: 1.2rem; }
+    .section-arrow {
+      font-size: 1.2rem;
+      transition: transform 0.2s;
+      color: var(--color-warm-gray);
+    }
+    .section-arrow.collapsed { transform: rotate(-90deg); }
+    .section-body.collapsed { display: none; }
+
+    .loc-btn {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--color-charcoal);
+    }
+    .loc-btn:hover { border-color: var(--color-sage); background: var(--color-cream); }
+    .loc-btn.active {
+      background: var(--color-charcoal);
+      color: var(--color-warm-white);
+      border-color: var(--color-charcoal);
+    }
+
+    .loc-select {
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--color-beige);
+      border-radius: var(--radius-md);
+      background: var(--color-warm-white);
+      font-size: 0.8rem;
+      color: var(--color-charcoal);
+      cursor: pointer;
+      width: 5.5rem;
+    }
+    .loc-select:focus { border-color: var(--color-sage); outline: none; }
+
+    .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable:hover { color: var(--color-warm-black); }
+    .sort-arrow { font-size: 0.65rem; margin-left: 0.2rem; }
+
+    #event-table thead th,
+    #surfer-table thead th,
+    #surfers-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--color-warm-white);
+      z-index: 1;
+      box-shadow: 0 1px 0 var(--color-beige);
+    }
+  </style>
 </head>
 <body>
 
@@ -27,10 +140,199 @@
     import { renderHeader, renderFooter, showAuthGate, showLoading, renderTable } from "./js/ui.js";
 
     const SEASON = 2026;
-    let activeTab = "popularity-mens";
+    let activeSubPage = "location";  // "location" | "surfer" | "popularity"
+    let activeTour = "mens";          // "mens" | "womens"
     let allSurfers = [];
     let events = [];
     let eventData = {};
+    let rosterNames = {};  // per-tour set of Firestore active surfer names
+
+    // ── Data-widget state ─────────────────────────────────
+    let dataTours = {};
+    let dataAvailableTours = [];
+    let selectedLocation = {};   // per tour
+    let selectedSurfer = {};     // per tour
+    let surferFilter = "";
+    let eventSortCol = "avg";
+    let eventSortAsc = true;
+
+    // ── Location name mapping (from data.html) ───────────
+    const LOCATION_MAP = {
+      "Lexus Pipe Pro":                          "Pipeline",
+      "Billabong Pro Pipeline":                  "Pipeline",
+      "Hurley Pro Sunset Beach":                 "Sunset Beach",
+      "Surf Abu Dhabi Pro":                      "Abu Dhabi",
+      "MEO Rip Curl Pro Portugal":               "Portugal",
+      "MEO Portugal Pro":                        "Portugal",
+      "Surf City El Salvador Pro":               "El Salvador",
+      "Rip Curl Pro Bells Beach":                "Bells Beach",
+      "Bonsoy Gold Coast Pro":                   "Gold Coast",
+      "Western Australia Margaret River Pro":    "Margaret River",
+      "Margaret River Pro":                      "Margaret River",
+      "Lexus Trestles Pro":                      "Trestles",
+      "VIVO Rio Pro":                            "Rio de Janeiro",
+      "Oi Rio Pro":                              "Rio de Janeiro",
+      "Corona Open J-Bay":                       "J-Bay",
+      "Corona Cero Open J-Bay":                  "J-Bay",
+      "SHISEIDO Tahiti Pro":                     "Tahiti",
+      "Outerknown Tahiti Pro":                   "Tahiti",
+      "Lexus Tahiti Pro":                        "Tahiti",
+      "Tahiti Pro":                              "Tahiti",
+      "Corona Fiji Pro":                         "Fiji",
+      "Fiji Pro":                                "Fiji",
+      "Corona Cero New Zealand Pro":             "New Zealand",
+      "Lexus Pipe Masters":                      "Pipeline",
+      "Lexus WSL Finals":                        "WSL Finals",
+      "Rip Curl WSL Finals":                     "WSL Finals",
+      "Lexus WSL Finals Fiji":                   "WSL Finals",
+      "Surf Ranch Pro":                          "Surf Ranch",
+      "Quiksilver/ROXY Pro G-Land":              "G-Land",
+    };
+
+    const LOCATION_PATTERNS = [
+      { re: /\bpipe/i, loc: "Pipeline" },
+      { re: /\bsunset\b/i, loc: "Sunset Beach" },
+      { re: /\babu\s+dhabi\b/i, loc: "Abu Dhabi" },
+      { re: /\bportugal\b/i, loc: "Portugal" },
+      { re: /\bel\s+salvador\b/i, loc: "El Salvador" },
+      { re: /\bbells\b/i, loc: "Bells Beach" },
+      { re: /\bgold\s+coast\b/i, loc: "Gold Coast" },
+      { re: /\bmargaret\s+river\b/i, loc: "Margaret River" },
+      { re: /\btrestles\b/i, loc: "Trestles" },
+      { re: /\brio\b/i, loc: "Rio de Janeiro" },
+      { re: /\bj-?bay\b/i, loc: "J-Bay" },
+      { re: /\btahiti\b/i, loc: "Tahiti" },
+      { re: /\bfiji\b/i, loc: "Fiji" },
+      { re: /\bfinals\b/i, loc: "WSL Finals" },
+      { re: /\bsurf\s+ranch\b/i, loc: "Surf Ranch" },
+      { re: /\bg-?land\b/i, loc: "G-Land" },
+      { re: /\bnew\s*zealand\b/i, loc: "New Zealand" },
+    ];
+
+    function locationForEvent(eventName) {
+      if (!eventName) return eventName;
+      const exact = LOCATION_MAP[eventName];
+      if (exact) return exact;
+      for (const { re, loc } of LOCATION_PATTERNS) {
+        if (re.test(eventName)) return loc;
+      }
+      return eventName;
+    }
+
+    const LOCATION_ORDER = [
+      "Pipeline", "Sunset Beach", "Abu Dhabi", "Portugal",
+      "El Salvador", "Bells Beach", "Gold Coast", "Margaret River",
+      "G-Land", "Surf Ranch", "Trestles", "Rio de Janeiro",
+      "J-Bay", "Tahiti", "Fiji", "New Zealand", "WSL Finals",
+    ];
+
+    const CURRENT_SEASON_LOCATIONS = [
+      "Bells Beach", "Margaret River", "Gold Coast", "New Zealand",
+      "El Salvador", "Rio de Janeiro", "Tahiti", "Fiji",
+      "Trestles", "Abu Dhabi", "Portugal", "Pipeline",
+    ];
+
+    function buildIndices(datasets) {
+      const surferIdx = {};
+      const locationIdx = {};
+      const years = [...new Set(datasets.map(d => d.year))].sort();
+      for (const ds of datasets) {
+        const { year, events: evts, surfers } = ds;
+        for (const surfer of surfers) {
+          if (!surferIdx[surfer.name]) surferIdx[surfer.name] = {};
+          for (let i = 0; i < evts.length; i++) {
+            const loc = locationForEvent(evts[i]);
+            const place = surfer.places[i] ?? null;
+            if (!surferIdx[surfer.name][loc]) surferIdx[surfer.name][loc] = {};
+            surferIdx[surfer.name][loc][year] = place;
+            if (!locationIdx[loc]) locationIdx[loc] = {};
+            if (!locationIdx[loc][surfer.name]) locationIdx[loc][surfer.name] = {};
+            locationIdx[loc][surfer.name][year] = place;
+          }
+        }
+      }
+      const latestYear = Math.max(...years);
+      const latestDataset = datasets.find(d => d.year === latestYear);
+      const activeNames = new Set(latestDataset ? latestDataset.surfers.map(s => s.name) : []);
+      const names = Object.keys(surferIdx)
+        .filter(n => activeNames.has(n))
+        .sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+      const locations = CURRENT_SEASON_LOCATIONS.filter(l => locationIdx[l]);
+      const allLocationsFull = [
+        ...LOCATION_ORDER.filter(l => locationIdx[l]),
+        ...Object.keys(locationIdx).filter(l => !LOCATION_ORDER.includes(l)).sort(),
+      ].filter(l => !CURRENT_SEASON_LOCATIONS.includes(l) && l !== "WSL Finals");
+      return { surferIndex: surferIdx, locationIndex: locationIdx, allYears: years, sortedNames: names, allLocations: locations, allLocationsFull, activeNames };
+    }
+
+    // ── Data helpers ──────────────────────────────────────
+    function ordinal(n) {
+      if (n === null || n === undefined) return "—";
+      const s = ["th","st","nd","rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    function placeClass(n) {
+      if (n === null) return "place-null";
+      if (n === 1) return "place-1";
+      if (n === 2) return "place-2";
+      if (n === 3) return "place-3";
+      if (n <= 8) return "place-5";
+      if (n <= 12) return "place-9";
+      if (n <= 16) return "place-13";
+      return "place-33";
+    }
+
+    function placeBadge(n) {
+      if (n === null) return `<span class="place-null text-muted">—</span>`;
+      if (n === "INJ") return `<span class="place-badge place-inj">INJ</span>`;
+      return `<span class="place-badge ${placeClass(n)}">${ordinal(n)}</span>`;
+    }
+
+    function calcStats(yearData) {
+      const vals = Object.values(yearData).filter(v => v !== null && v !== "INJ");
+      if (vals.length === 0) return { avg: null, best: null, worst: null };
+      return {
+        avg: +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1),
+        best: Math.min(...vals),
+        worst: Math.max(...vals),
+      };
+    }
+
+    function sortArrow(col) {
+      if (col !== eventSortCol) return "";
+      return `<span class="sort-arrow">${eventSortAsc ? "▲" : "▼"}</span>`;
+    }
+
+    // ── Load WSL JSON data ────────────────────────────────
+    async function loadWslData() {
+      if (location.protocol === "file:") return;
+      const tryFetch = (url) => fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+      const [mensData, womensData] = await Promise.all([
+        Promise.all([
+          tryFetch("./data/wsl_results/wsl_2022_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2023_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2024_mens.json"),
+          tryFetch("./data/wsl_results/wsl_2025_mens.json"),
+        ]).then(arr => arr.filter(Boolean)),
+        Promise.all([
+          tryFetch("./data/wsl_results/wsl_2022_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2023_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2024_womens.json"),
+          tryFetch("./data/wsl_results/wsl_2025_womens.json"),
+        ]).then(arr => arr.filter(Boolean)),
+      ]);
+      if (mensData.length > 0) dataTours.mens = buildIndices(mensData);
+      if (womensData.length > 0) dataTours.womens = buildIndices(womensData);
+      dataAvailableTours = Object.keys(dataTours);
+      // Initialize per-tour defaults
+      for (const key of dataAvailableTours) {
+        const t = dataTours[key];
+        if (!selectedLocation[key]) selectedLocation[key] = t.allLocations[0];
+        if (!selectedSurfer[key]) selectedSurfer[key] = t.sortedNames[0];
+      }
+    }
 
     initAuth();
     renderHeader();
@@ -48,12 +350,22 @@
 
     async function loadData(container) {
       try {
-        [events, allSurfers] = await Promise.all([
+        const [eventsResult, surfersResult] = await Promise.all([
           getEvents(SEASON),
-          getSurfers()
+          getSurfers(),
+          loadWslData(),
         ]);
+        events = eventsResult;
+        allSurfers = surfersResult;
 
-        // Popularity data is pre-computed and stored on the event doc when trading locks
+        // Build roster-active name sets per tour from Firestore surfers
+        rosterNames = {};
+        for (const s of allSurfers) {
+          const t = s.tour || "mens";
+          if (!rosterNames[t]) rosterNames[t] = new Set();
+          rosterNames[t].add(s.name);
+        }
+
         for (const event of events) {
           eventData[event.id] = {
             event,
@@ -65,49 +377,201 @@
         render(container);
       } catch (err) {
         container.innerHTML = `
-          <h1 class="page-title">Surfers</h1>
+          <h1 class="page-title">Judges Tower</h1>
           <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
         `;
       }
     }
 
     function render(container) {
-      const tabs = [
-        { id: "popularity-mens",   label: "Men's Popularity" },
-        { id: "popularity-womens", label: "Women's Popularity" },
-      ];
+      const tour = activeTour;
+      const dt = dataTours[tour];
 
-      const tabBar = `
-        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
-          ${tabs.map(t => `
-            <button data-tab="${t.id}" style="
+      // ── Sub-page tabs ─────────────────────────────────
+      const subPages = [
+        { id: "location",   label: "Results by Location" },
+        { id: "surfer",     label: "Results by Surfer" },
+        { id: "popularity", label: "Popularity" },
+      ];
+      const subPageTabs = `
+        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+          ${subPages.map(p => `
+            <button data-subpage="${p.id}" style="
               padding:0.5rem 1rem;
               border:none;background:none;cursor:pointer;
-              font-size:0.9rem;font-weight:${activeTab === t.id ? "600" : "400"};
-              color:${activeTab === t.id ? "var(--color-charcoal)" : "var(--color-sage)"};
-              border-bottom:2px solid ${activeTab === t.id ? "var(--color-charcoal)" : "transparent"};
+              font-size:0.9rem;font-weight:${activeSubPage === p.id ? "600" : "400"};
+              color:${activeSubPage === p.id ? "var(--color-charcoal)" : "var(--color-sage)"};
+              border-bottom:2px solid ${activeSubPage === p.id ? "var(--color-charcoal)" : "transparent"};
               margin-bottom:-1px;
-            ">${t.label}</button>
+            ">${p.label}</button>
           `).join("")}
         </div>`;
 
-      let content = "";
+      // ── Tour toggle (Men's / Women's) ─────────────────
+      const tourToggle = `
+        <div class="tour-tabs mb-3">
+          <button class="tour-tab ${tour === "mens" ? "tour-tab--active" : ""}" data-tour="mens">Men's CT</button>
+          <button class="tour-tab ${tour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
+        </div>`;
 
-      const tour = activeTab === "popularity-mens" ? "mens" : "womens";
+      // ── Build active sub-page content ─────────────────
+      let pageContent = "";
+
+      if (activeSubPage === "location" && dt) {
+        const loc = selectedLocation[tour] || dt.allLocations[0];
+        const { locationIndex, allYears, allLocations } = dt;
+
+        const locData = locationIndex[loc] || {};
+        const rosterSet = rosterNames[tour] || new Set();
+        const locSurfers = Object.entries(locData)
+          .filter(([name]) => rosterSet.has(name))
+          .map(([name, yearData]) => {
+            const stats = calcStats(yearData);
+            return { name, yearData, ...stats };
+          });
+
+        locSurfers.sort((a, b) => {
+          let aVal, bVal;
+          if (eventSortCol === "name") {
+            return eventSortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+          } else if (["avg", "best", "worst"].includes(eventSortCol)) {
+            aVal = a[eventSortCol]; bVal = b[eventSortCol];
+          } else {
+            const yr = parseInt(eventSortCol);
+            aVal = a.yearData[yr] ?? null; bVal = b.yearData[yr] ?? null;
+          }
+          if ((aVal === null || aVal === "INJ") && (bVal === null || bVal === "INJ")) return 0;
+          if (aVal === null || aVal === "INJ") return 1;
+          if (bVal === null || bVal === "INJ") return -1;
+          return eventSortAsc ? aVal - bVal : bVal - aVal;
+        });
+
+        const isDropdownLoc = !allLocations.includes(loc) && dt.allLocationsFull.includes(loc);
+        const locBtns = allLocations.map(l =>
+          `<button class="loc-btn${l === loc ? " active" : ""}" data-loc="${l}">${l}</button>`
+        ).join("")
+        + `<select class="loc-select" id="loc-more">
+            <option value="" ${isDropdownLoc ? "" : "selected"}>More…</option>
+            ${dt.allLocationsFull.map(l => `<option value="${l}" ${l === loc ? "selected" : ""}>${l}</option>`).join("")}
+          </select>`;
+
+        const eventRows = locSurfers.map(s => {
+          const yearCells = allYears.map(y =>
+            `<td class="text-center">${placeBadge(s.yearData[y] ?? null)}</td>`
+          ).join("");
+          return `<tr>
+            <td>${s.name}</td>
+            <td class="text-center avg-cell">${s.avg !== null ? s.avg : "—"}</td>
+            <td class="text-center">${placeBadge(s.best)}</td>
+            <td class="text-center">${placeBadge(s.worst)}</td>
+            ${yearCells}
+          </tr>`;
+        }).join("");
+
+        pageContent = `
+          <div class="card">
+            <div class="surfer-grid" style="margin-bottom:1rem;gap:0.35rem;align-items:center">${locBtns}</div>
+            ${eventRows.length > 0 ? `
+            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+            <table class="data-table" id="event-table" style="margin:0">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
+                  <th class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
+                  <th class="sortable text-center" data-sort="best">Best ${sortArrow("best")}</th>
+                  <th class="sortable text-center" data-sort="worst">Worst ${sortArrow("worst")}</th>
+                  ${allYears.map(y => `<th class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>${eventRows}</tbody>
+            </table>
+            </div>
+            ` : `<p class="text-muted">No data for this location.</p>`}
+          </div>`;
+
+      } else if (activeSubPage === "surfer" && dt) {
+        const { surferIndex, allYears, sortedNames: allSortedNames } = dt;
+        const rosterSet = rosterNames[tour] || new Set();
+        const sortedNames = allSortedNames.filter(n => rosterSet.has(n));
+        const name = selectedSurfer[tour] && sortedNames.includes(selectedSurfer[tour])
+          ? selectedSurfer[tour]
+          : sortedNames[0];
+        const sData = surferIndex[name] || {};
+        const usedLocs = new Set(Object.keys(sData));
+        const orderedLocs = [
+          ...LOCATION_ORDER.filter(l => usedLocs.has(l)),
+          ...[...usedLocs].filter(l => !LOCATION_ORDER.includes(l)).sort(),
+        ];
+        const activeYears = allYears.filter(y =>
+          orderedLocs.some(l => sData[l]?.[y] !== undefined)
+        );
+
+        const surferRows = orderedLocs.map(l => {
+          const yearPlaces = activeYears.map(y => sData[l]?.[y] ?? null);
+          const valid = yearPlaces.filter(p => p !== null && p !== "INJ");
+          const avg = valid.length > 0
+            ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
+            : null;
+          const cells = yearPlaces.map(p => `<td class="text-center">${placeBadge(p)}</td>`).join("");
+          return `<tr>
+            <td>${l}</td>
+            ${cells}
+            <td class="text-center avg-cell">${avg !== null ? avg : "—"}</td>
+          </tr>`;
+        }).join("");
+
+        const q = surferFilter.toLowerCase();
+        const filteredNames = q ? sortedNames.filter(n => n.toLowerCase().includes(q)) : sortedNames;
+        const btnList = filteredNames.map(n =>
+          `<button class="surfer-btn${n === name ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
+        ).join("");
+
+        pageContent = `
+          <div class="card">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+              <div style="align-self:start">
+                <div class="search-wrap">
+                  <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${surferFilter}">
+                </div>
+                <div class="surfer-grid-4col" id="surfer-list">${btnList}</div>
+              </div>
+              <div>
+                <div class="card__header" style="margin-bottom:0.5rem">
+                  <span class="card__title">${name}</span>
+                  <span class="text-sm text-muted">Place by location</span>
+                </div>
+                ${surferRows.length > 0 ? `
+                <div style="overflow:auto;max-height:380px;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+                <table class="data-table" id="surfer-table" style="margin:0">
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      ${activeYears.map(y => `<th class="text-center">${y}</th>`).join("")}
+                      <th class="text-center">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>${surferRows}</tbody>
+                </table>
+                </div>
+                ` : `<p class="text-muted">No data available.</p>`}
+              </div>
+            </div>
+          </div>`;
+
+      } else if (activeSubPage === "popularity") {
         const popularitySurfers = allSurfers
           .filter(s => (s.tour || "mens") === tour)
           .sort((a, b) => (a.rank || 999) - (b.rank || 999));
 
-        // Only show events for this tour, sorted by event number
         const tourEvents = events
           .filter(e => (e.tour || "mens") === tour)
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
-        content = `
+        pageContent = `
           <div class="card">
             <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
-            <div style="overflow-x:auto">
-              <table class="data-table" id="surfers-table">
+            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+              <table class="data-table" id="surfers-table" style="margin:0">
                 <thead><tr>
                   <th class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
                     Surfer <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span>
@@ -149,21 +613,43 @@
               </table>
             </div>
           </div>`;
+      }
+
+      if (!pageContent && !dt) {
+        pageContent = `<div class="card"><p class="text-muted">No data available for this tour.</p></div>`;
+      }
 
       container.innerHTML = `
-        <h1 class="page-title">Surfers</h1>
-        ${tabBar}
-        ${content}
+        <h1 class="page-title">Judges Tower</h1>
+        ${subPageTabs}
+        ${tourToggle}
+        ${pageContent}
       `;
 
-      container.querySelectorAll("[data-tab]").forEach(btn => {
+      // ── Event listeners ─────────────────────────────────
+      // Sub-page tabs
+      container.querySelectorAll("[data-subpage]").forEach(btn => {
         btn.addEventListener("click", () => {
-          activeTab = btn.dataset.tab;
+          activeSubPage = btn.dataset.subpage;
+          surferFilter = "";
+          eventSortCol = "avg";
+          eventSortAsc = true;
           render(container);
         });
       });
 
-      // Sortable columns
+      // Tour toggle
+      container.querySelectorAll("[data-tour]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeTour = btn.dataset.tour;
+          surferFilter = "";
+          eventSortCol = "avg";
+          eventSortAsc = true;
+          render(container);
+        });
+      });
+
+      // Sortable columns (popularity table)
       container.querySelectorAll(".sortable-col").forEach(th => {
         th.addEventListener("click", () => {
           const col = th.dataset.col;
@@ -204,6 +690,51 @@
           rows.forEach(r => tbody.appendChild(r));
         });
       });
+
+      // ── Data widget listeners ───────────────────────────
+      if (dt && activeSubPage === "location") {
+        container.querySelectorAll(".loc-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            selectedLocation[tour] = btn.dataset.loc;
+            eventSortCol = "avg"; eventSortAsc = true;
+            render(container);
+          });
+        });
+
+        document.getElementById("loc-more")?.addEventListener("change", e => {
+          if (e.target.value) {
+            selectedLocation[tour] = e.target.value;
+            eventSortCol = "avg"; eventSortAsc = true;
+            render(container);
+          }
+        });
+
+        container.querySelectorAll(".sortable").forEach(th => {
+          th.addEventListener("click", () => {
+            const col = th.dataset.sort;
+            if (eventSortCol === col) { eventSortAsc = !eventSortAsc; }
+            else { eventSortCol = col; eventSortAsc = true; }
+            render(container);
+          });
+        });
+      }
+
+      if (dt && activeSubPage === "surfer") {
+        document.getElementById("surfer-search")?.addEventListener("input", e => {
+          surferFilter = e.target.value;
+          render(container);
+          const searchEl = document.getElementById("surfer-search");
+          searchEl.focus();
+          searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
+        });
+
+        document.getElementById("surfer-list")?.addEventListener("click", e => {
+          const btn = e.target.closest(".surfer-btn");
+          if (!btn) return;
+          selectedSurfer[tour] = btn.dataset.name;
+          render(container);
+        });
+      }
     }
   </script>
 
