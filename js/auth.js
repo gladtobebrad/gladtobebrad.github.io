@@ -29,6 +29,9 @@ let _pendingDisplayName = null;
 export async function signIn() {
   try {
     await signInWithPopup(auth, provider);
+    if (!location.pathname.endsWith("index.html") && location.pathname !== "/") {
+      location.href = "index.html";
+    }
   } catch (err) {
     if (err.code === "auth/popup-blocked" || err.code === "auth/popup-cancelled-by-user") {
       // Browser blocked the popup — fall back to redirect
@@ -60,6 +63,9 @@ function friendlyAuthError(code) {
 export async function signInWithEmail(email, password) {
   try {
     await signInWithEmailAndPassword(auth, email, password);
+    if (!location.pathname.endsWith("index.html") && location.pathname !== "/") {
+      location.href = "index.html";
+    }
   } catch (err) {
     throw new Error(friendlyAuthError(err.code));
   }
@@ -71,6 +77,9 @@ export async function registerWithEmail(email, password, displayName) {
     _pendingDisplayName = displayName || null;
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (displayName) await updateProfile(cred.user, { displayName });
+    if (!location.pathname.endsWith("index.html") && location.pathname !== "/") {
+      location.href = "index.html";
+    }
   } catch (err) {
     _pendingDisplayName = null;
     throw new Error(friendlyAuthError(err.code));
