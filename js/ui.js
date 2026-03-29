@@ -175,24 +175,52 @@ export function showLoading(container) {
 export function showAuthGate(container) {
   let isRegister = false;
 
+  // Make the main container fill the viewport behind the card
+  container.style.cssText = `
+    position:relative;
+    min-height:calc(100vh - 60px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:2rem 1rem;
+    background:url('img/loadpage.jpg') center 57%/cover no-repeat fixed;
+    margin:0;
+    max-width:100%;
+  `;
+
   function render() {
     container.innerHTML = `
-      <div class="auth-gate" style="max-width:360px;margin:0 auto">
-        <h2>Welcome to Fantasy Surfer</h2>
-        <p style="margin-bottom:1.5rem">Sign in to join the game, pick your team, and compete on the leaderboard.</p>
+      <!-- Dark overlay for readability -->
+      <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,0,0,0.45) 0%,rgba(0,0,0,0.25) 50%,rgba(0,0,0,0.5) 100%);z-index:0"></div>
 
-        <button class="btn btn--primary btn--lg" id="btn-gate-signin" style="width:100%">Sign In with Google</button>
+      <div class="auth-gate" style="
+        position:relative;z-index:1;
+        max-width:380px;width:100%;
+        background:rgba(255,255,255,0.88);
+        backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+        border-radius:16px;
+        padding:2.5rem 2rem;
+        box-shadow:0 8px 32px rgba(0,0,0,0.25);
+        border:1px solid rgba(255,255,255,0.3);
+      ">
+        <div style="text-align:center;margin-bottom:1.5rem">
+          <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:36px;margin-bottom:1rem">
+          <h2 style="margin:0 0 0.4rem;font-size:1.5rem;color:var(--color-charcoal)">Welcome to Fantasy Surfer</h2>
+          <p style="margin:0;color:var(--color-warm-gray);font-size:0.9rem">Sign in to join the game, pick your team, and compete on the leaderboard.</p>
+        </div>
+
+        <button class="btn btn--primary btn--lg" id="btn-gate-signin" style="width:100%;font-size:0.95rem;padding:0.7rem">Sign In with Google</button>
 
         <div style="display:flex;align-items:center;gap:0.75rem;margin:1.25rem 0">
-          <hr style="flex:1;border:none;border-top:1px solid var(--color-beige)">
-          <span style="font-size:0.8rem;color:var(--color-sage)">or</span>
-          <hr style="flex:1;border:none;border-top:1px solid var(--color-beige)">
+          <hr style="flex:1;border:none;border-top:1px solid rgba(0,0,0,0.12)">
+          <span style="font-size:0.8rem;color:var(--color-warm-gray)">or</span>
+          <hr style="flex:1;border:none;border-top:1px solid rgba(0,0,0,0.12)">
         </div>
 
         <div style="display:flex;flex-direction:column;gap:0.6rem">
-          ${isRegister ? `<input type="text" id="auth-name" placeholder="Your name" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">` : ""}
-          <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">
-          <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.5rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem">
+          ${isRegister ? `<input type="text" id="auth-name" placeholder="Your name" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">` : ""}
+          <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
+          <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
           <button class="btn btn--outline" id="btn-email-submit" style="width:100%">${isRegister ? "Create Account" : "Sign In"}</button>
           <p id="auth-error" style="color:#b45309;font-size:0.85rem;text-align:center;min-height:1.2rem"></p>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem">
