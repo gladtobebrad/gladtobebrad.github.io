@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Surfers — Fantasy Surf League</title>
+  <title>Judges Tower — Fantasy Surf League</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
@@ -140,10 +140,12 @@
     import { renderHeader, renderFooter, showAuthGate, showLoading, renderTable } from "./js/ui.js";
 
     const SEASON = 2026;
-    let activeTab = "tour-mens";
+    let activeSubPage = "location";  // "location" | "surfer" | "popularity"
+    let activeTour = "mens";          // "mens" | "womens"
     let allSurfers = [];
     let events = [];
     let eventData = {};
+    let rosterNames = {};  // per-tour set of Firestore active surfer names
 
     // ── Data-widget state ─────────────────────────────────
     let dataTours = {};
@@ -153,7 +155,6 @@
     let surferFilter = "";
     let eventSortCol = "avg";
     let eventSortAsc = true;
-    let sectionOpen = { event: true, surfer: true, popularity: true };
 
     // ── Location name mapping (from data.html) ───────────
     const LOCATION_MAP = {
@@ -357,6 +358,14 @@
         events = eventsResult;
         allSurfers = surfersResult;
 
+        // Build roster-active name sets per tour from Firestore surfers
+        rosterNames = {};
+        for (const s of allSurfers) {
+          const t = s.tour || "mens";
+          if (!rosterNames[t]) rosterNames[t] = new Set();
+          rosterNames[t].add(s.name);
+        }
+
         for (const event of events) {
           eventData[event.id] = {
             event,
@@ -368,105 +377,54 @@
         render(container);
       } catch (err) {
         container.innerHTML = `
-          <h1 class="page-title">Surfers</h1>
+          <h1 class="page-title">Judges Tower</h1>
           <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
         `;
       }
     }
 
     function render(container) {
-      const tabs = [
-        { id: "tour-mens",   label: "Men's CT" },
-        { id: "tour-womens", label: "Women's CT" },
-      ];
+      const tour = activeTour;
+      const dt = dataTours[tour];
 
-      const tabBar = `
-        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
-          ${tabs.map(t => `
-            <button data-tab="${t.id}" style="
+      // ── Sub-page tabs ─────────────────────────────────
+      const subPages = [
+        { id: "location",   label: "Results by Location" },
+        { id: "surfer",     label: "Results by Surfer" },
+        { id: "popularity", label: "Popularity" },
+      ];
+      const subPageTabs = `
+        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+          ${subPages.map(p => `
+            <button data-subpage="${p.id}" style="
               padding:0.5rem 1rem;
               border:none;background:none;cursor:pointer;
-              font-size:0.9rem;font-weight:${activeTab === t.id ? "600" : "400"};
-              color:${activeTab === t.id ? "var(--color-charcoal)" : "var(--color-sage)"};
-              border-bottom:2px solid ${activeTab === t.id ? "var(--color-charcoal)" : "transparent"};
+              font-size:0.9rem;font-weight:${activeSubPage === p.id ? "600" : "400"};
+              color:${activeSubPage === p.id ? "var(--color-charcoal)" : "var(--color-sage)"};
+              border-bottom:2px solid ${activeSubPage === p.id ? "var(--color-charcoal)" : "transparent"};
               margin-bottom:-1px;
-            ">${t.label}</button>
+            ">${p.label}</button>
           `).join("")}
         </div>`;
 
-      const tour = activeTab === "tour-mens" ? "mens" : "womens";
-      const popularitySurfers = allSurfers
-        .filter(s => (s.tour || "mens") === tour)
-        .sort((a, b) => (a.rank || 999) - (b.rank || 999));
-
-      const tourEvents = events
-        .filter(e => (e.tour || "mens") === tour)
-        .sort((a, b) => a.eventNumber - b.eventNumber);
-
-      const popularityContent = `
-        <div class="card mb-3">
-          <div class="section-toggle" data-section="popularity">
-            <h2>Popularity</h2>
-            <span class="section-arrow ${sectionOpen.popularity ? "" : "collapsed"}">▼</span>
-          </div>
-          <div class="section-body ${sectionOpen.popularity ? "" : "collapsed"}" id="section-popularity">
-          <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
-          <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
-            <table class="data-table" id="surfers-table" style="margin:0">
-              <thead><tr>
-                <th class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
-                  Surfer <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span>
-                </th>
-                <th class="sortable-col text-right" data-col="rank" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
-                  Rank <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                </th>
-                <th class="sortable-col text-right" data-col="value" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
-                  Value <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                </th>
-                ${tourEvents.map((e, i) => `
-                  <th class="sortable-col text-right" data-col="${i + 3}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.8rem">
-                    Ev ${e.eventNumber} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                  </th>
-                `).join("")}
-              </tr></thead>
-              <tbody>
-                ${popularitySurfers.map(surfer => {
-                  const eventCells = tourEvents.map(event => {
-                    const data = eventData[event.id];
-                    if (data && data.totalTeams > 0) {
-                      const pct = data.popularityPct[surfer.id];
-                      return pct != null ? pct.toFixed(1) : "0.0";
-                    }
-                    return null;
-                  });
-                  return `<tr
-                    data-name="${surfer.name.toLowerCase()}"
-                    data-rank="${surfer.rank || 999}"
-                    data-value="${surfer.value || 0}"
-                    ${eventCells.map((v, i) => `data-ev${i}="${v ?? -1}"`).join(" ")}>
-                    <td>${surfer.name}</td>
-                    <td class="text-right">${surfer.rank || "—"}</td>
-                    <td class="text-right">$${surfer.value ? (surfer.value/1_000_000).toFixed(2) + "M" : "—"}</td>
-                    ${eventCells.map(v => `<td class="text-right">${v != null ? v + "%" : "—"}</td>`).join("")}
-                  </tr>`;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-          </div>
+      // ── Tour toggle (Men's / Women's) ─────────────────
+      const tourToggle = `
+        <div class="tour-tabs mb-3">
+          <button class="tour-tab ${tour === "mens" ? "tour-tab--active" : ""}" data-tour="mens">Men's CT</button>
+          <button class="tour-tab ${tour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
         </div>`;
 
-      // ── Data widgets (Results by Location + Results by Surfer) ──
-      let dataContent = "";
-      const dt = dataTours[tour];
-      if (dt) {
-        const loc = selectedLocation[tour] || dt.allLocations[0];
-        const { surferIndex, locationIndex, allYears, sortedNames, allLocations } = dt;
+      // ── Build active sub-page content ─────────────────
+      let pageContent = "";
 
-        // Results by Location
+      if (activeSubPage === "location" && dt) {
+        const loc = selectedLocation[tour] || dt.allLocations[0];
+        const { locationIndex, allYears, allLocations } = dt;
+
         const locData = locationIndex[loc] || {};
+        const rosterSet = rosterNames[tour] || new Set();
         const locSurfers = Object.entries(locData)
-          .filter(([name]) => dt.activeNames.has(name))
+          .filter(([name]) => rosterSet.has(name))
           .map(([name, yearData]) => {
             const stats = calcStats(yearData);
             return { name, yearData, ...stats };
@@ -510,8 +468,34 @@
           </tr>`;
         }).join("");
 
-        // Results by Surfer
-        const name = selectedSurfer[tour] || sortedNames[0];
+        pageContent = `
+          <div class="card">
+            <div class="surfer-grid" style="margin-bottom:1rem;gap:0.35rem;align-items:center">${locBtns}</div>
+            ${eventRows.length > 0 ? `
+            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+            <table class="data-table" id="event-table" style="margin:0">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
+                  <th class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
+                  <th class="sortable text-center" data-sort="best">Best ${sortArrow("best")}</th>
+                  <th class="sortable text-center" data-sort="worst">Worst ${sortArrow("worst")}</th>
+                  ${allYears.map(y => `<th class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>${eventRows}</tbody>
+            </table>
+            </div>
+            ` : `<p class="text-muted">No data for this location.</p>`}
+          </div>`;
+
+      } else if (activeSubPage === "surfer" && dt) {
+        const { surferIndex, allYears, sortedNames: allSortedNames } = dt;
+        const rosterSet = rosterNames[tour] || new Set();
+        const sortedNames = allSortedNames.filter(n => rosterSet.has(n));
+        const name = selectedSurfer[tour] && sortedNames.includes(selectedSurfer[tour])
+          ? selectedSurfer[tour]
+          : sortedNames[0];
         const sData = surferIndex[name] || {};
         const usedLocs = new Set(Object.keys(sData));
         const orderedLocs = [
@@ -542,85 +526,122 @@
           `<button class="surfer-btn${n === name ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
         ).join("");
 
-        dataContent = `
-          <!-- RESULTS BY LOCATION -->
-          <div class="card mb-3">
-            <div class="section-toggle" data-section="event">
-              <h2>Results by Location</h2>
-              <span class="section-arrow ${sectionOpen.event ? "" : "collapsed"}">▼</span>
-            </div>
-            <div class="section-body ${sectionOpen.event ? "" : "collapsed"}" id="section-event">
-              <div class="surfer-grid" style="margin-bottom:1rem;gap:0.35rem;align-items:center">${locBtns}</div>
-              ${eventRows.length > 0 ? `
-              <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
-              <table class="data-table" id="event-table" style="margin:0">
-                <thead>
-                  <tr>
-                    <th class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
-                    <th class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
-                    <th class="sortable text-center" data-sort="best">Best ${sortArrow("best")}</th>
-                    <th class="sortable text-center" data-sort="worst">Worst ${sortArrow("worst")}</th>
-                    ${allYears.map(y => `<th class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
-                  </tr>
-                </thead>
-                <tbody>${eventRows}</tbody>
-              </table>
+        pageContent = `
+          <div class="card">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+              <div style="align-self:start">
+                <div class="search-wrap">
+                  <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${surferFilter}">
+                </div>
+                <div class="surfer-grid-4col" id="surfer-list">${btnList}</div>
               </div>
-              ` : `<p class="text-muted">No data for this location.</p>`}
+              <div>
+                <div class="card__header" style="margin-bottom:0.5rem">
+                  <span class="card__title">${name}</span>
+                  <span class="text-sm text-muted">Place by location</span>
+                </div>
+                ${surferRows.length > 0 ? `
+                <div style="overflow:auto;max-height:380px;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+                <table class="data-table" id="surfer-table" style="margin:0">
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      ${activeYears.map(y => `<th class="text-center">${y}</th>`).join("")}
+                      <th class="text-center">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>${surferRows}</tbody>
+                </table>
+                </div>
+                ` : `<p class="text-muted">No data available.</p>`}
+              </div>
             </div>
-          </div>
+          </div>`;
 
-          <!-- RESULTS BY SURFER -->
-          <div class="card mb-3">
-            <div class="section-toggle" data-section="surfer">
-              <h2>Results by Surfer</h2>
-              <span class="section-arrow ${sectionOpen.surfer ? "" : "collapsed"}">▼</span>
-            </div>
-            <div class="section-body ${sectionOpen.surfer ? "" : "collapsed"}" id="section-surfer">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-                <div style="align-self:start">
-                  <div class="search-wrap">
-                    <input type="text" class="search-input" id="surfer-search" placeholder="Search surfers…" value="${surferFilter}">
-                  </div>
-                  <div class="surfer-grid-4col" id="surfer-list">${btnList}</div>
-                </div>
-                <div>
-                  <div class="card__header" style="margin-bottom:0.5rem">
-                    <span class="card__title">${name}</span>
-                    <span class="text-sm text-muted">Place by location</span>
-                  </div>
-                  ${surferRows.length > 0 ? `
-                  <div style="overflow:auto;max-height:380px;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
-                  <table class="data-table" id="surfer-table" style="margin:0">
-                    <thead>
-                      <tr>
-                        <th>Location</th>
-                        ${activeYears.map(y => `<th class="text-center">${y}</th>`).join("")}
-                        <th class="text-center">Avg</th>
-                      </tr>
-                    </thead>
-                    <tbody>${surferRows}</tbody>
-                  </table>
-                  </div>
-                  ` : `<p class="text-muted">No data available.</p>`}
-                </div>
-              </div>
+      } else if (activeSubPage === "popularity") {
+        const popularitySurfers = allSurfers
+          .filter(s => (s.tour || "mens") === tour)
+          .sort((a, b) => (a.rank || 999) - (b.rank || 999));
+
+        const tourEvents = events
+          .filter(e => (e.tour || "mens") === tour)
+          .sort((a, b) => a.eventNumber - b.eventNumber);
+
+        pageContent = `
+          <div class="card">
+            <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
+            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+              <table class="data-table" id="surfers-table" style="margin:0">
+                <thead><tr>
+                  <th class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Surfer <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span>
+                  </th>
+                  <th class="sortable-col text-right" data-col="rank" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Rank <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                  </th>
+                  <th class="sortable-col text-right" data-col="value" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                    Value <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                  </th>
+                  ${tourEvents.map((e, i) => `
+                    <th class="sortable-col text-right" data-col="${i + 3}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.8rem">
+                      Ev ${e.eventNumber} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                    </th>
+                  `).join("")}
+                </tr></thead>
+                <tbody>
+                  ${popularitySurfers.map(surfer => {
+                    const eventCells = tourEvents.map(event => {
+                      const data = eventData[event.id];
+                      if (data && data.totalTeams > 0) {
+                        const pct = data.popularityPct[surfer.id];
+                        return pct != null ? pct.toFixed(1) : "0.0";
+                      }
+                      return null;
+                    });
+                    return `<tr
+                      data-name="${surfer.name.toLowerCase()}"
+                      data-rank="${surfer.rank || 999}"
+                      data-value="${surfer.value || 0}"
+                      ${eventCells.map((v, i) => `data-ev${i}="${v ?? -1}"`).join(" ")}>
+                      <td>${surfer.name}</td>
+                      <td class="text-right">${surfer.rank || "—"}</td>
+                      <td class="text-right">$${surfer.value ? (surfer.value/1_000_000).toFixed(2) + "M" : "—"}</td>
+                      ${eventCells.map(v => `<td class="text-right">${v != null ? v + "%" : "—"}</td>`).join("")}
+                    </tr>`;
+                  }).join("")}
+                </tbody>
+              </table>
             </div>
           </div>`;
       }
 
+      if (!pageContent && !dt) {
+        pageContent = `<div class="card"><p class="text-muted">No data available for this tour.</p></div>`;
+      }
+
       container.innerHTML = `
-        <h1 class="page-title">Surfers</h1>
-        ${tabBar}
-        ${popularityContent}
-        ${dataContent}
+        <h1 class="page-title">Judges Tower</h1>
+        ${subPageTabs}
+        ${tourToggle}
+        ${pageContent}
       `;
 
       // ── Event listeners ─────────────────────────────────
-      // Tab switching
-      container.querySelectorAll("[data-tab]").forEach(btn => {
+      // Sub-page tabs
+      container.querySelectorAll("[data-subpage]").forEach(btn => {
         btn.addEventListener("click", () => {
-          activeTab = btn.dataset.tab;
+          activeSubPage = btn.dataset.subpage;
+          surferFilter = "";
+          eventSortCol = "avg";
+          eventSortAsc = true;
+          render(container);
+        });
+      });
+
+      // Tour toggle
+      container.querySelectorAll("[data-tour]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeTour = btn.dataset.tour;
           surferFilter = "";
           eventSortCol = "avg";
           eventSortAsc = true;
@@ -670,18 +691,8 @@
         });
       });
 
-      // Section toggles (all sections including popularity)
-      container.querySelectorAll(".section-toggle").forEach(el => {
-        el.addEventListener("click", () => {
-          const key = el.dataset.section;
-          sectionOpen[key] = !sectionOpen[key];
-          render(container);
-        });
-      });
-
       // ── Data widget listeners ───────────────────────────
-      if (dt) {
-        // Location buttons
+      if (dt && activeSubPage === "location") {
         container.querySelectorAll(".loc-btn").forEach(btn => {
           btn.addEventListener("click", () => {
             selectedLocation[tour] = btn.dataset.loc;
@@ -690,7 +701,6 @@
           });
         });
 
-        // Location "More" dropdown
         document.getElementById("loc-more")?.addEventListener("change", e => {
           if (e.target.value) {
             selectedLocation[tour] = e.target.value;
@@ -699,7 +709,6 @@
           }
         });
 
-        // Sortable headers (data tables)
         container.querySelectorAll(".sortable").forEach(th => {
           th.addEventListener("click", () => {
             const col = th.dataset.sort;
@@ -708,8 +717,9 @@
             render(container);
           });
         });
+      }
 
-        // Surfer search
+      if (dt && activeSubPage === "surfer") {
         document.getElementById("surfer-search")?.addEventListener("input", e => {
           surferFilter = e.target.value;
           render(container);
@@ -718,7 +728,6 @@
           searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
         });
 
-        // Surfer buttons
         document.getElementById("surfer-list")?.addEventListener("click", e => {
           const btn = e.target.closest(".surfer-btn");
           if (!btn) return;

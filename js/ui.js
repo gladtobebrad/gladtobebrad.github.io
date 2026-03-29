@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { title: "My Profile", href: "profile.html", id: "nav-my-profile" },
   { title: "My Team", href: "team.html" },
   { title: "My Club", href: "club.html" },
-  { title: "Surfers", href: "surfers.html" },
+  { title: "Judges Tower", href: "surfers.html" },
   { title: "Players", href: "players.html" },
   { title: "About", href: "about.html" },
 ];
