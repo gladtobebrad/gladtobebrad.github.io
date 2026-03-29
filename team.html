@@ -269,15 +269,15 @@
         .sort((a, b) => a.rank - b.rank);
 
       container.innerHTML = `
-        <div class="flex-between mb-2">
-          <h1 class="page-title" style="margin-bottom:0">My Team</h1>
-          <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
-        </div>
+        <h1 class="page-title" style="margin-bottom:0">My Team</h1>
         <div class="tour-tabs mb-2">
           <button class="tour-tab ${activeTour === "mens" ? "tour-tab--active" : ""}" data-tour="mens">Men's CT</button>
           <button class="tour-tab ${activeTour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
         </div>
-        <p class="text-muted mb-2">${currentEvent.name} — ${currentEvent.location || ""}</p>
+        <div class="flex-between mb-2">
+          <p class="text-muted" style="margin:0">${currentEvent.name} — ${currentEvent.location || ""}</p>
+          <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
+        </div>
 
         ${!tradingOpen ? `<div class="locked-banner mb-2">Trading is locked for this event. You cannot make changes until the event is completed.</div>` : ""}
 
