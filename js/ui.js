@@ -164,6 +164,7 @@ export function toast(message, type = "info", duration = 3500) {
 // ── Loading State ────────────────────────────────────
 
 export function showLoading(container) {
+  container.style.cssText = "";
   container.innerHTML = `<div class="loading"><div class="spinner"></div><p>Loading...</p></div>`;
 }
 
