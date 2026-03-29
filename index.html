@@ -501,10 +501,12 @@
             <div class="card" style="padding:1rem 1.25rem">
               <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
                 ${allClubs.length > 1 ? `
-                  <select id="club-select" style="font-family:inherit;font-size:0.95rem;font-weight:600;border:none;background:none;color:var(--color-charcoal);cursor:pointer;padding:0;margin:0">
-                    ${allClubs.map((c, i) => `<option value="${i}" ${i === selectedClubIdx ? "selected" : ""}>${c.name}</option>`).join("")}
-                  </select>
-                ` : `<span class="card__title">${club ? club.name : "Club Standings"}</span>`}
+                  <span style="font-family:inherit;font-size:0.95rem;font-weight:600;color:var(--color-charcoal)">
+                    <select id="club-select" style="font-family:inherit;font-size:0.95rem;font-weight:600;border:none;background:none;color:var(--color-charcoal);cursor:pointer;padding:0;margin:0">
+                      ${allClubs.map((c, i) => `<option value="${i}" ${i === selectedClubIdx ? "selected" : ""}>${c.name}</option>`).join("")}
+                    </select> Standings
+                  </span>
+                ` : `<span class="card__title">${club ? club.name + " Standings" : "Club Standings"}</span>`}
                 <div style="display:flex;gap:0.4rem;align-items:center">
                   ${allClubs.length > 1 && club ? `<button id="btn-default-club" class="btn btn--outline btn--sm" style="font-size:0.7rem;padding:0.15rem 0.4rem;${club.id === userDoc?.defaultClubId ? "opacity:0.4;cursor:default" : ""}">${club.id === userDoc?.defaultClubId ? "Default" : "Set Default"}</button>` : ""}
                   ${club ? `<a href="club.html?id=${club.id}" class="btn btn--outline btn--sm" id="club-view-link">View Club →</a>` : `<a href="club.html" class="btn btn--outline btn--sm">Join a Club →</a>`}
@@ -549,11 +551,11 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem">
             <div class="card">
-              <div class="card__header"><span class="card__title">League Rank Progression</span></div>
+              <div class="card__header"><span class="card__title">League Standings by Event</span></div>
               ${leagueChart}
             </div>
             <div class="card">
-              <div class="card__header"><span class="card__title">Club Rank Progression</span></div>
+              <div class="card__header"><span class="card__title">Club Standings by Event</span></div>
               ${clubChart}
             </div>
           </div>`;
@@ -646,7 +648,7 @@
         }
 
         container.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0;margin-top:-1.25rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
             <h1 class="page-title" style="margin:0">Fantasy Surf League</h1>
             ${profileWidget}
           </div>

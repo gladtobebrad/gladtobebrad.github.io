@@ -34,6 +34,15 @@ export function renderHeader() {
     </div>
   `;
 
+  // Countdown banner (inserted after header)
+  let countdownEl = document.getElementById("trading-countdown");
+  if (!countdownEl) {
+    countdownEl = document.createElement("div");
+    countdownEl.id = "trading-countdown";
+    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal)";
+    header.parentNode.insertBefore(countdownEl, header.nextSibling);
+  }
+
   // Hamburger toggle
   const toggle = header.querySelector(".nav-toggle");
   const links = header.querySelector(".nav-links");
@@ -42,7 +51,7 @@ export function renderHeader() {
   });
 
   // Auth state UI
-  onAuth((user, profile) => {
+  onAuth(async (user, profile) => {
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
@@ -62,7 +71,44 @@ export function renderHeader() {
         <button class="btn btn--sm btn--outline" id="btn-signout">Sign Out</button>
       `;
       document.getElementById("btn-signout")?.addEventListener("click", signOut);
+
+      // Countdown timer
+      try {
+        const { getCurrentEventForTour } = await import("./db.js");
+        const SEASON = new Date().getFullYear();
+        const [mensEv, womensEv] = await Promise.all([
+          getCurrentEventForTour("mens", SEASON),
+          getCurrentEventForTour("womens", SEASON)
+        ]);
+        const tradingEvents = [mensEv, womensEv].filter(e => e && e.tradingOpen && e.startDate);
+        if (window._countdownInterval) clearInterval(window._countdownInterval);
+        if (tradingEvents.length > 0) {
+          const soonest = tradingEvents.reduce((a, b) => new Date(a.startDate) < new Date(b.startDate) ? a : b);
+          const deadline = new Date(soonest.startDate + "T00:00:00").getTime();
+          countdownEl.innerHTML = `Trading Closes in <strong id="countdown-timer"></strong>`;
+          countdownEl.style.display = "";
+          const timerEl = document.getElementById("countdown-timer");
+          const tick = () => {
+            const diff = deadline - Date.now();
+            if (diff <= 0) {
+              timerEl.textContent = "Trading Closed";
+              clearInterval(window._countdownInterval);
+              return;
+            }
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            timerEl.textContent = `${d}d : ${h}h : ${m}m : ${s}s`;
+          };
+          tick();
+          window._countdownInterval = setInterval(tick, 1000);
+        } else {
+          countdownEl.style.display = "none";
+        }
+      } catch (e) { /* silently skip countdown if fetch fails */ }
     } else {
+      countdownEl.style.display = "none";
       authEl.innerHTML = `
         <button class="btn btn--sm btn--primary" id="btn-signin">Sign In with Google</button>
       `;

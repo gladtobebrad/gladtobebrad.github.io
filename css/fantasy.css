@@ -172,7 +172,7 @@ img { max-width: 100%; }
   flex: 1;
   max-width: var(--max-width);
   margin: 0 auto;
-  padding: 3rem 2rem;
+  padding: 0.5rem 2rem 3rem;
   width: 100%;
 }
 
@@ -775,7 +775,7 @@ img { max-width: 100%; }
 
 @media (max-width: 768px) {
   .app-header { padding: 0 1rem; }
-  .app-main { padding: 2rem 1rem; }
+  .app-main { padding: 0.5rem 1rem 2rem; }
   h1 { font-size: 1.953rem; }
   h2 { font-size: 1.563rem; }
 
