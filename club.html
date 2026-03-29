@@ -209,82 +209,59 @@
         ${clubTabsHtml}
         <p class="text-muted text-sm mb-3">${club.memberIds.length} member${club.memberIds.length === 1 ? "" : "s"} &nbsp;·&nbsp; Invite code: <strong>${club.inviteCode}</strong></p>
 
-        <!-- Season Standings -->
+
+        <!-- Event-by-Event Scores -->
         <div class="card mb-3">
-          <div class="card__header"><span class="card__title">Season Standings</span></div>
+          <div class="card__header"><span class="card__title">Season Leaderboard</span></div>
+          <div class="tour-tabs" style="margin-bottom:0.75rem;border-bottom-width:1px">
+            <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
+            <button class="tour-tab ebe-tour-tab" data-ebe-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
+          </div>
           ${["mens", "womens"].map((tour) => {
+            const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
             const entries = tour === "mens" ? mensMemberEntries : womensMemberEntries;
-            const label = tour === "mens" ? "Men's CT" : "Women's CT";
             return `
-              <p class="text-xs text-muted" style="font-weight:600;letter-spacing:0.06em;margin:0.75rem 0 0.4rem;text-transform:uppercase">${label}</p>
-              ${entries.length > 0 ? `
-                <table class="data-table">
-                  <thead><tr><th>#</th><th>Team</th><th class="text-right">Best 9</th><th class="text-right">Total</th></tr></thead>
-                  <tbody>
-                    ${entries.map((entry, i) => `
-                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                        <td><span class="leaderboard-rank leaderboard-rank--${i + 1}">${i + 1}</span></td>
-                        <td>
-                          <a href="profile.html?id=${entry.userId}" style="display:flex;align-items:center;gap:0.4rem;text-decoration:none;color:inherit">
-                            ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-                            ${entry.teamName || entry.displayName || "—"}
-                          </a>
-                        </td>
-                        <td class="text-right">${entry.bestNineTotal || 0}</td>
-                        <td class="text-right text-muted">${entry.allEventsTotal || 0}</td>
-                      </tr>
-                    `).join("")}
-                  </tbody>
-                </table>
-              ` : `<p class="text-muted text-sm">No standings yet.</p>`}
+              <div class="ebe-panel" data-ebe-panel="${tour}" style="${tour === "womens" ? "display:none" : ""}">
+                ${tourEvents.length > 0 ? `
+                  <div style="overflow-x:auto;position:relative">
+                    <table class="data-table" style="border-collapse:separate;border-spacing:0">
+                      <thead>
+                        <tr>
+                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap">Player</th>
+                          ${tourEvents.map((e) => `
+                            <th class="text-right sortable-col" data-event-id="${e.id}" style="white-space:nowrap;font-size:0.7rem;cursor:pointer;user-select:none" title="Sort by ${e.name}">
+                              ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                            </th>
+                          `).join("")}
+                          <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">Best 9</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${entries.map((entry) => `
+                          <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
+                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);white-space:nowrap">
+                              <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
+                                ${entry.teamName || entry.displayName || "—"}
+                              </a>
+                            </td>
+                            ${tourEvents.map((e) => {
+                              const pts = eventScores[entry.userId]?.[e.id];
+                              const isCompleted = e.status === "completed";
+                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${isCompleted && pts != null ? pts : -1}" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
+                                ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
+                              </td>`;
+                            }).join("")}
+                            <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${entry.bestNineTotal || 0}</td>
+                          </tr>
+                        `).join("")}
+                      </tbody>
+                    </table>
+                  </div>
+                ` : `<p class="text-muted text-sm">No events yet.</p>`}
+              </div>
             `;
           }).join("")}
         </div>
-
-        <!-- Event-by-Event Scores -->
-        ${["mens", "womens"].map((tour) => {
-          const tourLabel = tour === "mens" ? "Men's CT" : "Women's CT";
-          const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
-          const entries = tour === "mens" ? mensMemberEntries : womensMemberEntries;
-          if (!tourEvents.length) return "";
-          return `
-            <div class="card mb-3">
-              <div class="card__header"><span class="card__title">Event-by-Event — ${tourLabel}</span></div>
-              <div style="overflow-x:auto">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Player</th>
-                      ${tourEvents.map((e) => `
-                        <th class="text-right sortable-col" data-event-id="${e.id}" style="white-space:nowrap;font-size:0.7rem;cursor:pointer;user-select:none" title="Sort by ${e.name}">
-                          ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                        </th>
-                      `).join("")}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${entries.map((entry) => `
-                      <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
-                        <td style="white-space:nowrap">
-                          <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
-                            ${entry.teamName || entry.displayName || "—"}
-                          </a>
-                        </td>
-                        ${tourEvents.map((e) => {
-                          const pts = eventScores[entry.userId]?.[e.id];
-                          const isCompleted = e.status === "completed";
-                          return `<td class="text-right" data-event-pts="${e.id}" data-pts="${isCompleted && pts != null ? pts : -1}" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
-                            ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
-                          </td>`;
-                        }).join("")}
-                      </tr>
-                    `).join("")}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-        }).join("")}
 
         <!-- Join another club -->
         ${canJoinMore ? `
@@ -299,6 +276,17 @@
           </div>
         ` : `<p class="text-muted text-sm mb-3">You're in 3 clubs (maximum).</p>`}
       `;
+
+      // Tour tabs for event-by-event
+      document.querySelectorAll(".ebe-tour-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".ebe-tour-tab").forEach((b) => b.classList.remove("tour-tab--active"));
+          btn.classList.add("tour-tab--active");
+          document.querySelectorAll(".ebe-panel").forEach((p) => {
+            p.style.display = p.dataset.ebePanel === btn.dataset.ebeTour ? "" : "none";
+          });
+        });
+      });
 
       // Click-to-sort event-by-event columns
       const sortState = {}; // tableIndex → { eventId, dir }
