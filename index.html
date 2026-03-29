@@ -171,10 +171,11 @@
 
       const renderStrip = (team, score, large = false, tour = "mens") => {
         if (!team) return `<p class="text-muted text-sm">No team submitted.</p>`;
-        const photoSize = large ? "80px" : "44px";
-        const surferWidth = large ? "80px" : "48px";
+        const isMid = large === "mid";
+        const photoSize = isMid ? "50px" : large ? "80px" : "44px";
+        const surferWidth = isMid ? "50px" : large ? "80px" : "48px";
 
-        if (large) {
+        if (large || isMid) {
           const rosterSize = tour === "womens" ? 5 : 8;
           const slots = [];
           for (let i = 0; i < rosterSize; i++) {
@@ -208,7 +209,7 @@
               : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${photo}<span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}</div>`;
           }).join("");
-          return `<div style="display:grid;grid-template-columns:repeat(5,80px);gap:0.5rem;margin-top:0.5rem">${slotHtml}</div>`;
+          return `<div style="display:grid;grid-template-columns:repeat(5,${surferWidth});gap:${isMid ? "0.3rem" : "0.5rem"};margin-top:0.5rem">${slotHtml}</div>`;
         }
 
         // Small strip
@@ -325,51 +326,30 @@
                 <div class="card mb-3">
                   <div class="card__header"><span class="card__title">Current Events</span></div>
                   ${mensEvent || womensEvent ? `
-                    ${[mensEvent && { ev: mensEvent, label: "Men's CT" }, womensEvent && { ev: womensEvent, label: "Women's CT" }]
+                    ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT", tour: "mens" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT", tour: "womens" }]
                       .filter(Boolean)
-                      .map(({ ev, label }, idx) => `
+                      .map(({ ev, team, label, tour }, idx) => `
                         ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
-                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
-                          <span class="text-sm" style="font-weight:600">${label}</span>
-                          ${statusBadge(ev.status)}
-                        </div>
-                        <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
-                        <p class="text-muted text-sm">${ev.location || ""}</p>
-                        <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
-                        <div class="mt-1" style="display:flex;align-items:center;gap:0.75rem">
-                          ${tradingBadge(ev.tradingOpen)}
-                          <a href="team.html" class="btn btn--primary btn--sm">Manage Team</a>
+                        <div style="display:flex;gap:1rem;align-items:flex-start">
+                          <div style="flex:1;min-width:0">
+                            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+                              <span class="text-sm" style="font-weight:600">${label}</span>
+                              ${tradingBadge(ev.tradingOpen)}
+                            </div>
+                            <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
+                            <p class="text-muted text-sm">${ev.location || ""}</p>
+                            <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
+                            <div class="mt-1">
+                              <a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>
+                            </div>
+                          </div>
+                          <div style="flex-shrink:0">
+                            ${team ? renderStrip(team, null, "mid", tour) : `<p class="text-muted text-sm">No team picked yet.</p>`}
+                          </div>
                         </div>
                       `).join("")}
                   ` : `<p class="text-muted">No upcoming events.</p>`}
                 </div>
-                ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT" }]
-                  .filter(Boolean)
-                  .map(({ ev, team, label }) => `
-                    <div class="card mb-3">
-                      <div class="card__header"><span class="card__title">Your Team — ${label}</span></div>
-                      <p class="text-muted text-sm mb-2">${ev.name}</p>
-                      ${team ? `
-                        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
-                          ${[...team.surfers, ...(team.alternate ? [{ surferId: team.alternate.surferId, alt: true }] : [])].map((s) => {
-                            const data = surferMap[s.surferId] || {};
-                            const lastName = (data.name || s.surferId).split(" ").pop();
-                            const photo = data.photoUrl
-                              ? `<img src="${data.photoUrl}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid ${s.alt ? "var(--color-warm-gray)" : "var(--color-beige)"};${s.alt ? "opacity:0.75" : ""}" alt="">`
-                              : `<div style="width:42px;height:42px;border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:600;color:var(--color-warm-brown)">${(data.name || "?")[0]}</div>`;
-                            return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:48px">
-                              ${photo}
-                              <span style="font-size:0.62rem;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48px;color:${s.alt ? "var(--color-warm-brown)" : "var(--color-charcoal)"}">${s.alt ? "ALT" : lastName}</span>
-                            </div>`;
-                          }).join("")}
-                        </div>
-                        <a href="team.html" class="btn btn--primary btn--sm">Manage Team</a>
-                      ` : `
-                        <p class="text-muted">No team picked yet.</p>
-                        <a href="team.html" class="btn btn--primary btn--sm mt-2">Pick Your Team</a>
-                      `}
-                    </div>
-                  `).join("")}
               </div>
               <div>
                 <div class="card mb-3">
