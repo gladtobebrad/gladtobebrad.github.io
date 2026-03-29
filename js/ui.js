@@ -4,11 +4,9 @@ import { getCurrentUser, getUserProfile, signIn, signOut, onAuth, signInWithEmai
 
 const NAV_ITEMS = [
   { title: "Dashboard", href: "index.html" },
-  { title: "My Profile", href: "profile.html", id: "nav-my-profile" },
-  { title: "My Team", href: "team.html" },
-  { title: "My Club", href: "club.html" },
+  { title: "Manage Team", href: "team.html" },
+  { title: "Clubhouse", href: "club.html" },
   { title: "Judges Tower", href: "surfers.html" },
-  { title: "Players", href: "players.html" },
   { title: "About", href: "about.html" },
 ];
 
@@ -48,10 +46,8 @@ export function renderHeader() {
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
-      const profileLink = document.getElementById("nav-my-profile");
-      if (profileLink) profileLink.href = `profile.html?id=${user.uid}`;
       const brandLink = document.getElementById("nav-brand-link");
-      if (brandLink) brandLink.href = `profile.html?id=${user.uid}`;
+      if (brandLink) brandLink.href = "index.html";
       const photoSrc = profile?.avatarUrl || user.photoURL;
       const photo = photoSrc
         ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`

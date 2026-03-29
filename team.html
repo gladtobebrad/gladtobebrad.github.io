@@ -189,7 +189,7 @@
     const SEASON = 2026;
 
     // Working state
-    let activeTour = "mens";
+    let activeTour = new URLSearchParams(window.location.search).get("tour") || "mens";
     let roster = [];       // { surferId, purchasePrice }
     let alternate = null;  // { surferId, purchasePrice }
     let allSurfers = {};   // id → surfer doc
