@@ -83,8 +83,22 @@ export function renderHeader() {
         const tradingEvents = [mensEv, womensEv].filter(e => e && e.tradingOpen && e.startDate);
         if (window._countdownInterval) clearInterval(window._countdownInterval);
         if (tradingEvents.length > 0) {
-          const soonest = tradingEvents.reduce((a, b) => new Date(a.startDate) < new Date(b.startDate) ? a : b);
-          const deadline = new Date(soonest.startDate + "T00:00:00").getTime();
+          const soonest = tradingEvents.reduce((a, b) => {
+            const aTime = a.tradingCloseTime || a.startDate;
+            const bTime = b.tradingCloseTime || b.startDate;
+            return aTime < bTime ? a : b;
+          });
+          let deadline;
+          if (soonest.tradingCloseTime && soonest.tradingCloseTimezone) {
+            // Build UTC time from local event time + timezone offset
+            const tz = parseFloat(soonest.tradingCloseTimezone);
+            const sign = tz >= 0 ? "+" : "-";
+            const absH = String(Math.floor(Math.abs(tz))).padStart(2, "0");
+            const absM = String(Math.round((Math.abs(tz) % 1) * 60)).padStart(2, "0");
+            deadline = new Date(soonest.tradingCloseTime + sign + absH + ":" + absM).getTime();
+          } else {
+            deadline = new Date(soonest.startDate + "T00:00:00").getTime();
+          }
           countdownEl.innerHTML = `Trading Closes in <strong id="countdown-timer"></strong>`;
           countdownEl.style.display = "";
           const timerEl = document.getElementById("countdown-timer");

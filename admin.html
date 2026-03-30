@@ -156,6 +156,30 @@
                   </div>
                   <div class="form-row">
                     <div class="form-group">
+                      <label class="form-label">Trading Close Time</label>
+                      <input class="form-input" id="event-trading-close" type="datetime-local">
+                      <span class="text-xs text-muted">First call time. Used for countdown banner.</span>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Event Timezone</label>
+                      <select class="form-select" id="event-timezone">
+                        <option value="">— select —</option>
+                        <option value="+12">NZST / FJT (UTC+12)</option>
+                        <option value="+11">AEDT (UTC+11)</option>
+                        <option value="+10">AEST (UTC+10)</option>
+                        <option value="+8">AWST (UTC+8)</option>
+                        <option value="+4">GST (UTC+4)</option>
+                        <option value="+1">WEST (UTC+1)</option>
+                        <option value="+0">WET (UTC+0)</option>
+                        <option value="-3">BRT (UTC-3)</option>
+                        <option value="-6">CST (UTC-6)</option>
+                        <option value="-7">PDT (UTC-7)</option>
+                        <option value="-10">TAHT (UTC-10)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
                       <label class="form-label">Status</label>
                       <select class="form-select" id="event-status">
                         <option value="upcoming">Upcoming</option>
@@ -504,6 +528,8 @@
           endDate: document.getElementById("event-end").value,
           status: document.getElementById("event-status").value,
           tradingOpen: document.getElementById("event-trading").value === "true",
+          tradingCloseTime: document.getElementById("event-trading-close").value || null,
+          tradingCloseTimezone: document.getElementById("event-timezone").value || null,
           season: SEASON,
           resultsEntered: false
         };
@@ -547,6 +573,8 @@
           document.getElementById("event-end").value = (ev.endDate || "").substring(0, 10);
           document.getElementById("event-status").value = ev.status || "upcoming";
           document.getElementById("event-trading").value = ev.tradingOpen ? "true" : "false";
+          document.getElementById("event-trading-close").value = ev.tradingCloseTime || "";
+          document.getElementById("event-timezone").value = ev.tradingCloseTimezone || "";
           document.getElementById("event-form-title").textContent = "Edit Event";
         });
       });
