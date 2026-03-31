@@ -35,6 +35,7 @@
 
     const SEASON = 2026;
     let activeTab = "homepage";
+    let scoringMode = "best9"; // "best9" or "all"
 
     initAuth();
     renderHeader();
@@ -275,6 +276,42 @@
           </div>
         </div>`;
 
+      // ── Shared standings table builder ──
+      function renderStandingsTable(entries, userId, mode) {
+        const scoreKey = mode === "all" ? "allEventsTotal" : "bestNineTotal";
+        const scoreLabel = mode === "all" ? "All Events" : "Best 9";
+        const sorted = entries.slice().sort((a, b) => (b[scoreKey] || 0) - (a[scoreKey] || 0));
+        const userIdx = sorted.findIndex(e => e.userId === userId);
+        const userInTop3 = userIdx >= 0 && userIdx < 3;
+        const showRows = sorted.slice(0, userInTop3 ? 4 : 3);
+        const renderRow = (entry, i) => `
+          <tr class="${entry.userId === userId ? "highlight" : ""}">
+            <td>${i + 1}</td>
+            <td class="flex gap-1" style="align-items:center">
+              ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
+              ${entry.teamName || entry.displayName || "—"}
+            </td>
+            <td class="text-right">${entry[scoreKey] || 0}</td>
+          </tr>`;
+        let rows = showRows.map((e, i) => renderRow(e, i)).join("");
+        if (!userInTop3 && userIdx >= 3) {
+          rows += `<tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>`;
+          rows += renderRow(sorted[userIdx], userIdx);
+        }
+        if (sorted.length === 0) {
+          rows = `
+            <tr><td>1</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+            <tr><td>2</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+            <tr><td>3</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
+            <tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>
+            <tr><td>—</td><td class="text-muted">You</td><td class="text-right text-muted">—</td></tr>`;
+        }
+        return `<table class="data-table">
+          <thead><tr><th>#</th><th>Team</th><th class="text-right">${scoreLabel}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      }
+
       // ── Main render function ──
       function render() {
         const tabs = `
@@ -455,6 +492,12 @@
 
         // Standings HTML (shared by standings tab)
         const standingsHtml = `
+          <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem">
+            <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:var(--radius-md);overflow:hidden;font-size:0.75rem">
+              <button class="scoring-toggle" data-mode="best9" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${scoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
+              <button class="scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:stretch">
             <div class="card" style="padding:1rem 1.25rem">
               <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
@@ -465,38 +508,10 @@
                 <button class="tour-tab league-tour-tab ${leagueTour === "mens" ? "tour-tab--active" : ""}" data-league-tour="mens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Men's CT</button>
                 <button class="tour-tab league-tour-tab ${leagueTour === "womens" ? "tour-tab--active" : ""}" data-league-tour="womens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Women's CT</button>
               </div>
-              ${(() => {
-                const lb = leagueTour === "womens" ? womensLeaderboard : mensLeaderboard;
-                const userIdx = lb.findIndex(e => e.userId === user.uid);
-                const userInTop3 = userIdx >= 0 && userIdx < 3;
-                const showRows = lb.slice(0, userInTop3 ? 4 : 3);
-                const renderRow = (entry, i) => `
-                  <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                    <td>${i + 1}</td>
-                    <td class="flex gap-1" style="align-items:center">
-                      ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-                      ${entry.teamName || entry.displayName || "—"}
-                    </td>
-                    <td class="text-right">${entry.bestNineTotal || 0}</td>
-                  </tr>`;
-                let rows = showRows.map((e, i) => renderRow(e, i)).join("");
-                if (!userInTop3 && userIdx >= 3) {
-                  rows += `<tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>`;
-                  rows += renderRow(lb[userIdx], userIdx);
-                }
-                if (lb.length === 0) {
-                  rows = `
-                    <tr><td>1</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td>2</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td>3</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>
-                    <tr><td>—</td><td class="text-muted">You</td><td class="text-right text-muted">—</td></tr>`;
-                }
-                return `<table class="data-table">
-                  <thead><tr><th>#</th><th>Team</th><th class="text-right">Best 9</th></tr></thead>
-                  <tbody>${rows}</tbody>
-                </table>`;
-              })()}
+              ${renderStandingsTable(
+                leagueTour === "womens" ? womensLeaderboard : mensLeaderboard,
+                user.uid, scoringMode
+              )}
             </div>
             <div class="card" style="padding:1rem 1.25rem">
               <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
@@ -516,37 +531,7 @@
                 <button class="tour-tab club-tour-tab ${clubTour === "mens" ? "tour-tab--active" : ""}" data-club-tour="mens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Men's CT</button>
                 <button class="tour-tab club-tour-tab ${clubTour === "womens" ? "tour-tab--active" : ""}" data-club-tour="womens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Women's CT</button>
               </div>
-              <table class="data-table">
-                <thead><tr><th>#</th><th>Team</th><th class="text-right">Best 9</th></tr></thead>
-                <tbody>
-                  ${clubMembers.length > 0 ? (() => {
-                    const userIdx = clubMembers.findIndex(e => e.userId === user.uid);
-                    const userInTop3 = userIdx >= 0 && userIdx < 3;
-                    const showRows = clubMembers.slice(0, userInTop3 ? 4 : 3);
-                    const renderRow = (entry, i) => `
-                      <tr class="${entry.userId === user.uid ? "highlight" : ""}">
-                        <td>${i + 1}</td>
-                        <td class="flex gap-1" style="align-items:center">
-                          ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-                          ${entry.teamName || entry.displayName || "—"}
-                        </td>
-                        <td class="text-right">${entry.bestNineTotal || 0}</td>
-                      </tr>`;
-                    let html = showRows.map((e, i) => renderRow(e, i)).join("");
-                    if (!userInTop3 && userIdx >= 3) {
-                      html += `<tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>`;
-                      html += renderRow(clubMembers[userIdx], userIdx);
-                    }
-                    return html;
-                  })() : `
-                    <tr><td>1</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td>2</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td>3</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-                    <tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>
-                    <tr><td>—</td><td class="text-muted">You</td><td class="text-right text-muted">—</td></tr>
-                  `}
-                </tbody>
-              </table>
+              ${renderStandingsTable(clubMembers, user.uid, scoringMode)}
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem">
@@ -673,6 +658,14 @@
         document.getElementById("club-select")?.addEventListener("change", (e) => {
           selectClub(parseInt(e.target.value));
           render();
+        });
+
+        // ── Scoring mode toggle ──
+        container.querySelectorAll(".scoring-toggle").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            scoringMode = btn.dataset.mode;
+            render();
+          });
         });
 
         // ── League tour tabs ──

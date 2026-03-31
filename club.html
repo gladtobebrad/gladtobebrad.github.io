@@ -29,6 +29,7 @@
     import { renderHeader, renderFooter, showAuthGate, showLoading, toast, formatSalary } from "./js/ui.js";
 
     const SEASON = 2026;
+    let clubScoringMode = "best9";
 
     initAuth();
     renderHeader();
@@ -158,7 +159,8 @@
           const ud = await getOrFetchUser(uid);
           if (ud) entries.push({ userId: uid, avatarUrl: ud.avatarUrl || "", teamName: ud.teamName || ud.displayName || "—", displayName: ud.displayName || "—", bestNineTotal: 0, allEventsTotal: 0 });
         }
-        entries.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+        const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
+        entries.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
         return entries;
       };
 
@@ -213,9 +215,15 @@
         <!-- Event-by-Event Scores -->
         <div class="card mb-3">
           <div class="card__header"><span class="card__title">Season Leaderboard</span></div>
-          <div class="tour-tabs" style="margin-bottom:0.75rem;border-bottom-width:1px">
-            <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
-            <button class="tour-tab ebe-tour-tab" data-ebe-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+            <div class="tour-tabs" style="margin-bottom:0;border-bottom-width:1px">
+              <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
+              <button class="tour-tab ebe-tour-tab" data-ebe-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
+            </div>
+            <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:var(--radius-md);overflow:hidden;font-size:0.75rem">
+              <button class="club-scoring-toggle" data-mode="best9" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${clubScoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
+              <button class="club-scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${clubScoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
+            </div>
           </div>
           ${["mens", "womens"].map((tour) => {
             const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
@@ -233,7 +241,7 @@
                               ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
-                          <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">Best 9</th>
+                          <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">${clubScoringMode === "all" ? "All Events" : "Best 9"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -251,7 +259,7 @@
                                 ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
                               </td>`;
                             }).join("")}
-                            <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${entry.bestNineTotal || 0}</td>
+                            <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
                           </tr>
                         `).join("")}
                       </tbody>
@@ -276,6 +284,14 @@
           </div>
         ` : `<p class="text-muted text-sm mb-3">You're in 3 clubs (maximum).</p>`}
       `;
+
+      // Scoring mode toggle
+      document.querySelectorAll(".club-scoring-toggle").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          clubScoringMode = btn.dataset.mode;
+          await renderClubView(container, user, club, allUserClubs);
+        });
+      });
 
       // Tour tabs for event-by-event
       document.querySelectorAll(".ebe-tour-tab").forEach((btn) => {
