@@ -99,13 +99,14 @@ export function renderHeader() {
           } else {
             deadline = new Date(soonest.startDate + "T00:00:00").getTime();
           }
-          countdownEl.innerHTML = `Trading Closes in <strong id="countdown-timer"></strong>`;
+          const eventName = soonest.name || "the next event";
+          countdownEl.innerHTML = `First Call for ${eventName} is in <strong id="countdown-timer"></strong>. But trading won't close until the hooter blows.`;
           countdownEl.style.display = "";
           const timerEl = document.getElementById("countdown-timer");
           const tick = () => {
             const diff = deadline - Date.now();
             if (diff <= 0) {
-              timerEl.textContent = "Trading Closed";
+              countdownEl.innerHTML = `First Call for ${eventName} is now <strong>Pending</strong>! But trading won't close until the hooter blows.`;
               clearInterval(window._countdownInterval);
               return;
             }
