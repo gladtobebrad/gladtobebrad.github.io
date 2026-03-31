@@ -4,9 +4,9 @@ import { getCurrentUser, getUserProfile, signIn, signOut, onAuth, signInWithEmai
 
 const NAV_ITEMS = [
   { title: "Dashboard", href: "index.html" },
-  { title: "Manage Team", href: "team.html" },
+  { title: "My Team", href: "team.html" },
   { title: "Clubhouse", href: "club.html" },
-  { title: "Judges Tower", href: "surfers.html" },
+  { title: "Data Vault", href: "surfers.html" },
   { title: "About", href: "about.html" },
 ];
 
