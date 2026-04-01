@@ -232,7 +232,7 @@
                           <td>${s.country || ""}</td>
                           <td>${formatSalary(s.value)}</td>
                           <td><span class="badge badge--${s.priceBracket === "elite" ? "live" : s.priceBracket === "budget" ? "locked" : "upcoming"}">${s.priceBracket || "—"}</span></td>
-                          <td><span class="badge badge--${s.active === false ? "locked" : "live"}">${s.active === false ? "Inactive" : "Active"}</span></td>
+                          <td>${(() => { const st = s.status || (s.active === false ? "inactive" : "active"); return st === "injured" ? `<span class="badge badge--locked">INJ</span>` : st === "inactive" ? `<span class="badge badge--locked">Inactive</span>` : `<span class="badge badge--live">Active</span>`; })()}</td>
                           <td>
                             <button class="btn btn--sm btn--outline" data-edit-surfer="${s.id}">Edit</button>
                             <button class="btn btn--sm btn--danger" data-delete-surfer="${s.id}">Del</button>
@@ -307,9 +307,10 @@
                     </div>
                     <div class="form-group">
                       <label class="form-label">Status</label>
-                      <select class="form-select" id="surfer-active">
-                        <option value="true">Active</option>
-                        <option value="false">Inactive (wildcard/hidden)</option>
+                      <select class="form-select" id="surfer-status">
+                        <option value="active">Active</option>
+                        <option value="injured">Injured (INJ)</option>
+                        <option value="inactive">Inactive (wildcard/hidden)</option>
                       </select>
                     </div>
                   </div>
@@ -627,7 +628,8 @@
           tour: document.getElementById("surfer-tour").value,
           stance: document.getElementById("surfer-stance").value || null,
           photoUrl: document.getElementById("surfer-photo").value.trim() || null,
-          active: document.getElementById("surfer-active").value === "true"
+          status: document.getElementById("surfer-status").value,
+          active: document.getElementById("surfer-status").value !== "inactive"
         };
         if (data.value % 250000 !== 0) {
           toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
@@ -665,7 +667,7 @@
           document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
           document.getElementById("surfer-tour").value = s.tour || "mens";
           document.getElementById("surfer-stance").value = s.stance || "";
-          document.getElementById("surfer-active").value = s.active === false ? "false" : "true";
+          document.getElementById("surfer-status").value = s.status || (s.active === false ? "inactive" : "active");
           const photoInput = document.getElementById("surfer-photo");
           photoInput.value = s.photoUrl || "";
           const preview = document.getElementById("surfer-photo-preview");
@@ -717,21 +719,21 @@
 
         const eventTour = ev?.tour || "mens";
         const eventSurfers = surfers
-          .filter((s) => (s.tour || "mens") === eventTour && s.active !== false)
+          .filter((s) => (s.tour || "mens") === eventTour && (s.status || (s.active === false ? "inactive" : "active")) !== "inactive")
           .sort((a, b) => (a.rank || 99) - (b.rank || 99));
         const maxPos = (eventTour === "womens" ? WOMEN_SCORING : MEN_SCORING).length - 1;
 
         rc.innerHTML = `
           <form id="results-entry-form">
-            <p class="text-sm text-muted mb-2">Enter finish position (1–${maxPos}) for each surfer. Points auto-calculated. Leave blank if surfer did not compete.</p>
+            <p class="text-sm text-muted mb-2">Enter finish position (1–${maxPos}) or WDRW for withdrawn surfers. Leave blank if no result yet.</p>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;margin-bottom:1rem">
               ${eventSurfers.map((s) => {
                 const ex = existingMap[s.id];
                 return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border:1px solid var(--color-beige);border-radius:6px;background:#fff">
                   <span style="font-size:0.72rem;color:var(--color-warm-gray);flex-shrink:0;min-width:1.6rem">#${s.rank || "?"}</span>
                   <span style="flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.name}">${s.name}</span>
-                  <input class="form-input" type="number" min="1" max="${maxPos}" data-result-surfer="${s.id}" data-result-tour="${eventTour}" value="${ex?.finish || ""}" style="width:50px;padding:0.2rem 0.3rem;font-size:0.82rem;text-align:center">
-                  <span class="result-pts" data-pts-for="${s.id}" style="font-size:0.72rem;color:var(--color-warm-gray);min-width:2rem;text-align:right">${ex?.finish ? getPoints(ex.finish, eventTour) : "—"}</span>
+                  <input class="form-input" type="text" data-result-surfer="${s.id}" data-result-tour="${eventTour}" value="${ex?.withdrawn ? "WDRW" : (ex?.finish || "")}" style="width:55px;padding:0.2rem 0.3rem;font-size:0.82rem;text-align:center" placeholder="">
+                  <span class="result-pts" data-pts-for="${s.id}" style="font-size:0.72rem;color:var(--color-warm-gray);min-width:2rem;text-align:right">${ex?.withdrawn ? "WDRW" : (ex?.finish ? getPoints(ex.finish, eventTour) : "—")}</span>
                 </div>`;
               }).join("")}
             </div>
@@ -744,10 +746,15 @@
         // Auto-calculate points on input
         rc.querySelectorAll("[data-result-surfer]").forEach((inp) => {
           inp.addEventListener("input", () => {
-            const pos = parseInt(inp.value, 10);
+            const val = inp.value.trim().toUpperCase();
             const t = inp.dataset.resultTour || "mens";
             const ptsCell = rc.querySelector(`[data-pts-for="${inp.dataset.resultSurfer}"]`);
-            ptsCell.textContent = pos ? getPoints(pos, t) : "—";
+            if (val === "WDRW") {
+              ptsCell.textContent = "WDRW";
+            } else {
+              const pos = parseInt(val, 10);
+              ptsCell.textContent = pos ? getPoints(pos, t) : "—";
+            }
           });
         });
 
@@ -756,16 +763,30 @@
           ev2.preventDefault();
           const resultsArr = [];
           rc.querySelectorAll("[data-result-surfer]").forEach((inp) => {
-            const pos = parseInt(inp.value, 10);
-            if (!pos) return;
+            const val = inp.value.trim().toUpperCase();
+            if (!val) return;
             const t = inp.dataset.resultTour || "mens";
-            resultsArr.push({
-              surferId: inp.dataset.resultSurfer,
-              finish: pos,
-              points: getPoints(pos, t),
-              season: SEASON,
-              tour: t
-            });
+            if (val === "WDRW") {
+              resultsArr.push({
+                surferId: inp.dataset.resultSurfer,
+                finish: null,
+                points: 0,
+                withdrawn: true,
+                season: SEASON,
+                tour: t
+              });
+            } else {
+              const pos = parseInt(val, 10);
+              if (!pos) return;
+              resultsArr.push({
+                surferId: inp.dataset.resultSurfer,
+                finish: pos,
+                points: getPoints(pos, t),
+                withdrawn: false,
+                season: SEASON,
+                tour: t
+              });
+            }
           });
           if (resultsArr.length === 0) {
             toast("No results to save.", "error");

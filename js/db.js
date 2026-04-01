@@ -11,7 +11,10 @@ export async function getSurfers() {
   const snap = await getDocs(collection(db, "surfers"));
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((s) => s.active !== false);
+    .filter((s) => {
+      const status = s.status || (s.active === false ? "inactive" : "active");
+      return status !== "inactive";
+    });
 }
 
 export async function getAllSurfers() {

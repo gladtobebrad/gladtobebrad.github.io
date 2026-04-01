@@ -45,28 +45,35 @@ export function scoreTeam(team, results, tour = "mens") {
 
   for (const s of team.surfers) {
     const result = resultMap[s.surferId];
-    if (result) {
+    if (result && result.withdrawn) {
+      // Explicitly marked WDRW — eligible for alternate swap
+      surferScores.push({
+        surferId: s.surferId,
+        finish: null,
+        points: 0,
+        withdrawn: true
+      });
+    } else if (result) {
       surferScores.push({
         surferId: s.surferId,
         finish: result.finish,
         points: result.points || getPoints(result.finish, tour)
       });
     } else {
-      // Surfer didn't compete — mark for alternate swap
+      // No result entered yet — scores 0 but does NOT trigger alternate
       surferScores.push({
         surferId: s.surferId,
         finish: null,
-        points: 0,
-        didNotCompete: true
+        points: 0
       });
     }
   }
 
-  // Alternate swap: replace first non-competing surfer's points
+  // Alternate swap: replace first WITHDRAWN surfer only
   if (team.alternate?.surferId) {
     const altResult = resultMap[team.alternate.surferId];
-    const missedIdx = surferScores.findIndex((s) => s.didNotCompete);
-    if (missedIdx !== -1 && altResult) {
+    const missedIdx = surferScores.findIndex((s) => s.withdrawn);
+    if (missedIdx !== -1 && altResult && !altResult.withdrawn) {
       alternateUsed = true;
       alternateFor = surferScores[missedIdx].surferId;
       surferScores[missedIdx] = {
