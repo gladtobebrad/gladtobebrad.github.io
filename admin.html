@@ -26,7 +26,7 @@
     import {
       getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, saveEvent, deleteEvent,
-      getResults, saveResultsBatch,
+      getResults, saveResultsBatch, clearResults,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
       saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
       savePlayerDirectory, getUser, getAllUsers,
@@ -335,6 +335,21 @@
               </select>
             </div>
             <div id="results-form-container"></div>
+          </div>
+          <div class="card">
+            <div class="card__header"><span class="card__title">Clear Results</span></div>
+            <div class="form-group">
+              <label class="form-label">Select Event</label>
+              <select class="form-select" id="clear-results-event-select">
+                <option value="">Choose an event...</option>
+                ${events.filter((e) => e.resultsEntered).map((e) =>
+                  `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
+                ).join("")}
+              </select>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn--outline" id="btn-clear-results" style="color:var(--color-error);border-color:var(--color-error)">Clear All Results for Event</button>
+            </div>
           </div>
         </div>
 
@@ -767,6 +782,21 @@
       });
 
       // ── CALCULATE SCORES ──
+      document.getElementById("btn-clear-results")?.addEventListener("click", async () => {
+        const eventId = document.getElementById("clear-results-event-select").value;
+        if (!eventId) { toast("Select an event first.", "error"); return; }
+        const ev = events.find((e) => e.id === eventId);
+        if (!confirm(`Clear ALL results for ${ev?.name || eventId}? This cannot be undone.`)) return;
+        try {
+          await clearResults(eventId);
+          await saveEvent(eventId, { resultsEntered: false });
+          toast(`Results cleared for ${ev?.name || eventId}`, "success");
+          location.reload();
+        } catch (err) {
+          toast("Error clearing results: " + err.message, "error");
+        }
+      });
+
       document.getElementById("btn-calculate-scores")?.addEventListener("click", async () => {
         const eventId = document.getElementById("scoring-event-select").value;
         if (!eventId) { toast("Select an event first.", "error"); return; }

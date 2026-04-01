@@ -92,6 +92,13 @@ export async function saveResultsBatch(eventId, resultsArray) {
   await batch.commit();
 }
 
+export async function clearResults(eventId) {
+  const snap = await getDocs(query(collection(db, "results"), where("eventId", "==", eventId)));
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+}
+
 // ── Teams ────────────────────────────────────────────
 
 export async function getTeam(userId, eventId) {
