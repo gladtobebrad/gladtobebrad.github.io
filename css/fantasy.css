@@ -1115,3 +1115,84 @@ img { max-width: 100%; }
   outline: 2px dashed var(--color-sage);
   outline-offset: -2px;
 }
+
+/* ── Club leaderboard controls ──────────────────────────────── */
+.club-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 768px) {
+  .club-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+/* ── Dashboard responsive grid ─────────────────────────────── */
+.dash-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+.dash-grid-2--stretch { align-items: stretch; }
+
+@media (max-width: 768px) {
+  .dash-grid-2 { grid-template-columns: 1fr; }
+  .card { padding: 1rem; }
+}
+
+/* ── Profile widget ─────────────────────────────────────────── */
+.profile-widget {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.profile-widget__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.profile-widget__avatar--empty {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-beige);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--color-warm-brown);
+  flex-shrink: 0;
+}
+.profile-widget__info {
+  text-align: right;
+  min-width: 0;
+}
+.profile-widget__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.profile-widget__clubs {
+  font-size: 0.75rem;
+  color: var(--color-warm-brown);
+  margin-top: 0.1rem;
+}
+.profile-widget__coins { margin-top: 0.25rem; }
+
+@media (max-width: 768px) {
+  .profile-widget__name { max-width: 100px; font-size: 0.82rem; }
+  .profile-widget__avatar,
+  .profile-widget__avatar--empty { width: 40px; height: 40px; font-size: 1rem; }
+}

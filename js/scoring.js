@@ -35,6 +35,7 @@ export function getPoints(finish, tour = "mens") {
  * @returns {{ totalPoints: number, surferScores: Object[], alternateUsed: boolean, alternateFor: string|null }}
  */
 export function scoreTeam(team, results, tour = "mens") {
+  if (!team?.surfers?.length) return { totalPoints: 0, surferScores: [], alternateUsed: false, alternateFor: null };
   const resultMap = {};
   results.forEach((r) => { resultMap[r.surferId] = r; });
 

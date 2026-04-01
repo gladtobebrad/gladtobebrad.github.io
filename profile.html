@@ -102,7 +102,7 @@
 
         // Load all events — team + score per event, split by tour
         const mensEvents = events.filter((e) => (e.tour || "mens") === "mens");
-        const womensEvents = events.filter((e) => e.tour === "womens");
+        const womensEvents = events.filter((e) => (e.tour || "") === "womens");
 
         const loadEventRosters = async (tourEvents) => {
           const rosters = [];

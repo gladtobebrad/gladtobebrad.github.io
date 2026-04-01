@@ -24,12 +24,14 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
-             getLeaderboard, getEvents, getTeamsForEvent, getResults, getSurfers, getUserClubIds } from "./js/db.js";
-    import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, formatSalary } from "./js/ui.js";
+             getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast } from "./js/ui.js";
 
     const SEASON = 2026;
     let clubScoringMode = "best9";
+
+    // Cache fetched data so scoring-mode toggles don't re-fetch
+    let _clubDataCache = null;
 
     initAuth();
     renderHeader();
@@ -120,69 +122,69 @@
 
     async function renderClubView(container, user, club, allUserClubs) {
       const isOwner = club.ownerId === user.uid;
-      const userDoc = await getUser(user.uid);
+
+      // ── Fetch all data once; bust cache when leaderboard version changes ──
+      const currentLbVersion = await fetchLeaderboardVersion();
+      if (!_clubDataCache || _clubDataCache.clubId !== club.id || _clubDataCache.lbVersion !== currentLbVersion) {
+        const [mensLeaderboard, womensLeaderboard, events, userDoc] = await Promise.all([
+          getLeaderboard(SEASON, "mens"),
+          getLeaderboard(SEASON, "womens"),
+          getEvents(SEASON),
+          getUser(user.uid)
+        ]);
+
+        const memberSet = new Set(club.memberIds);
+
+        // Fetch each member's user doc in parallel (one read per member)
+        const memberDocs = {};
+        await Promise.all(club.memberIds.map(async (uid) => {
+          memberDocs[uid] = await getUser(uid);
+        }));
+
+        const buildMemberEntries = (leaderboard) => {
+          const entries = leaderboard.filter((e) => memberSet.has(e.userId));
+          const seenIds = new Set(entries.map((e) => e.userId));
+          const missingIds = club.memberIds.filter((id) => !seenIds.has(id));
+          for (const entry of entries) {
+            const ud = memberDocs[entry.userId];
+            if (ud) {
+              entry.avatarUrl = ud.avatarUrl || "";
+              entry.teamName = ud.teamName || entry.teamName || ud.displayName || "";
+              entry.displayName = ud.displayName || entry.displayName || "";
+            }
+          }
+          for (const uid of missingIds) {
+            const ud = memberDocs[uid];
+            if (ud) entries.push({ userId: uid, avatarUrl: ud.avatarUrl || "", teamName: ud.teamName || ud.displayName || "—", displayName: ud.displayName || "—", bestNineTotal: 0, allEventsTotal: 0, eventScores: {} });
+          }
+          return entries;
+        };
+
+        // ── Event-by-event scoring ──
+        // Read directly from leaderboard entries — no team/results re-fetch needed
+        const eventScores = {};
+        for (const uid of club.memberIds) eventScores[uid] = {};
+        [...mensLeaderboard, ...womensLeaderboard]
+          .filter((e) => memberSet.has(e.userId) && e.eventScores)
+          .forEach((e) => {
+            Object.assign(eventScores[e.userId], e.eventScores);
+          });
+
+        _clubDataCache = {
+          clubId: club.id,
+          lbVersion: currentLbVersion,
+          events,
+          userDoc,
+          memberDocs,
+          mensMemberEntries: buildMemberEntries(mensLeaderboard),
+          womensMemberEntries: buildMemberEntries(womensLeaderboard),
+          eventScores,
+        };
+      }
+
+      const { userDoc, events, mensMemberEntries, womensMemberEntries, eventScores } = _clubDataCache;
       const clubIds = getUserClubIds(userDoc);
       const canJoinMore = clubIds.length < 3;
-
-      // Load leaderboard (both tours) + enrich members
-      const [mensLeaderboard, womensLeaderboard, events, surfers] = await Promise.all([
-        getLeaderboard(SEASON, "mens"),
-        getLeaderboard(SEASON, "womens"),
-        getEvents(SEASON),
-        getSurfers()
-      ]);
-
-      const surferMap = {};
-      surfers.forEach((s) => { surferMap[s.id] = s; });
-
-      const memberSet = new Set(club.memberIds);
-
-      const userCache = {};
-      const getOrFetchUser = async (uid) => {
-        if (!userCache[uid]) userCache[uid] = await getUser(uid);
-        return userCache[uid];
-      };
-
-      const buildMemberEntries = async (leaderboard) => {
-        const entries = leaderboard.filter((e) => memberSet.has(e.userId));
-        const seenIds = new Set(entries.map((e) => e.userId));
-        const missingIds = club.memberIds.filter((id) => !seenIds.has(id));
-        for (const entry of entries) {
-          const ud = await getOrFetchUser(entry.userId);
-          if (ud) {
-            entry.avatarUrl = ud.avatarUrl || "";
-            entry.teamName = ud.teamName || entry.teamName || ud.displayName || "";
-            entry.displayName = ud.displayName || entry.displayName || "";
-          }
-        }
-        for (const uid of missingIds) {
-          const ud = await getOrFetchUser(uid);
-          if (ud) entries.push({ userId: uid, avatarUrl: ud.avatarUrl || "", teamName: ud.teamName || ud.displayName || "—", displayName: ud.displayName || "—", bestNineTotal: 0, allEventsTotal: 0 });
-        }
-        const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
-        entries.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
-        return entries;
-      };
-
-      const [mensMemberEntries, womensMemberEntries] = await Promise.all([
-        buildMemberEntries(mensLeaderboard),
-        buildMemberEntries(womensLeaderboard)
-      ]);
-
-      // ── Event-by-event scoring ──
-      // eventScores[userId][eventId] = points (completed events only)
-      const eventScores = {};
-      for (const uid of club.memberIds) eventScores[uid] = {};
-
-      const completedEvents = events.filter((e) => e.status === "completed");
-      for (const event of completedEvents) {
-        const [teams, results] = await Promise.all([getTeamsForEvent(event.id), getResults(event.id)]);
-        for (const team of teams) {
-          if (!memberSet.has(team.userId)) continue;
-          const score = scoreTeam(team, results, event.tour || "mens");
-          eventScores[team.userId][event.id] = score.totalPoints;
-        }
-      }
 
       // Each event doc gets its own column (mens and womens are separate)
       // Sort by eventNumber then tour so mens comes before womens
@@ -215,7 +217,7 @@
         <!-- Event-by-Event Scores -->
         <div class="card mb-3">
           <div class="card__header"><span class="card__title">Season Leaderboard</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+          <div class="club-controls">
             <div class="tour-tabs" style="margin-bottom:0;border-bottom-width:1px">
               <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
               <button class="tour-tab ebe-tour-tab" data-ebe-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
@@ -227,7 +229,9 @@
           </div>
           ${["mens", "womens"].map((tour) => {
             const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
-            const entries = tour === "mens" ? mensMemberEntries : womensMemberEntries;
+            const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
+            const entries = (tour === "mens" ? mensMemberEntries : womensMemberEntries)
+              .slice().sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
             return `
               <div class="ebe-panel" data-ebe-panel="${tour}" style="${tour === "womens" ? "display:none" : ""}">
                 ${tourEvents.length > 0 ? `
@@ -235,7 +239,8 @@
                     <table class="data-table" style="border-collapse:separate;border-spacing:0">
                       <thead>
                         <tr>
-                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap">Player</th>
+                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;width:1.5rem;text-align:center">#</th>
+                          <th style="position:sticky;left:2rem;z-index:2;background:var(--color-warm-white)">Player</th>
                           ${tourEvents.map((e) => `
                             <th class="text-right sortable-col" data-event-id="${e.id}" style="white-space:nowrap;font-size:0.7rem;cursor:pointer;user-select:none" title="Sort by ${e.name}">
                               ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
@@ -245,9 +250,10 @@
                         </tr>
                       </thead>
                       <tbody>
-                        ${entries.map((entry) => `
+                        ${entries.map((entry, i) => `
                           <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
-                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);white-space:nowrap">
+                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);text-align:center;color:var(--color-warm-brown);font-size:0.8rem;width:1.5rem">${i + 1}</td>
+                            <td style="position:sticky;left:2rem;z-index:1;background:var(--color-warm-white);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                               <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
                                 ${entry.teamName || entry.displayName || "—"}
                               </a>

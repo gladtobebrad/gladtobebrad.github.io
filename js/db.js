@@ -174,7 +174,7 @@ export async function carryForwardTeams(eventId, season = 2026) {
 // In-memory version cache — one Firestore read per session to check freshness
 let _lbVersion = null;
 
-async function fetchLeaderboardVersion() {
+export async function fetchLeaderboardVersion() {
   if (_lbVersion !== null) return _lbVersion;
   try {
     const snap = await getDoc(doc(db, "meta", "leaderboard"));
@@ -189,7 +189,7 @@ async function fetchLeaderboardVersion() {
 export async function touchLeaderboardVersion() {
   const version = Date.now();
   await setDoc(doc(db, "meta", "leaderboard"), { version });
-  _lbVersion = version;
+  _lbVersion = null; // force all clients to re-fetch version after next recalc
   try {
     Object.keys(localStorage).filter(k => k.startsWith("lb_")).forEach(k => localStorage.removeItem(k));
   } catch {}

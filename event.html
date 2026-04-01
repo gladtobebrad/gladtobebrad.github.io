@@ -22,10 +22,12 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAuth, getCurrentUser } from "./js/auth.js";
-    import { getEvent, getResults, getTeam, getSurfers, getTeamsForEvent, getUser } from "./js/db.js";
+    import { initAuth, requireAuth } from "./js/auth.js";
+    import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
     import { scoreTeam, getPoints } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, showAuthGate, formatSalary, formatDate, statusBadge, renderTable } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatDate, statusBadge } from "./js/ui.js";
+
+    const SEASON = 2026;
 
     initAuth();
     renderHeader();
@@ -44,10 +46,11 @@
       }
 
       try {
-        const [event, results, surfers] = await Promise.all([
+        const [event, results, surfers, userTeam] = await Promise.all([
           getEvent(eventId),
           getResults(eventId),
-          getSurfers()
+          getSurfers(),
+          getTeam(user.uid, eventId)
         ]);
 
         if (!event) {
@@ -55,40 +58,32 @@
           return;
         }
 
+        const tour = event.tour || "mens";
         const surferMap = {};
         surfers.forEach((s) => { surferMap[s.id] = s; });
 
-        // Sort results by finish position
         results.sort((a, b) => (a.finish || 999) - (b.finish || 999));
 
-        // Get all teams for this event
-        const allTeams = await getTeamsForEvent(eventId);
+        // Score only the current user's team
+        const myScore = userTeam ? scoreTeam(userTeam, results, tour) : null;
 
-        // Score each team
-        const teamScores = [];
-        for (const team of allTeams) {
-          const score = scoreTeam(team, results, event.tour || "mens");
-          const userDoc = await getUser(team.userId);
-          teamScores.push({
-            userId: team.userId,
-            displayName: userDoc?.displayName || "Unknown",
-            teamName: userDoc?.teamName || userDoc?.displayName || "—",
-            team,
-            ...score
-          });
-        }
-        teamScores.sort((a, b) => b.totalPoints - a.totalPoints);
-
-        // Show other teams when trading is closed
-        const showAllTeams = !event.tradingOpen;
-
-        // Current user's surfer IDs (for highlighting)
-        const userTeam = allTeams.find((t) => t.userId === user.uid);
+        // Highlight user's surfers in results table
         const userSurferIds = new Set();
         if (userTeam) {
           userTeam.surfers.forEach((s) => userSurferIds.add(s.surferId));
           if (userTeam.alternate) userSurferIds.add(userTeam.alternate.surferId);
         }
+
+        // Derive rank from cached leaderboard eventScores (free — already in localStorage)
+        let myRank = null, totalPlayers = null;
+        try {
+          const leaderboard = await getLeaderboard(SEASON, tour);
+          const withScore = leaderboard.filter((e) => e.eventScores?.[eventId] != null);
+          if (withScore.length > 0 && myScore) {
+            totalPlayers = withScore.length;
+            myRank = withScore.filter((e) => e.eventScores[eventId] > myScore.totalPoints).length + 1;
+          }
+        } catch {}
 
         main.innerHTML = `
           <div class="flex-between mb-2">
@@ -99,31 +94,25 @@
           <p class="text-sm text-muted mb-3">${formatDate(event.startDate)} — ${formatDate(event.endDate)}</p>
 
           <div class="grid grid--sidebar">
+            <!-- Event Results -->
             <div>
-              <!-- Results Table -->
               <div class="card mb-3">
-                <div class="card__header">
-                  <span class="card__title">Event Results</span>
-                </div>
+                <div class="card__header"><span class="card__title">Event Results</span></div>
                 ${results.length > 0 ? `
                   <table class="data-table">
                     <thead>
                       <tr>
-                        <th>Pos</th>
-                        <th>Surfer</th>
-                        <th>Country</th>
-                        <th class="text-right">Points</th>
+                        <th>Pos</th><th>Surfer</th><th>Country</th><th class="text-right">Points</th>
                       </tr>
                     </thead>
                     <tbody>
                       ${results.map((r) => {
                         const s = surferMap[r.surferId] || {};
-                        const isOnTeam = userSurferIds.has(r.surferId);
-                        return `<tr class="${isOnTeam ? "highlight" : ""}">
+                        return `<tr class="${userSurferIds.has(r.surferId) ? "highlight" : ""}">
                           <td class="text-center"><strong>${r.finish}</strong></td>
                           <td>${s.name || r.surferId.replace(/-/g, " ")}</td>
                           <td class="text-muted">${s.country || ""}</td>
-                          <td class="text-right">${r.points || getPoints(r.finish, event.tour || "mens")}</td>
+                          <td class="text-right">${r.points || getPoints(r.finish, tour)}</td>
                         </tr>`;
                       }).join("")}
                     </tbody>
@@ -132,97 +121,47 @@
               </div>
             </div>
 
-            <!-- Team Scores Sidebar -->
+            <!-- Your Score -->
             <div>
               <div class="card">
-                <div class="card__header">
-                  <span class="card__title">Team Scores</span>
-                </div>
-                ${teamScores.length > 0 ? `
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Team</th>
-                        <th class="text-right">Points</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${teamScores.map((ts, i) => `
-                        <tr class="${ts.userId === user.uid ? "highlight" : ""}">
-                          <td class="text-center">${i + 1}</td>
-                          <td>${ts.teamName}${ts.alternateUsed ? " *" : ""}</td>
-                          <td class="text-right"><strong>${ts.totalPoints}</strong></td>
-                        </tr>
-                      `).join("")}
-                    </tbody>
-                  </table>
-                  <p class="text-xs text-muted mt-2">* = alternate was used</p>
-                ` : `<p class="text-muted">No teams scored yet.</p>`}
-              </div>
-
-              ${userTeam ? `
-                <div class="card mt-3">
-                  <div class="card__header">
-                    <span class="card__title">Your Breakdown</span>
-                  </div>
-                  ${(() => {
-                    const myScore = teamScores.find((ts) => ts.userId === user.uid);
-                    if (!myScore) return `<p class="text-muted">No score yet.</p>`;
-                    return `
-                      <div class="surfer-list">
-                        ${myScore.surferScores.map((ss) => {
-                          const s = surferMap[ss.surferId] || {};
-                          return `<div class="surfer-row">
-                            <span class="surfer-row__name">${s.name || ss.surferId.replace(/-/g, " ")}${ss.isAlternate ? " (ALT)" : ""}${ss.didNotCompete ? " (DNP)" : ""}</span>
-                            <span class="surfer-row__value">${ss.points} pts</span>
-                          </div>`;
-                        }).join("")}
+                <div class="card__header"><span class="card__title">Your Score</span></div>
+                ${!userTeam ? `<p class="text-muted text-sm">No team submitted for this event.</p>` : !myScore ? `<p class="text-muted text-sm">No results yet.</p>` : `
+                  ${myRank != null ? `
+                    <div style="text-align:center;padding:0.75rem 0 1rem">
+                      <div style="font-size:2rem;font-weight:700;color:var(--color-charcoal)">${myScore.totalPoints}</div>
+                      <div class="text-sm text-muted">pts</div>
+                      <div style="margin-top:0.4rem;font-size:0.85rem;color:var(--color-warm-brown)">
+                        ${myRank}${myRank === 1 ? "st" : myRank === 2 ? "nd" : myRank === 3 ? "rd" : "th"} of ${totalPlayers}
                       </div>
-                      <p class="mt-2" style="font-weight:600">Total: ${myScore.totalPoints} pts</p>
-                    `;
-                  })()}
-                </div>
-              ` : ""}
+                    </div>
+                    <div style="border-top:1px solid var(--color-beige);padding-top:0.75rem">
+                  ` : `<div style="padding:0.5rem 0">`}
+                  <div class="surfer-list">
+                    ${myScore.surferScores.map((ss) => {
+                      const s = surferMap[ss.surferId] || {};
+                      return `<div class="surfer-row">
+                        <span class="surfer-row__name">
+                          ${s.name || ss.surferId.replace(/-/g, " ")}
+                          ${ss.isAlternate ? `<span class="text-xs text-muted"> ALT</span>` : ""}
+                          ${ss.didNotCompete ? `<span class="text-xs text-muted"> DNP</span>` : ""}
+                        </span>
+                        <span class="surfer-row__value${ss.didNotCompete ? " text-muted" : ""}">${ss.points} pts</span>
+                      </div>`;
+                    }).join("")}
+                  </div>
+                  <div style="border-top:1px solid var(--color-beige);margin-top:0.5rem;padding-top:0.5rem;display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-weight:600">Total</span>
+                    <span style="font-weight:700">${myScore.totalPoints} pts${myScore.alternateUsed ? " *" : ""}</span>
+                  </div>
+                  ${myScore.alternateUsed ? `<p class="text-xs text-muted mt-1">* alternate used</p>` : ""}
+                  </div>
+                  <div class="mt-2">
+                    <a href="players.html" class="btn btn--outline btn--sm" style="width:100%;text-align:center">Full Standings →</a>
+                  </div>
+                `}
+              </div>
             </div>
           </div>
-
-          <!-- All Teams (visible when trading is closed) -->
-          ${showAllTeams && allTeams.length > 0 ? `
-            <div class="mt-4">
-              <h2>All Teams</h2>
-              <p class="text-muted text-sm mb-3">Trading is locked — all rosters are visible.</p>
-              <div class="grid grid--2">
-                ${teamScores.map((ts) => `
-                  <div class="card">
-                    <div class="card__header">
-                      <span class="card__title">${ts.teamName}</span>
-                      <span class="text-sm" style="font-weight:600">${ts.totalPoints} pts</span>
-                    </div>
-                    <div class="surfer-list">
-                      ${ts.team.surfers.map((s, i) => {
-                        const data = surferMap[s.surferId] || {};
-                        const sc = ts.surferScores[i];
-                        return `<div class="surfer-row">
-                          <span class="surfer-row__rank">${data.rank || "—"}</span>
-                          <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                          <span class="surfer-row__value">${formatSalary(s.purchasePrice)}</span>
-                          ${sc ? `<span class="text-sm text-muted">${sc.points} pts</span>` : ""}
-                        </div>`;
-                      }).join("")}
-                      ${ts.team.alternate ? `
-                        <div class="surfer-row surfer-row--alternate">
-                          <span class="surfer-row__rank">ALT</span>
-                          <span class="surfer-row__name">${(surferMap[ts.team.alternate.surferId]?.name) || ts.team.alternate.surferId.replace(/-/g, " ")}${ts.alternateUsed ? " (used)" : ""}</span>
-                          <span class="surfer-row__value">${formatSalary(ts.team.alternate.purchasePrice)}</span>
-                        </div>
-                      ` : ""}
-                    </div>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          ` : ""}
 
           <div class="mt-3">
             <a href="index.html" class="btn btn--outline">&larr; Back to Dashboard</a>

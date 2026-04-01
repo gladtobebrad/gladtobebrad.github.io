@@ -4,12 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fantasy Surfer — Dashboard</title>
-  <meta name="description" content="Free fantasy surf league built around the WSL Championship Tour. Draft your team, manage your cap, and compete all season.">
-  <meta property="og:title" content="Fantasy Surfer">
-  <meta property="og:description" content="Free fantasy surf league built around the WSL Championship Tour.">
-  <meta property="og:image" content="https://fantasysurfer.org/img/Fsurf_logo_with_text.png">
+  <meta name="description" content="Build your dream team from the WSL Championship Tour, manage your salary cap, and battle your club all season long. Free to play.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Fantasy Surfer — Draft the wave, own the season">
+  <meta property="og:description" content="Build your dream team from the WSL Championship Tour, manage your salary cap, and battle your club all season long. Free to play.">
+  <meta property="og:image" content="https://fantasysurfer.org/img/loadpage.jpg">
+  <meta property="og:image:alt" content="A surfer carving through a breaking wave">
   <meta property="og:url" content="https://fantasysurfer.org">
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Fantasy Surfer — Draft the wave, own the season">
+  <meta name="twitter:description" content="Build your dream team from the WSL Championship Tour, manage your salary cap, and battle your club all season long. Free to play.">
+  <meta name="twitter:image" content="https://fantasysurfer.org/img/loadpage.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
@@ -224,7 +229,7 @@
               : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${photo}<span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}</div>`;
           }).join("");
-          return `<div style="display:grid;grid-template-columns:repeat(5,${surferWidth});gap:${isMid ? "0.3rem" : "0.5rem"};margin-top:0.5rem">${slotHtml}</div>`;
+          return `<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:${isMid ? "0.3rem" : "0.5rem"};margin-top:0.5rem">${slotHtml}</div>`;
         }
 
         // Small strip
@@ -323,20 +328,21 @@
 
         // ── Profile widget (top-right) ──
         const avatarSm = avatarUrl
-          ? `<img src="${avatarUrl}" alt="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">`
-          : `<div style="width:80px;height:80px;border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1.5rem;color:var(--color-warm-brown);flex-shrink:0">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
+          ? `<img src="${avatarUrl}" alt="" class="profile-widget__avatar" referrerpolicy="no-referrer">`
+          : `<div class="profile-widget__avatar--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
         const avatarPreview = avatarUrl
           ? `<img src="${avatarUrl}" alt="" class="avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
           : `<div class="avatar-preview avatar-preview--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
 
         const profileWidget = `
-          <div style="display:flex;align-items:center;gap:0.75rem">
+          <div class="profile-widget">
             ${avatarSm}
-            <div style="text-align:right">
-              <div style="font-weight:600;font-size:0.95rem">${profile?.teamName || user.displayName || "—"}</div>
-              <div class="text-xs text-muted">${clubLabel}</div>
+            <div class="profile-widget__info">
+              <div class="profile-widget__name">${profile?.teamName || user.displayName || "—"}</div>
+              <div class="profile-widget__clubs">${clubLabel}</div>
+              <span class="ads-coin-badge profile-widget__coins">🪙 ${adsCoins} ADScoin</span>
             </div>
-            <button class="btn btn--outline btn--sm" id="btn-edit-profile" style="white-space:nowrap;font-size:0.72rem;padding:0.2rem 0.5rem">Edit</button>
+            <button class="btn btn--outline btn--sm" id="btn-edit-profile">Edit</button>
           </div>`;
 
         const editFormModal = `
@@ -404,7 +410,7 @@
           .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
           .map(e => e.id);
         const womensCompletedEvents = events
-          .filter(e => e.tour === "womens" && e.status === "completed")
+          .filter(e => (e.tour || "") === "womens" && e.status === "completed")
           .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
           .map(e => e.id);
 
@@ -498,7 +504,7 @@
               <button class="scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:stretch">
+          <div class="dash-grid-2 dash-grid-2--stretch">
             <div class="card" style="padding:1rem 1.25rem">
               <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
                 <span class="card__title">League Standings</span>
@@ -534,7 +540,7 @@
               ${renderStandingsTable(clubMembers, user.uid, scoringMode)}
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem">
+          <div class="dash-grid-2 mt-3">
             <div class="card">
               <div class="card__header"><span class="card__title">League Standings by Event</span></div>
               ${leagueChart}
@@ -548,7 +554,7 @@
         if (activeTab === "homepage") {
           content = `
             <!-- Current Events + Schedule side by side -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+            <div class="dash-grid-2">
               <div class="card">
                 <div class="card__header"><span class="card__title">Current Events</span></div>
                 ${mensEvent || womensEvent ? `
@@ -562,11 +568,14 @@
                             <span class="text-sm" style="font-weight:600">${label}</span>
                             ${tradingBadge(ev.tradingOpen)}
                           </div>
-                          <h3 style="margin-bottom:0.25rem">${ev.name}</h3>
+                          <h3 style="margin-bottom:0.25rem">
+                            <a href="event.html?id=${ev.id}" style="color:inherit;text-decoration:none">${ev.name}</a>
+                          </h3>
                           <p class="text-muted text-sm">${ev.location || ""}</p>
                           <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
-                          <div class="mt-1">
-                            <a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>
+                          <div class="mt-1" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                            ${ev.tradingOpen !== false ? `<a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>` : ""}
+                            <a href="event.html?id=${ev.id}" class="btn btn--outline btn--sm">View Scores</a>
                           </div>
                         </div>
                         <div style="flex-shrink:0">
@@ -589,7 +598,9 @@
                     ${unique.map((e) => `
                       <div class="surfer-row">
                         <span class="surfer-row__rank">${e.eventNumber}</span>
-                        <span class="surfer-row__name">${e.name}</span>
+                        <span class="surfer-row__name">
+                          ${e.status !== "upcoming" ? `<a href="event.html?id=${e.id}" style="color:inherit;text-decoration:none">${e.name}</a>` : e.name}
+                        </span>
                         ${statusBadge(e.status)}
                       </div>
                     `).join("")}
@@ -602,7 +613,7 @@
         } else {
           // Rosters tab
           content = `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+            <div class="dash-grid-2">
               <div>
                 <h2 class="mb-3">Men's CT</h2>
                 ${mensEvent ? `
