@@ -27,6 +27,7 @@
     import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
 
     const SEASON = 2026;
+    let scoringMode = "best9"; // "best9" or "all"
 
     initAuth();
     renderHeader();
@@ -64,7 +65,8 @@
 
         function buildStandings(lb) {
           if (lb.length) {
-            lb.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
+            const key = scoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
+            lb.sort((a, b) => (b[key] || 0) - (a[key] || 0));
             return lb.map((entry, i) => ({
               id: entry.userId,
               rank: i + 1,
@@ -99,8 +101,7 @@
                 <thead><tr>
                   <th class="sortable-col" data-col="rank" data-dir="asc" style="cursor:pointer;user-select:none"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
                   <th>Player</th>
-                  <th class="text-right sortable-col" data-col="bestNineTotal" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">Best 9 <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
-                  <th class="text-right sortable-col" data-col="allEventsTotal" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">Total <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
+                  <th class="text-right sortable-col" data-col="score" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">${scoringMode === "all" ? "All Events" : "Best 9"} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
                   ${tourEvents.map(e => `
                     <th class="text-right sortable-col" data-col="evt_${e.id}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.7rem">
                       ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
@@ -110,7 +111,7 @@
                 <tbody>
                   ${players.map(p => `
                     <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'"
-                      data-rank="${p.rank}" data-best="${p.bestNineTotal}" data-total="${p.allEventsTotal}"
+                      data-rank="${p.rank}" data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
                       data-search="${(p.teamName + " " + p.displayName).toLowerCase()}"
                       ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
                       <td><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
@@ -123,8 +124,7 @@
                           ${p.teamName !== p.displayName ? `<span class="text-xs text-muted" style="margin-left:0.5rem">${p.displayName}</span>` : ""}
                         </div>
                       </td>
-                      <td class="text-right"><strong>${p.bestNineTotal}</strong></td>
-                      <td class="text-right text-muted">${p.allEventsTotal}</td>
+                      <td class="text-right"><strong>${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}</strong></td>
                       ${tourEvents.map(e => {
                         const pts = p.eventScores[e.id];
                         return `<td class="text-right">${pts != null ? pts : "—"}</td>`;
@@ -148,6 +148,10 @@
               <button id="toggle-womens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:400;background:#fff;color:var(--color-sage)">Women's CT</button>
             </div>
             <input type="search" id="player-search" placeholder="Search players..." style="flex:1;min-width:160px;max-width:280px;padding:0.4rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem;outline:none;">
+            <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden;font-size:0.8rem;margin-left:auto">
+              <button class="scoring-toggle" data-mode="best9" style="padding:0.3rem 0.7rem;border:none;cursor:pointer;font-family:inherit;${scoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
+              <button class="scoring-toggle" data-mode="all" style="padding:0.3rem 0.7rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
+            </div>
           </div>
           <div id="panel-mens" class="card mb-3">
             ${standingsTable(mensPlayers, mensEvents, "table-mens")}
@@ -186,7 +190,7 @@
                 av = parseFloat(a.dataset[`evt-${evtId}`] ?? a.getAttribute(`data-evt-${evtId}`) ?? -1);
                 bv = parseFloat(b.dataset[`evt-${evtId}`] ?? b.getAttribute(`data-evt-${evtId}`) ?? -1);
               } else {
-                const attrMap = { rank: "rank", bestNineTotal: "best", allEventsTotal: "total" };
+                const attrMap = { rank: "rank", score: "score" };
                 av = parseFloat(a.dataset[attrMap[col]] ?? 0);
                 bv = parseFloat(b.dataset[attrMap[col]] ?? 0);
               }
@@ -210,6 +214,14 @@
           panelWomens.style.display = ""; panelMens.style.display = "none";
           btnWomens.style.cssText += ";font-weight:600;background:var(--color-charcoal);color:#fff";
           btnMens.style.cssText += ";font-weight:400;background:#fff;color:var(--color-sage)";
+        });
+
+        // Scoring mode toggle
+        container.querySelectorAll(".scoring-toggle").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            scoringMode = btn.dataset.mode;
+            renderPage(container);
+          });
         });
 
         // Search — filters active table
