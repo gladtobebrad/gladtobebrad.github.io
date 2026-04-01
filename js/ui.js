@@ -100,13 +100,13 @@ export function renderHeader() {
             deadline = new Date(soonest.startDate + "T00:00:00").getTime();
           }
           const eventName = soonest.name || "the next event";
-          countdownEl.innerHTML = `First Call for ${eventName} is in <strong id="countdown-timer"></strong>. But trading won't close until the hooter blows.`;
+          countdownEl.innerHTML = `First Call for ${eventName} is in <strong id="countdown-timer"></strong><br>But trading won't close until the hooter blows`;
           countdownEl.style.display = "";
           const timerEl = document.getElementById("countdown-timer");
           const tick = () => {
             const diff = deadline - Date.now();
             if (diff <= 0) {
-              countdownEl.innerHTML = `First Call for ${eventName} is now <strong>Pending</strong>! But trading won't close until the hooter blows.`;
+              countdownEl.innerHTML = `First Call for ${eventName} is now <strong>Pending</strong>!<br>But trading won't close until the hooter blows`;
               clearInterval(window._countdownInterval);
               return;
             }
