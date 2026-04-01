@@ -396,9 +396,15 @@
                 : `<button class="overlay-btn overlay-btn--add" data-add="${s.id}" data-value="${s.value}">+ Add</button>
                    ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
         );
+        const isInjured = s.status === "injured";
         return `
           <div class="surfer-row available-card${rowClass}" data-bracket="${s.priceBracket || ""}"
-            ${tradingOpen && !isSelected && !isUnaffordable ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}>
+            ${tradingOpen && !isSelected && !isUnaffordable ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}
+            ${isInjured ? 'data-injured="true" style="position:relative;overflow:hidden"' : ""}>
+            ${isInjured ? `<div style="position:absolute;inset:0;background:rgba(180,40,40,0.18);z-index:4;pointer-events:none"></div>
+            <div style="position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden">
+              <div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%) rotate(-25deg);background:rgba(200,30,30,0.85);color:#fff;font-weight:800;font-size:0.85rem;letter-spacing:0.15em;text-align:center;padding:0.2rem 0;white-space:nowrap">INJ</div>
+            </div>` : ""}
             <div class="available-card__photo-wrap">
               ${photoEl}
               <div class="available-card__overlay">${overlayButtons}</div>
