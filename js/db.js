@@ -5,6 +5,17 @@ import {
   query, where
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
+// ── Site Config ─────────────────────────────────────
+
+export async function getSiteConfig() {
+  const snap = await getDoc(doc(db, "config", "site"));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function saveSiteConfig(data) {
+  await setDoc(doc(db, "config", "site"), data, { merge: true });
+}
+
 // ── Surfers ──────────────────────────────────────────
 
 export async function getSurfers() {
