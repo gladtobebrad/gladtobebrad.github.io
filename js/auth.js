@@ -1,8 +1,6 @@
 import { auth, db } from "./firebase-config.js";
 import {
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -25,7 +23,8 @@ const authCallbacks = [];
 // Holds display name during registration before onAuthStateChanged fires
 let _pendingDisplayName = null;
 
-// Sign in with Google — popup first, redirect fallback for mobile/Safari
+// Sign in with Google — popup only (redirect causes auth/missing-initial-state
+// in storage-partitioned browsers like Chrome mobile with Privacy Sandbox)
 export async function signIn() {
   try {
     await signInWithPopup(auth, provider);
@@ -33,14 +32,14 @@ export async function signIn() {
       location.href = "index.html";
     }
   } catch (err) {
-    if (err.code === "auth/popup-blocked" || err.code === "auth/popup-cancelled-by-user") {
-      // Browser blocked the popup — fall back to redirect
-      try {
-        await signInWithRedirect(auth, provider);
-      } catch (redirectErr) {
-        console.error("Sign-in redirect error:", redirectErr);
-      }
-    } else if (err.code !== "auth/popup-closed-by-user") {
+    if (err.code === "auth/popup-blocked") {
+      // Show inline message rather than falling back to redirect
+      const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
+      const msg = document.createElement("p");
+      msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
+      msg.textContent = "Pop-up was blocked. Please allow pop-ups for this site, then try again — or use email sign-in below.";
+      if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
+    } else if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/popup-cancelled-by-user") {
       console.error("Sign-in error:", err);
     }
   }
@@ -147,21 +146,6 @@ async function ensureUserProfile(user) {
 
 // Initialize auth listener — call once on page load
 export function initAuth() {
-  // Handle returning redirect (mobile fallback)
-  getRedirectResult(auth).catch((err) => {
-    if (err.code === "auth/missing-initial-state" || err.code === "auth/cancelled-popup-request") {
-      // Safari/in-app browser killed the session state — show a helpful message
-      // Insert message below whichever sign-in button is visible
-      const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
-      const msg = document.createElement("p");
-      msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
-      msg.textContent = "Sign-in couldn't complete. Open this page in Safari or Chrome directly rather than from another app.";
-      if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
-    } else {
-      console.error("Redirect result error:", err);
-    }
-  });
-
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
