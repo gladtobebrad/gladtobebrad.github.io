@@ -74,15 +74,18 @@ export function renderHeader() {
 
       // Countdown timer
       try {
-        const { getCurrentEventForTour } = await import("./db.js");
+        const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
         const SEASON = new Date().getFullYear();
-        const [mensEv, womensEv] = await Promise.all([
+        const [mensEv, womensEv, siteConfig] = await Promise.all([
           getCurrentEventForTour("mens", SEASON),
-          getCurrentEventForTour("womens", SEASON)
+          getCurrentEventForTour("womens", SEASON),
+          getSiteConfig()
         ]);
         const tradingEvents = [mensEv, womensEv].filter(e => e && e.tradingOpen && e.startDate);
         if (window._countdownInterval) clearInterval(window._countdownInterval);
-        if (tradingEvents.length > 0) {
+        if (siteConfig.showCountdown === false) {
+          countdownEl.style.display = "none";
+        } else if (tradingEvents.length > 0) {
           const soonest = tradingEvents.reduce((a, b) => {
             const aTime = a.tradingCloseTime || a.startDate;
             const bTime = b.tradingCloseTime || b.startDate;
