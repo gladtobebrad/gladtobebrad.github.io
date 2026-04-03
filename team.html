@@ -397,10 +397,12 @@
                    ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
         );
         const isInjured = s.status === "injured";
+        const cardAction = !tradingOpen ? "" : isAlt ? `data-card-drop-alt` : isOnRoster ? `data-card-drop="${s.id}"` : isUnaffordable ? "" : `data-card-add="${s.id}" data-card-value="${s.value}"`;
         return `
           <div class="surfer-row available-card${rowClass}" data-bracket="${s.priceBracket || ""}"
             ${tradingOpen && !isSelected && !isUnaffordable ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}
-            ${isInjured ? 'data-injured="true" style="position:relative;overflow:hidden"' : ""}>
+            ${cardAction} ${tradingOpen && !isUnaffordable ? 'style="cursor:pointer' + (isInjured ? ';position:relative;overflow:hidden"' : '"') : (isInjured ? 'style="position:relative;overflow:hidden"' : "")}
+            ${isInjured ? 'data-injured="true"' : ""}>
             ${isInjured ? `<div style="position:absolute;inset:0;background:rgba(180,40,40,0.18);z-index:4;pointer-events:none"></div>
             <div style="position:absolute;inset:0;z-index:5;pointer-events:none;overflow:hidden">
               <div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%) rotate(-25deg);background:rgba(200,30,30,0.85);color:#fff;font-weight:800;font-size:0.85rem;letter-spacing:0.15em;text-align:center;padding:0.2rem 0;white-space:nowrap">INJ</div>
@@ -468,6 +470,41 @@
           const id = btn.dataset.addAlt;
           const value = parseInt(btn.dataset.value, 10);
           alternate = { surferId: id, purchasePrice: value };
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Card-level click: add surfer
+      container.querySelectorAll("[data-card-add]").forEach((card) => {
+        card.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return; // let button handlers handle it
+          const id = card.dataset.cardAdd;
+          const value = parseInt(card.dataset.cardValue, 10);
+          const rules = getTeamRules(currentEvent.tour || "mens");
+          if (roster.length >= rules.rosterSize) {
+            toast("Roster is full. Drop a surfer first.", "error");
+            return;
+          }
+          roster.push({ surferId: id, purchasePrice: value });
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Card-level click: drop surfer
+      container.querySelectorAll("[data-card-drop]").forEach((card) => {
+        card.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return;
+          const id = card.dataset.cardDrop;
+          roster = roster.filter((s) => s.surferId !== id);
+          renderTeamPage(container, user);
+        });
+      });
+
+      // Card-level click: drop alternate
+      container.querySelectorAll("[data-card-drop-alt]").forEach((card) => {
+        card.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return;
+          alternate = null;
           renderTeamPage(container, user);
         });
       });
