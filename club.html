@@ -62,7 +62,7 @@
       if (clubs.length === 0) { renderNoClub(container, user); return; }
 
       const activeClub = clubs.find((c) => c.id === activeId) || clubs[0];
-      await renderClubView(container, user, activeClub, clubs);
+      await renderClubView(container, user, userDoc, activeClub, clubs);
     }
 
     function renderNoClub(container, user) {
@@ -120,26 +120,34 @@
       });
     }
 
-    async function renderClubView(container, user, club, allUserClubs) {
+    async function renderClubView(container, user, userDoc, club, allUserClubs) {
       const isOwner = club.ownerId === user.uid;
 
       // ── Fetch all data once; bust cache when leaderboard version changes ──
       const currentLbVersion = await fetchLeaderboardVersion();
       if (!_clubDataCache || _clubDataCache.clubId !== club.id || _clubDataCache.lbVersion !== currentLbVersion) {
-        const [mensLeaderboard, womensLeaderboard, events, userDoc] = await Promise.all([
+        const [mensLeaderboard, womensLeaderboard, events] = await Promise.all([
           getLeaderboard(SEASON, "mens"),
           getLeaderboard(SEASON, "womens"),
           getEvents(SEASON),
-          getUser(user.uid)
         ]);
 
         const memberSet = new Set(club.memberIds);
 
-        // Fetch each member's user doc in parallel (one read per member)
-        const memberDocs = {};
-        await Promise.all(club.memberIds.map(async (uid) => {
-          memberDocs[uid] = await getUser(uid);
-        }));
+        // Member docs: sessionStorage cache keyed by club + leaderboard version
+        const memberCacheKey = `memberDocs_${club.id}_${currentLbVersion}`;
+        let memberDocs = {};
+        try {
+          const cached = sessionStorage.getItem(memberCacheKey);
+          if (cached) memberDocs = JSON.parse(cached);
+        } catch {}
+
+        if (Object.keys(memberDocs).length === 0) {
+          await Promise.all(club.memberIds.map(async (uid) => {
+            memberDocs[uid] = await getUser(uid);
+          }));
+          try { sessionStorage.setItem(memberCacheKey, JSON.stringify(memberDocs)); } catch {}
+        }
 
         const buildMemberEntries = (leaderboard) => {
           const entries = leaderboard.filter((e) => memberSet.has(e.userId));
@@ -174,7 +182,6 @@
           clubId: club.id,
           lbVersion: currentLbVersion,
           events,
-          userDoc,
           memberDocs,
           mensMemberEntries: buildMemberEntries(mensLeaderboard),
           womensMemberEntries: buildMemberEntries(womensLeaderboard),
@@ -182,7 +189,7 @@
         };
       }
 
-      const { userDoc, events, mensMemberEntries, womensMemberEntries, eventScores } = _clubDataCache;
+      const { events, mensMemberEntries, womensMemberEntries, eventScores } = _clubDataCache;
       const clubIds = getUserClubIds(userDoc);
       const canJoinMore = clubIds.length < 3;
 

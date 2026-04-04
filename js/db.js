@@ -49,11 +49,18 @@ export async function deleteSurfer(surferId) {
 // ── Events ───────────────────────────────────────────
 
 export async function getEvents(season = 2026) {
+  const cacheKey = `events_${season}`;
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch {}
   const snap = await getDocs(collection(db, "events"));
-  return snap.docs
+  const data = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter((e) => e.season === season)
     .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
+  try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+  return data;
 }
 
 export async function getEvent(eventId) {
@@ -213,6 +220,7 @@ export async function touchLeaderboardVersion() {
   _lbVersion = null; // force all clients to re-fetch version after next recalc
   try {
     Object.keys(localStorage).filter(k => k.startsWith("lb_")).forEach(k => localStorage.removeItem(k));
+    Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k));
   } catch {}
 }
 
