@@ -254,17 +254,32 @@ export async function saveLeaderboardEntry(userId, season, tour, data) {
   });
 }
 
-export async function clearLeaderboard(season, tour) {
-  const snap = await getDocs(collection(db, "leaderboard"));
+// Write all leaderboard entries in a single batch (max 500 ops — fine for 100 users)
+export async function saveLeaderboardBatch(entries, season, tour) {
   const batch = writeBatch(db);
-  snap.docs
-    .filter((d) => {
-      const data = d.data();
-      if (data.season !== season) return false;
-      // Delete matching tour OR legacy entries with no tour field
-      return data.tour === tour || data.tour == null;
-    })
-    .forEach((d) => batch.delete(d.ref));
+  for (const entry of entries) {
+    const docId = `${entry.userId}_${season}_${tour}`;
+    batch.set(doc(db, "leaderboard", docId), {
+      userId: entry.userId,
+      season,
+      tour,
+      displayName: entry.displayName,
+      teamName: entry.teamName,
+      eventScores: entry.eventScores,
+      bestNineTotal: entry.bestNineTotal,
+      allEventsTotal: entry.allEventsTotal,
+      eventsPlayed: entry.eventsPlayed,
+    });
+  }
+  await batch.commit();
+}
+
+export async function clearLeaderboard(season, tour) {
+  // Query only the docs we need to delete rather than fetching the whole collection
+  const snap = await getDocs(query(collection(db, "leaderboard"), where("season", "==", season), where("tour", "==", tour)));
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
 }
 

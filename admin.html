@@ -28,7 +28,7 @@
       getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
-      saveLeaderboardEntry, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
+      saveLeaderboardEntry, saveLeaderboardBatch, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
       savePlayerDirectory, getUser, getAllUsers,
       getAllClubs, deleteClub,
       saveSiteConfig
@@ -805,6 +805,8 @@
           try {
             await saveResultsBatch(eventId, resultsArr);
             await saveEvent(eventId, { resultsEntered: true });
+            try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+            events = await getEvents(SEASON);
             toast(`Saved ${resultsArr.length} results!`, "success");
           } catch (err) {
             toast("Error: " + err.message, "error");
@@ -902,16 +904,7 @@
             }
             const entries = Object.entries(userScores).map(([userId, data]) => ({ userId, ...data }));
             const standings = calculateSeasonStandings(entries);
-            for (const entry of standings) {
-              await saveLeaderboardEntry(entry.userId, SEASON, tour, {
-                displayName: entry.displayName,
-                teamName: entry.teamName,
-                eventScores: entry.eventScores,
-                bestNineTotal: entry.bestNineTotal,
-                allEventsTotal: entry.allEventsTotal,
-                eventsPlayed: entry.eventsPlayed
-              });
-            }
+            await saveLeaderboardBatch(standings, SEASON, tour);
             return standings;
           }
 
