@@ -368,6 +368,14 @@
                 ).join("")}
               </select>
             </div>
+            <div class="form-group">
+              <label class="form-label">Update Leaderboard For</label>
+              <select class="form-select" id="leaderboard-tour-select" style="max-width:220px">
+                <option value="both">Both Tours</option>
+                <option value="womens">Women's CT only</option>
+                <option value="mens">Men's CT only</option>
+              </select>
+            </div>
             <div class="form-actions">
               <button class="btn btn--primary" id="btn-calculate-scores">Calculate All Scores</button>
               <button class="btn btn--secondary" id="btn-update-leaderboard">Update Season Leaderboard</button>
@@ -908,10 +916,10 @@
             return standings;
           }
 
-          const [mensStandings, womensStandings] = await Promise.all([
-            calcAndSaveTour("mens"),
-            calcAndSaveTour("womens")
-          ]);
+          const tourFilter = document.getElementById("leaderboard-tour-select")?.value || "both";
+          const toursToRun = tourFilter === "both" ? ["mens", "womens"] : [tourFilter];
+
+          const results = await Promise.all(toursToRun.map(calcAndSaveTour));
           await touchLeaderboardVersion();
 
           function standingsTable(standings) {
@@ -924,12 +932,11 @@
             </table>`;
           }
 
-          output.innerHTML = `
-            <h4 style="margin-bottom:0.25rem">Men's CT (${mensStandings.length} players)</h4>
-            ${standingsTable(mensStandings)}
-            <h4 style="margin:1rem 0 0.25rem">Women's CT (${womensStandings.length} players)</h4>
-            ${standingsTable(womensStandings)}
-          `;
+          const labels = { mens: "Men's CT", womens: "Women's CT" };
+          output.innerHTML = toursToRun.map((tour, i) => `
+            <h4 style="margin:${i > 0 ? "1rem" : "0"} 0 0.25rem">${labels[tour]} (${results[i].length} players)</h4>
+            ${standingsTable(results[i])}
+          `).join("");
           toast("Leaderboard updated!", "success");
         } catch (err) {
           output.innerHTML = `<p class="text-muted">Error: ${err.message}</p>`;
