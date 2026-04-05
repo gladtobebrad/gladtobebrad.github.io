@@ -267,9 +267,9 @@
                             </td>
                             ${tourEvents.map((e) => {
                               const pts = eventScores[entry.userId]?.[e.id];
-                              const isCompleted = e.status === "completed";
-                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${isCompleted && pts != null ? pts : -1}" style="${!isCompleted ? "color:var(--color-warm-brown)" : ""}">
-                                ${isCompleted ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
+                              const hasResults = e.status === "completed" || e.resultsEntered;
+                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${hasResults && pts != null ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
+                                ${hasResults ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
                               </td>`;
                             }).join("")}
                             <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
