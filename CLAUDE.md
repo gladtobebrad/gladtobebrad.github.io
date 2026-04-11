@@ -67,3 +67,25 @@ Collections: `surfers`, `events`, `results`, `teams`, `leaderboard`, `users`, `c
 
 ### Admin Page
 `admin.html` is a full admin panel gated by `requireAdmin()` (re-fetches `isAdmin` from Firestore on every load). It manages surfers, events, results entry, team locking, and leaderboard calculation.
+
+## Surfer Repricing (post-event)
+
+Run after every completed CT event, before the next trading window opens. Update values in the Surfers tab of admin.html.
+
+**Algorithm:** `delta = value_rank − finish_rank`
+- `value_rank` = surfer's rank by current price (1 = most expensive)
+- `finish_rank` = actual finish position in the event (1 = winner)
+- Positive delta → outperformed → price UP. Negative → underperformed → price DOWN.
+
+**Adjustment scale:**
+| \|delta\| | Change |
+|-----------|--------|
+| 0–2 | $0 |
+| 3–6 | ±$250K |
+| 7–12 | ±$500K |
+| 13–20 | ±$750K |
+| 21+ | ±$1.0M |
+
+- All values must be multiples of $250K
+- Algorithm is ~zero-sum (total pool changes < 1%)
+- If a surfer crosses the $1M bracket boundary, update their `priceBracket` field too

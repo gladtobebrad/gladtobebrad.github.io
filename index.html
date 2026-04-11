@@ -126,6 +126,7 @@
       let clubMembersWomens = [];
       let clubTour = "mens";
       let leagueTour = "mens";
+      let scheduleTour = "mens";
       if (clubIds.length > 0) {
         allClubs = (await Promise.all(clubIds.map(id => getClub(id)))).filter(Boolean);
       }
@@ -315,6 +316,30 @@
           <thead><tr><th>#</th><th>Team</th><th class="text-right">${scoreLabel}</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
+      }
+
+      // ── Countdown helpers ──
+      function getDeadlineMs(ev) {
+        if (!ev.tradingCloseTime || !ev.tradingCloseTimezone || ev.tradingOpen === false) return null;
+        const offset = parseInt(ev.tradingCloseTimezone, 10);
+        if (isNaN(offset)) return null;
+        const sign = offset >= 0 ? "+" : "-";
+        const absH = String(Math.abs(offset)).padStart(2, "0");
+        const isoStr = `${ev.tradingCloseTime}:00${sign}${absH}:00`;
+        const ms = new Date(isoStr).getTime();
+        return isNaN(ms) ? null : ms;
+      }
+
+      function formatCountdown(ms) {
+        if (ms <= 0) return "Closing soon";
+        const s = Math.floor(ms / 1000);
+        const d = Math.floor(s / 86400);
+        const h = Math.floor((s % 86400) / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        if (d > 0) return `${d}d ${h}h ${m}m`;
+        if (h > 0) return `${h}h ${m}m ${sec}s`;
+        return `${m}m ${sec}s`;
       }
 
       // ── Main render function ──
@@ -564,9 +589,14 @@
                       ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
                       <div style="display:flex;gap:1rem;align-items:flex-start">
                         <div style="flex:1;min-width:0">
-                          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+                          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;flex-wrap:wrap">
                             <span class="text-sm" style="font-weight:600">${label}</span>
                             ${tradingBadge(ev.tradingOpen)}
+                            ${(() => {
+                              const dl = getDeadlineMs(ev);
+                              if (!dl) return "";
+                              return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:0.15rem 0.45rem;font-size:0.7rem;font-variant-numeric:tabular-nums;white-space:nowrap" data-deadline="${dl}"><span class="countdown-text">—</span> until lock</span>`;
+                            })()}
                           </div>
                           <h3 style="margin-bottom:0.25rem">
                             <a href="event.html?id=${ev.id}" style="color:inherit;text-decoration:none">${ev.name}</a>
@@ -586,16 +616,20 @@
                 ` : `<p class="text-muted">No upcoming events.</p>`}
               </div>
               <div class="card">
-                <div class="card__header"><span class="card__title">${SEASON} Schedule</span></div>
-                ${events.length > 0 ? (() => {
-                  const seen = new Set();
-                  const unique = events.filter((e) => {
-                    const key = `${e.eventNumber}-${e.name}`;
-                    if (seen.has(key)) return false;
-                    seen.add(key); return true;
-                  });
+                <div class="card__header">
+                  <span class="card__title">${SEASON} Schedule</span>
+                  <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden;font-size:0.75rem">
+                    <button class="sched-tour-tab" data-sched-tour="mens" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${scheduleTour === "mens" ? "background:var(--color-charcoal);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Men's</button>
+                    <button class="sched-tour-tab" data-sched-tour="womens" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scheduleTour === "womens" ? "background:var(--color-charcoal);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Women's</button>
+                  </div>
+                </div>
+                ${(() => {
+                  const tourEvents = events
+                    .filter((e) => (e.tour || "mens") === scheduleTour)
+                    .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
+                  if (!tourEvents.length) return `<p class="text-muted">No events scheduled yet.</p>`;
                   return `<div class="surfer-list">
-                    ${unique.map((e) => `
+                    ${tourEvents.map((e) => `
                       <div class="surfer-row">
                         <span class="surfer-row__rank">${e.eventNumber}</span>
                         <span class="surfer-row__name">
@@ -605,7 +639,7 @@
                       </div>
                     `).join("")}
                   </div>`;
-                })() : `<p class="text-muted">No events scheduled yet.</p>`}
+                })()}
               </div>
             </div>`;
         } else if (activeTab === "standings") {
@@ -695,6 +729,30 @@
             render();
           });
         });
+
+        // ── Schedule tour tabs ──
+        container.querySelectorAll(".sched-tour-tab").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            scheduleTour = btn.dataset.schedTour;
+            render();
+          });
+        });
+
+        // ── Countdown tick ──
+        clearInterval(window._countdownInterval);
+        const cdEls = container.querySelectorAll("[data-deadline]");
+        if (cdEls.length) {
+          const tick = () => {
+            const now = Date.now();
+            cdEls.forEach((el) => {
+              const dl = parseInt(el.dataset.deadline, 10);
+              const span = el.querySelector(".countdown-text");
+              if (span) span.textContent = formatCountdown(dl - now);
+            });
+          };
+          tick();
+          window._countdownInterval = setInterval(tick, 1000);
+        }
 
         // ── Set default club ──
         document.getElementById("btn-default-club")?.addEventListener("click", async () => {
