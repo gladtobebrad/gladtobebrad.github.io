@@ -979,9 +979,13 @@
         const eventId = document.getElementById("lock-event-select").value;
         if (!eventId) { toast("Select an event.", "error"); return; }
         try {
-          await saveEvent(eventId, { tradingOpen: true, status: "completed" });
+          const ev = events.find((e) => e.id === eventId);
+          // Only mark completed if the event was live (actually ran).
+          // For upcoming events, just open trading without changing status.
+          const statusUpdate = ev?.status === "live" ? { tradingOpen: true, status: "completed" } : { tradingOpen: true };
+          await saveEvent(eventId, statusUpdate);
           await lockTeamsForEvent(eventId, false);
-          toast("Trading unlocked.", "success");
+          toast(`Trading opened${ev?.status === "live" ? " — event marked completed." : "."}`, "success");
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) { toast("Error: " + err.message, "error"); }
