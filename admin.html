@@ -564,12 +564,10 @@
           tradingOpen: document.getElementById("event-trading").value === "true",
           tradingCloseTime: document.getElementById("event-trading-close").value || null,
           tradingCloseTimezone: document.getElementById("event-timezone").value || null,
-          season: SEASON,
-          resultsEntered: false
+          season: SEASON
         };
         try {
           if (tourValue === "both") {
-            // Strip any existing -mens/-womens suffix to get base ID
             const baseId = id.replace(/-mens$|-womens$/, "");
             await saveEvent(baseId + "-mens",   { ...baseData, tour: "mens" });
             await saveEvent(baseId + "-womens", { ...baseData, tour: "womens" });
@@ -578,6 +576,8 @@
             await saveEvent(id, { ...baseData, tour: tourValue });
             toast("Event saved!", "success");
           }
+          // Bust sessionStorage events cache so all pages see the updated tradingOpen/status
+          try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) {
