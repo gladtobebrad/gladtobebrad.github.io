@@ -163,6 +163,8 @@ export async function clearAllTeams() {
 // For every registered user who has no team for eventId, copy their most recent
 // previous team for the same tour. Called automatically when trading is locked.
 export async function carryForwardTeams(eventId, season = 2026) {
+  // Bypass sessionStorage cache — needs live event statuses to find completed prev events
+  try { sessionStorage.removeItem(`events_${season}`); } catch {}
   const [allUsers, existingTeams, events] = await Promise.all([
     getAllUsers(),
     getTeamsForEvent(eventId),
