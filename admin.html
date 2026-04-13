@@ -993,11 +993,11 @@
 
       document.getElementById("btn-banner-on")?.addEventListener("click", async () => {
         await saveSiteConfig({ showCountdown: true });
-        toast("Countdown banner is now visible.", "success");
+        location.reload();
       });
       document.getElementById("btn-banner-off")?.addEventListener("click", async () => {
         await saveSiteConfig({ showCountdown: false });
-        toast("Countdown banner is now hidden.", "success");
+        location.reload();
       });
 
       // ── SEED DATA ──
