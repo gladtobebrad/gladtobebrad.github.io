@@ -970,6 +970,7 @@
           await saveEvent(eventId, { popularityPct, totalTeams });
 
           toast(`Trading locked. All teams frozen.${carried > 0 ? ` ${carried} roster(s) carried forward from last event.` : ""}`, "success");
+          try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) { toast("Error: " + err.message, "error"); }
