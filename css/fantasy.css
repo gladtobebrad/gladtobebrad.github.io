@@ -1219,8 +1219,7 @@ img { max-width: 100%; }
 .inline-select:hover { border-color: var(--color-beige); }
 .inline-select:focus { outline: none; border-color: var(--color-sage); }
 
-.inline-select--status option,
-.inline-select--trading option {
+.inline-select--status option {
   text-transform: none;
   font-weight: 400;
 }
