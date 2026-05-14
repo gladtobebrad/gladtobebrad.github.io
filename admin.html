@@ -649,6 +649,13 @@
           }
           try {
             await saveEvent(eventId, { tradingOpen: !locking });
+          } catch (err) {
+            toast("Error saving trading status: " + err.message, "error");
+            checkbox.checked = !checkbox.checked; // revert
+            return;
+          }
+          // Team operations may fail if Firestore rules don't allow admin writes to teams/
+          try {
             if (locking) {
               const carried = await carryForwardTeams(eventId, SEASON);
               await lockTeamsForEvent(eventId, true);
@@ -673,10 +680,12 @@
               await lockTeamsForEvent(eventId, false);
               toast("Trading opened.", "success");
             }
-            try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
-            events = await getEvents(SEASON);
-            renderAdmin(container);
-          } catch (err) { toast("Error: " + err.message, "error"); }
+          } catch (err) {
+            toast(locking ? "Trading locked, but team operations failed (check Firestore permissions)." : "Trading opened, but team unlock failed.", "warning");
+          }
+          try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
+          events = await getEvents(SEASON);
+          renderAdmin(container);
         });
       });
 
