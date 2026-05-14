@@ -88,20 +88,35 @@
 
         <!-- EVENTS TAB -->
         <div class="tab-panel ${activeTab === "events" ? "active" : ""}" id="tab-events">
-          <div class="grid grid--sidebar">
-            <div>
+          <div>
               <div class="card">
-                <div class="card__header"><span class="card__title">${SEASON} Events</span></div>
+                <div class="card__header">
+                  <span class="card__title">${SEASON} Events</span>
+                  <button class="btn btn--sm btn--primary" id="btn-add-event">+ Add Event</button>
+                </div>
                 ${events.length > 0 ? `
                   <table class="data-table">
-                    <thead><tr><th>#</th><th>Name</th><th>Status</th><th>Trading</th><th></th></tr></thead>
+                    <thead><tr><th>#</th><th>Name</th><th>Tour</th><th>Status</th><th>Trading</th><th></th></tr></thead>
                     <tbody>
                       ${events.map((e) => `
                         <tr>
                           <td>${e.eventNumber}</td>
                           <td>${e.name}</td>
-                          <td>${statusBadge(e.status)}</td>
-                          <td>${e.tradingOpen ? "Open" : "Locked"}</td>
+                          <td>${e.tour === "womens" ? "W" : "M"}</td>
+                          <td>
+                            <select class="inline-select inline-select--status" data-status-event="${e.id}" data-current="${e.status}">
+                              <option value="upcoming"${e.status === "upcoming" ? " selected" : ""}>Upcoming</option>
+                              <option value="live"${e.status === "live" ? " selected" : ""}>Live</option>
+                              <option value="completed"${e.status === "completed" ? " selected" : ""}>Completed</option>
+                            </select>
+                          </td>
+                          <td>
+                            <label class="toggle" data-toggle-trading="${e.id}">
+                              <input type="checkbox" ${e.tradingOpen ? "checked" : ""}>
+                              <span class="toggle__track"></span>
+                              <span class="toggle__label">${e.tradingOpen ? "Open" : "Locked"}</span>
+                            </label>
+                          </td>
                           <td>
                             <button class="btn btn--sm btn--outline" data-edit-event="${e.id}">Edit</button>
                             <button class="btn btn--sm btn--danger" data-delete-event="${e.id}">Del</button>
@@ -113,95 +128,82 @@
                 ` : `<p class="text-muted">No events yet.</p>`}
               </div>
             </div>
+          </div>
 
-            <div>
-              <div class="card">
-                <div class="card__header"><span class="card__title" id="event-form-title">Add Event</span></div>
-                <form id="event-form">
-                  <input type="hidden" id="event-edit-id">
-                  <div class="form-group">
-                    <label class="form-label">Event ID (slug)</label>
-                    <input class="form-input" id="event-id" placeholder="pipe-pro-2026" required>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Name</label>
-                    <input class="form-input" id="event-name" placeholder="Billabong Pipeline Pro" required>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Location</label>
-                    <input class="form-input" id="event-location" placeholder="Pipeline, Oahu">
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Event #</label>
-                      <input class="form-input" id="event-number" type="number" min="1" required>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Tour</label>
-                      <select class="form-select" id="event-tour">
-                        <option value="both">Both (Men's + Women's)</option>
-                        <option value="mens">Men's only</option>
-                        <option value="womens">Women's only</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Start Date</label>
-                      <input class="form-input" id="event-start" type="date" required>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">End Date</label>
-                      <input class="form-input" id="event-end" type="date" required>
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Trading Close Time</label>
-                      <input class="form-input" id="event-trading-close" type="datetime-local">
-                      <span class="text-xs text-muted">First call time. Used for countdown banner.</span>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Event Timezone</label>
-                      <select class="form-select" id="event-timezone">
-                        <option value="">— select —</option>
-                        <option value="+12">NZST / FJT (UTC+12)</option>
-                        <option value="+11">AEDT (UTC+11)</option>
-                        <option value="+10">AEST (UTC+10)</option>
-                        <option value="+8">AWST (UTC+8)</option>
-                        <option value="+4">GST (UTC+4)</option>
-                        <option value="+1">WEST (UTC+1)</option>
-                        <option value="+0">WET (UTC+0)</option>
-                        <option value="-3">BRT (UTC-3)</option>
-                        <option value="-6">CST (UTC-6)</option>
-                        <option value="-7">PDT (UTC-7)</option>
-                        <option value="-10">TAHT (UTC-10)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Status</label>
-                      <select class="form-select" id="event-status">
-                        <option value="upcoming">Upcoming</option>
-                        <option value="live">Live</option>
-                        <option value="completed">Completed</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Trading</label>
-                      <select class="form-select" id="event-trading">
-                        <option value="true">Open</option>
-                        <option value="false">Locked</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-actions">
-                    <button type="submit" class="btn btn--primary">Save Event</button>
-                    <button type="button" class="btn btn--outline" id="event-form-reset">Clear</button>
-                  </div>
-                </form>
+          <!-- Event Modal -->
+          <div class="modal-overlay" id="event-modal" style="display:none">
+            <div class="modal">
+              <div class="modal__header">
+                <span class="modal__title" id="event-form-title">Add Event</span>
+                <button class="modal__close" id="event-modal-close">&times;</button>
               </div>
+              <form id="event-form">
+                <input type="hidden" id="event-edit-id">
+                <div class="form-group">
+                  <label class="form-label">Event ID (slug)</label>
+                  <input class="form-input" id="event-id" placeholder="pipe-pro-2026" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Name</label>
+                  <input class="form-input" id="event-name" placeholder="Billabong Pipeline Pro" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Location</label>
+                  <input class="form-input" id="event-location" placeholder="Pipeline, Oahu">
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Event #</label>
+                    <input class="form-input" id="event-number" type="number" min="1" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Tour</label>
+                    <select class="form-select" id="event-tour">
+                      <option value="both">Both (Men's + Women's)</option>
+                      <option value="mens">Men's only</option>
+                      <option value="womens">Women's only</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Start Date</label>
+                    <input class="form-input" id="event-start" type="date" required>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">End Date</label>
+                    <input class="form-input" id="event-end" type="date" required>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Trading Close Time</label>
+                    <input class="form-input" id="event-trading-close" type="datetime-local">
+                    <span class="text-xs text-muted">First call time. Used for countdown banner.</span>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Event Timezone</label>
+                    <select class="form-select" id="event-timezone">
+                      <option value="">— select —</option>
+                      <option value="+12">NZST / FJT (UTC+12)</option>
+                      <option value="+11">AEDT (UTC+11)</option>
+                      <option value="+10">AEST (UTC+10)</option>
+                      <option value="+8">AWST (UTC+8)</option>
+                      <option value="+4">GST (UTC+4)</option>
+                      <option value="+1">WEST (UTC+1)</option>
+                      <option value="+0">WET (UTC+0)</option>
+                      <option value="-3">BRT (UTC-3)</option>
+                      <option value="-6">CST (UTC-6)</option>
+                      <option value="-7">PDT (UTC-7)</option>
+                      <option value="-10">TAHT (UTC-10)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn--primary">Save Event</button>
+                  <button type="button" class="btn btn--outline" id="event-modal-cancel">Cancel</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -383,20 +385,6 @@
             <div id="scoring-output" class="mt-3"></div>
           </div>
 
-          <div class="card">
-            <div class="card__header"><span class="card__title">Lock / Unlock Trading</span></div>
-            <div class="form-group">
-              <label class="form-label">Select Event</label>
-              <select class="form-select" id="lock-event-select">
-                <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"} · Trading: ${e.tradingOpen ? "Open" : "Locked"}</option>`).join("")}
-              </select>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn--danger" id="btn-lock-trading">Lock Trading</button>
-              <button class="btn btn--primary" id="btn-unlock-trading">Unlock Trading</button>
-            </div>
-          </div>
 
           <div class="card">
             <div class="card__header"><span class="card__title">Countdown Banner</span></div>
@@ -547,7 +535,37 @@
         });
       });
 
-      // ── EVENT FORM ──
+      // ── EVENT MODAL ──
+      const eventModal = document.getElementById("event-modal");
+      const openEventModal = (ev) => {
+        if (ev) {
+          document.getElementById("event-edit-id").value = ev.id;
+          document.getElementById("event-id").value = ev.id;
+          document.getElementById("event-id").disabled = true;
+          document.getElementById("event-name").value = ev.name || "";
+          document.getElementById("event-location").value = ev.location || "";
+          document.getElementById("event-number").value = ev.eventNumber || "";
+          document.getElementById("event-tour").value = ev.tour || "mens";
+          document.getElementById("event-start").value = (ev.startDate || "").substring(0, 10);
+          document.getElementById("event-end").value = (ev.endDate || "").substring(0, 10);
+          document.getElementById("event-trading-close").value = ev.tradingCloseTime || "";
+          document.getElementById("event-timezone").value = ev.tradingCloseTimezone || "";
+          document.getElementById("event-form-title").textContent = "Edit Event";
+        } else {
+          document.getElementById("event-form").reset();
+          document.getElementById("event-edit-id").value = "";
+          document.getElementById("event-id").disabled = false;
+          document.getElementById("event-form-title").textContent = "Add Event";
+        }
+        eventModal.style.display = "flex";
+      };
+      const closeEventModal = () => { eventModal.style.display = "none"; };
+
+      document.getElementById("btn-add-event")?.addEventListener("click", () => openEventModal(null));
+      document.getElementById("event-modal-close")?.addEventListener("click", closeEventModal);
+      document.getElementById("event-modal-cancel")?.addEventListener("click", closeEventModal);
+      eventModal?.addEventListener("click", (e) => { if (e.target === eventModal) closeEventModal(); });
+
       document.getElementById("event-form")?.addEventListener("submit", async (e) => {
         e.preventDefault();
         const editId = document.getElementById("event-edit-id").value;
@@ -560,8 +578,6 @@
           eventNumber: parseInt(document.getElementById("event-number").value, 10),
           startDate: document.getElementById("event-start").value,
           endDate: document.getElementById("event-end").value,
-          status: document.getElementById("event-status").value,
-          tradingOpen: document.getElementById("event-trading").value === "true",
           tradingCloseTime: document.getElementById("event-trading-close").value || null,
           tradingCloseTimezone: document.getElementById("event-timezone").value || null,
           season: SEASON
@@ -576,8 +592,8 @@
             await saveEvent(id, { ...baseData, tour: tourValue });
             toast("Event saved!", "success");
           }
-          // Bust sessionStorage events cache so all pages see the updated tradingOpen/status
           try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+          closeEventModal();
           events = await getEvents(SEASON);
           renderAdmin(container);
         } catch (err) {
@@ -585,31 +601,11 @@
         }
       });
 
-      document.getElementById("event-form-reset")?.addEventListener("click", () => {
-        document.getElementById("event-form").reset();
-        document.getElementById("event-edit-id").value = "";
-        document.getElementById("event-id").disabled = false;
-        document.getElementById("event-form-title").textContent = "Add Event";
-      });
-
       container.querySelectorAll("[data-edit-event]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const ev = events.find((e) => e.id === btn.dataset.editEvent);
           if (!ev) return;
-          document.getElementById("event-edit-id").value = ev.id;
-          document.getElementById("event-id").value = ev.id;
-          document.getElementById("event-id").disabled = true;
-          document.getElementById("event-name").value = ev.name || "";
-          document.getElementById("event-location").value = ev.location || "";
-          document.getElementById("event-number").value = ev.eventNumber || "";
-          document.getElementById("event-tour").value = ev.tour || "mens"; // "both" not shown on edit — each event is its own doc
-          document.getElementById("event-start").value = (ev.startDate || "").substring(0, 10);
-          document.getElementById("event-end").value = (ev.endDate || "").substring(0, 10);
-          document.getElementById("event-status").value = ev.status || "upcoming";
-          document.getElementById("event-trading").value = ev.tradingOpen ? "true" : "false";
-          document.getElementById("event-trading-close").value = ev.tradingCloseTime || "";
-          document.getElementById("event-timezone").value = ev.tradingCloseTimezone || "";
-          document.getElementById("event-form-title").textContent = "Edit Event";
+          openEventModal(ev);
         });
       });
 
@@ -620,6 +616,68 @@
           toast("Event deleted.", "info");
           events = await getEvents(SEASON);
           renderAdmin(container);
+        });
+      });
+
+      // ── INLINE STATUS SELECT ──
+      container.querySelectorAll("[data-status-event]").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const eventId = sel.dataset.statusEvent;
+          try {
+            await saveEvent(eventId, { status: sel.value });
+            toast(`Status updated to "${sel.value}".`, "success");
+            try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+            events = await getEvents(SEASON);
+            renderAdmin(container);
+          } catch (err) {
+            toast("Error: " + err.message, "error");
+            // Revert the select to the previous value
+            const ev = events.find((e) => e.id === eventId);
+            if (ev) sel.value = ev.status;
+          }
+        });
+      });
+
+      // ── TRADING TOGGLE ──
+      container.querySelectorAll("[data-toggle-trading]").forEach((label) => {
+        const checkbox = label.querySelector("input");
+        checkbox.addEventListener("change", async (evt) => {
+          const eventId = label.dataset.toggleTrading;
+          const locking = !checkbox.checked;
+          if (locking && !confirm("Lock trading for this event? Teams will be frozen.")) {
+            checkbox.checked = true; // revert
+            return;
+          }
+          try {
+            await saveEvent(eventId, { tradingOpen: !locking });
+            if (locking) {
+              const carried = await carryForwardTeams(eventId, SEASON);
+              await lockTeamsForEvent(eventId, true);
+
+              // Snapshot popularity %
+              const teams = await getTeamsForEvent(eventId);
+              const totalTeams = teams.length;
+              const surferCounts = {};
+              for (const team of teams) {
+                const surferIds = new Set();
+                if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
+                if (team.alternate) surferIds.add(team.alternate.surferId);
+                for (const sid of surferIds) surferCounts[sid] = (surferCounts[sid] || 0) + 1;
+              }
+              const popularityPct = {};
+              for (const [sid, count] of Object.entries(surferCounts)) {
+                popularityPct[sid] = parseFloat(((count / totalTeams) * 100).toFixed(1));
+              }
+              await saveEvent(eventId, { popularityPct, totalTeams });
+              toast(`Trading locked.${carried > 0 ? ` ${carried} roster(s) carried forward.` : ""}`, "success");
+            } else {
+              await lockTeamsForEvent(eventId, false);
+              toast("Trading opened.", "success");
+            }
+            try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
+            events = await getEvents(SEASON);
+            renderAdmin(container);
+          } catch (err) { toast("Error: " + err.message, "error"); }
         });
       });
 
@@ -942,54 +1000,6 @@
           output.innerHTML = `<p class="text-muted">Error: ${err.message}</p>`;
           toast("Failed to update leaderboard.", "error");
         }
-      });
-
-      // ── LOCK / UNLOCK TRADING ──
-      document.getElementById("btn-lock-trading")?.addEventListener("click", async () => {
-        const eventId = document.getElementById("lock-event-select").value;
-        if (!eventId) { toast("Select an event.", "error"); return; }
-        try {
-          await saveEvent(eventId, { tradingOpen: false, status: "live" });
-          const carried = await carryForwardTeams(eventId, SEASON);
-          await lockTeamsForEvent(eventId, true);
-
-          // Snapshot popularity % into the event doc so Surfers page never needs to fetch all teams
-          const teams = await getTeamsForEvent(eventId);
-          const totalTeams = teams.length;
-          const surferCounts = {};
-          for (const team of teams) {
-            const surferIds = new Set();
-            if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
-            if (team.alternate) surferIds.add(team.alternate.surferId);
-            for (const sid of surferIds) surferCounts[sid] = (surferCounts[sid] || 0) + 1;
-          }
-          const popularityPct = {};
-          for (const [sid, count] of Object.entries(surferCounts)) {
-            popularityPct[sid] = parseFloat(((count / totalTeams) * 100).toFixed(1));
-          }
-          await saveEvent(eventId, { popularityPct, totalTeams });
-
-          toast(`Trading locked. All teams frozen.${carried > 0 ? ` ${carried} roster(s) carried forward from last event.` : ""}`, "success");
-          try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
-          events = await getEvents(SEASON);
-          renderAdmin(container);
-        } catch (err) { toast("Error: " + err.message, "error"); }
-      });
-
-      document.getElementById("btn-unlock-trading")?.addEventListener("click", async () => {
-        const eventId = document.getElementById("lock-event-select").value;
-        if (!eventId) { toast("Select an event.", "error"); return; }
-        try {
-          const ev = events.find((e) => e.id === eventId);
-          // Only mark completed if the event was live (actually ran).
-          // For upcoming events, just open trading without changing status.
-          const statusUpdate = ev?.status === "live" ? { tradingOpen: true, status: "completed" } : { tradingOpen: true };
-          await saveEvent(eventId, statusUpdate);
-          await lockTeamsForEvent(eventId, false);
-          toast(`Trading opened${ev?.status === "live" ? " — event marked completed." : "."}`, "success");
-          events = await getEvents(SEASON);
-          renderAdmin(container);
-        } catch (err) { toast("Error: " + err.message, "error"); }
       });
 
       document.getElementById("btn-banner-on")?.addEventListener("click", async () => {
