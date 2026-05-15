@@ -221,6 +221,85 @@ export function toast(message, type = "info", duration = 3500) {
   }, duration);
 }
 
+// ── Confirm Modal ────────────────────────────────────
+
+/**
+ * Themed replacement for window.confirm. Resolves true on confirm,
+ * false on cancel/ESC/backdrop click.
+ * `bodyHtml` may contain HTML (caller controls escaping).
+ */
+export function confirmModal({
+  title,
+  bodyHtml,
+  confirmLabel = "Continue",
+  cancelLabel = "Cancel",
+  confirmTone = "primary",
+  steps = null,        // array of step labels, e.g. ["Lock trading", "Carry forward", "Popularity"]
+  currentStep = 1      // 1-based index into `steps`
+}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+
+    let stepsHtml = "";
+    if (Array.isArray(steps) && steps.length > 1) {
+      stepsHtml = `<ol class="confirm-modal__steps">${steps.map((label, i) => {
+        const n = i + 1;
+        const stateClass = n < currentStep ? " confirm-modal__step--done"
+          : n === currentStep ? " confirm-modal__step--active"
+          : "";
+        const sep = i < steps.length - 1
+          ? `<span class="confirm-modal__step-sep" aria-hidden="true">›</span>`
+          : "";
+        return `<li class="confirm-modal__step${stateClass}">`
+          + `<span class="confirm-modal__step-num">${n < currentStep ? "✓" : n}</span>`
+          + `<span class="confirm-modal__step-label">${label}</span>`
+          + `</li>${sep}`;
+      }).join("")}</ol>`;
+    }
+
+    overlay.innerHTML = `
+      <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="modal__header">
+          <span class="modal__title" id="confirm-modal-title">${title}</span>
+          <button class="modal__close" aria-label="Close" data-confirm-action="cancel">&times;</button>
+        </div>
+        ${stepsHtml}
+        <div class="confirm-modal__body">${bodyHtml}</div>
+        <div class="confirm-modal__actions">
+          <button class="btn btn--outline" data-confirm-action="cancel">${cancelLabel}</button>
+          <button class="btn btn--${confirmTone}" data-confirm-action="confirm">${confirmLabel}</button>
+        </div>
+      </div>
+    `;
+
+    const previouslyFocused = document.activeElement;
+    function close(result) {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
+        try { previouslyFocused.focus(); } catch {}
+      }
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); close(false); }
+      else if (e.key === "Enter") { e.preventDefault(); close(true); }
+    }
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) { close(false); return; }
+      const action = e.target.closest("[data-confirm-action]")?.dataset.confirmAction;
+      if (action === "cancel") close(false);
+      else if (action === "confirm") close(true);
+    });
+
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-confirm-action="confirm"]')?.focus();
+  });
+}
+
 // ── Loading State ────────────────────────────────────
 
 export function showLoading(container) {

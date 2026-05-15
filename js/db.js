@@ -168,9 +168,12 @@ export async function clearAllTeams() {
 }
 
 // For every registered user who has no team for eventId, copy their most recent
-// previous team for the same tour. Called automatically when trading is locked.
+// previous team for the same tour. Called when trading is locked on this event
+// AND when trading is opened on this event, so users entering event N+1 see the
+// team they finished N with (with updated market-value deltas). Admin can opt
+// out at either point via the second confirm in the toggle handler.
 export async function carryForwardTeams(eventId, season = 2026) {
-  // Bypass sessionStorage cache — needs live event statuses to find completed prev events
+  // Bypass sessionStorage cache — needs live tradingOpen values to find locked prev events
   try { sessionStorage.removeItem(`events_${season}`); } catch {}
   const [allUsers, existingTeams, events] = await Promise.all([
     getAllUsers(),
@@ -181,28 +184,56 @@ export async function carryForwardTeams(eventId, season = 2026) {
   if (!currentEvent) return 0;
   const tour = currentEvent.tour || "mens";
   const currentNum = currentEvent.eventNumber ?? Infinity;
+  // Source = previous events on this tour whose trading is locked. Using
+  // tradingOpen === false (not status === "completed") removes the order-of-ops
+  // dependency on the admin marking status before unlocking the next event.
   const prevEvents = events
-    .filter((e) => (e.tour || "mens") === tour && e.eventNumber < currentNum && e.status === "completed")
+    .filter((e) => (e.tour || "mens") === tour && e.eventNumber < currentNum && e.tradingOpen === false)
     .sort((a, b) => b.eventNumber - a.eventNumber);
 
+  if (prevEvents.length === 0) return 0;
+
+  // Batch all reads in parallel, then write everything in a single batch.
+  // Previously this loop did N users × M prev events sequential getTeam calls
+  // plus N sequential saveTeam writes. For 100 users / 5 prev events that's
+  // ~500 round trips — far too slow for an interactive admin action.
+  const prevTeamsByEvent = await Promise.all(prevEvents.map((ev) => getTeamsForEvent(ev.id)));
+
+  // Build map: userId → most recent prev team (with surfers). prevEvents is
+  // already sorted newest-first, so the first hit per user wins.
+  const mostRecentByUser = new Map();
+  for (const teamsList of prevTeamsByEvent) {
+    for (const t of teamsList) {
+      if (!t.surfers || t.surfers.length === 0) continue;
+      if (!mostRecentByUser.has(t.userId)) mostRecentByUser.set(t.userId, t);
+    }
+  }
+
   const submittedUserIds = new Set(existingTeams.map((t) => t.userId));
-  let carried = 0;
+  const toWrite = [];
   for (const user of allUsers) {
     if (submittedUserIds.has(user.id)) continue;
-    // Find most recent team for this user on this tour
-    let prevTeam = null;
-    for (const ev of prevEvents) {
-      const t = await getTeam(user.id, ev.id);
-      if (t?.surfers?.length) { prevTeam = t; break; }
-    }
+    const prevTeam = mostRecentByUser.get(user.id);
     if (!prevTeam) continue;
-    await saveTeam(user.id, eventId, {
+    toWrite.push({ userId: user.id, prevTeam });
+  }
+
+  if (toWrite.length === 0) return 0;
+
+  const batch = writeBatch(db);
+  for (const { userId, prevTeam } of toWrite) {
+    const docId = `${userId}_${eventId}`;
+    batch.set(doc(db, "teams", docId), {
+      userId,
+      eventId,
+      savedAt: serverTimestamp(),
       surfers: prevTeam.surfers,
       alternate: prevTeam.alternate || null,
       carriedForward: true,
-    });
-    carried++;
+    }, { merge: true });
   }
+  await batch.commit();
+  const carried = toWrite.length;
   return carried;
 }
 
@@ -400,11 +431,13 @@ export async function deleteClub(clubId, memberIds) {
 
 export async function getPreviousTeam(userId, currentEventId, tour, season = 2026) {
   const events = await getEvents(season);
-  // All completed events of the same tour before the current one, most recent first
+  // Most recent locked event on the same tour before the current one.
+  // tradingOpen === false (vs. status === "completed") matches carryForwardTeams
+  // so Revert and carry-forward agree on what "previous event" means.
   const currentEvent = events.find((e) => e.id === currentEventId);
   const currentNum = currentEvent?.eventNumber ?? Infinity;
   const candidates = events
-    .filter((e) => e.tour === tour && e.eventNumber < currentNum && e.status === "completed")
+    .filter((e) => (e.tour || "mens") === tour && e.eventNumber < currentNum && e.tradingOpen === false)
     .sort((a, b) => b.eventNumber - a.eventNumber);
   for (const ev of candidates) {
     const team = await getTeam(userId, ev.id);

@@ -1363,3 +1363,106 @@ img { max-width: 100%; }
   line-height: 1;
 }
 .modal__close:hover { color: var(--color-charcoal); }
+
+/* ── Confirm Modal (themed window.confirm replacement) ── */
+
+.confirm-modal {
+  max-width: 520px;
+}
+.confirm-modal__body {
+  color: var(--color-warm-black);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+.confirm-modal__body p {
+  margin: 0 0 0.75rem;
+}
+.confirm-modal__body p:last-child {
+  margin-bottom: 0;
+}
+.confirm-modal__body ul {
+  margin: 0.5rem 0 0.25rem;
+  padding-left: 1.25rem;
+}
+.confirm-modal__body li {
+  margin-bottom: 0.35rem;
+}
+.confirm-modal__body strong {
+  color: var(--color-charcoal);
+}
+.confirm-modal__choice {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  background: var(--color-cream);
+  border-left: 3px solid var(--color-sage);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.confirm-modal__choice--alt {
+  border-left-color: var(--color-warm-brown);
+}
+.confirm-modal__choice-label {
+  display: block;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin-bottom: 0.15rem;
+}
+.confirm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.confirm-modal__steps {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1.25rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-cream);
+  border-radius: 6px;
+  font-size: 0.78rem;
+}
+.confirm-modal__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-warm-gray);
+  font-weight: 500;
+}
+.confirm-modal__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-beige);
+  color: var(--color-warm-brown);
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.confirm-modal__step--active {
+  color: var(--color-charcoal);
+  font-weight: 700;
+}
+.confirm-modal__step--active .confirm-modal__step-num {
+  background: var(--color-sage-dark);
+  color: var(--color-warm-white);
+}
+.confirm-modal__step--done {
+  color: var(--color-warm-brown);
+}
+.confirm-modal__step--done .confirm-modal__step-num {
+  background: var(--color-sage);
+  color: var(--color-warm-white);
+}
+.confirm-modal__step-sep {
+  color: var(--color-warm-gray);
+  font-size: 0.95rem;
+  line-height: 1;
+}
