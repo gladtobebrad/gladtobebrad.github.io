@@ -210,119 +210,115 @@
 
         <!-- SURFERS TAB -->
         <div class="tab-panel ${activeTab === "surfers" ? "active" : ""}" id="tab-surfers">
-          <div class="grid grid--sidebar">
-            <div>
-              <div class="card">
-                <div class="card__header">
-                  <span class="card__title">Surfers</span>
-                </div>
-                <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
-                  <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
-                    Men's CT (${surfers.filter(s=>(s.tour||"mens")==="mens").length})
-                  </button>
-                  <button data-surfer-tour="womens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="womens"?"600":"400"};color:${activeSurferTour==="womens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="womens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
-                    Women's CT (${surfers.filter(s=>s.tour==="womens").length})
-                  </button>
-                </div>
-                <div style="max-height:600px;overflow-y:auto">
-                  <table class="data-table">
-                    <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th>Status</th><th></th></tr></thead>
-                    <tbody>
-                      ${surfers.filter(s => (s.tour || "mens") === activeSurferTour).map((s) => `
-                        <tr style="${s.active === false ? "opacity:0.5" : ""}">
-                          <td>${s.rank || "—"}</td>
-                          <td>${s.name}</td>
-                          <td>${s.country || ""}</td>
-                          <td>${formatSalary(s.value)}</td>
-                          <td><span class="badge badge--${s.priceBracket === "elite" ? "live" : s.priceBracket === "budget" ? "locked" : "upcoming"}">${s.priceBracket || "—"}</span></td>
-                          <td>${(() => { const st = s.status || (s.active === false ? "inactive" : "active"); return st === "injured" ? `<span class="badge badge--locked">INJ</span>` : st === "inactive" ? `<span class="badge badge--locked">Inactive</span>` : `<span class="badge badge--live">Active</span>`; })()}</td>
-                          <td>
-                            <button class="btn btn--sm btn--outline" data-edit-surfer="${s.id}">Edit</button>
-                            <button class="btn btn--sm btn--danger" data-delete-surfer="${s.id}">Del</button>
-                          </td>
-                        </tr>
-                      `).join("")}
-                    </tbody>
-                  </table>
-                </div>
+          <div>
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Surfers</span>
+                <button class="btn btn--sm btn--primary" id="btn-add-surfer">+ Add Surfer</button>
+              </div>
+              <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+                <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+                  Men's CT (${surfers.filter(s=>(s.tour||"mens")==="mens").length})
+                </button>
+                <button data-surfer-tour="womens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="womens"?"600":"400"};color:${activeSurferTour==="womens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="womens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+                  Women's CT (${surfers.filter(s=>s.tour==="womens").length})
+                </button>
+              </div>
+              <div style="max-height:600px;overflow-y:auto">
+                <table class="data-table">
+                  <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th>Status</th><th></th></tr></thead>
+                  <tbody>
+                    ${surfers.filter(s => (s.tour || "mens") === activeSurferTour).map((s) => `
+                      ${(() => { const currentStatus = s.status || (s.active === false ? "inactive" : "active"); return `
+                      <tr style="${currentStatus === "inactive" ? "opacity:0.5" : ""}">
+                        <td>${s.rank || "—"}</td>
+                        <td>${s.name}</td>
+                        <td>${s.country || ""}</td>
+                        <td>${formatSalary(s.value)}</td>
+                        <td>
+                          <select class="inline-select inline-select--bracket" data-bracket-surfer="${s.id}" data-current="${s.priceBracket || ""}">
+                            <option value="elite"${s.priceBracket === "elite" ? " selected" : ""}>Elite</option>
+                            <option value="high"${s.priceBracket === "high" ? " selected" : ""}>High</option>
+                            <option value="mid"${s.priceBracket === "mid" ? " selected" : ""}>Mid</option>
+                            <option value="low"${s.priceBracket === "low" ? " selected" : ""}>Low</option>
+                            <option value="budget"${s.priceBracket === "budget" ? " selected" : ""}>Budget</option>
+                          </select>
+                        </td>
+                        <td>
+                          <select class="inline-select inline-select--surfer-status" data-status-surfer="${s.id}" data-current="${currentStatus}">
+                            <option value="active"${currentStatus === "active" ? " selected" : ""}>Active</option>
+                            <option value="injured"${currentStatus === "injured" ? " selected" : ""}>Injured</option>
+                            <option value="inactive"${currentStatus === "inactive" ? " selected" : ""}>Inactive</option>
+                          </select>
+                        </td>
+                        <td>
+                          <button class="btn btn--sm btn--outline" data-edit-surfer="${s.id}">Edit</button>
+                          <button class="btn btn--sm btn--danger" data-delete-surfer="${s.id}">Del</button>
+                        </td>
+                      </tr>`; })()}
+                    `).join("")}
+                  </tbody>
+                </table>
               </div>
             </div>
+          </div>
 
-            <div>
-              <div class="card">
-                <div class="card__header"><span class="card__title" id="surfer-form-title">Add Surfer</span></div>
-                <form id="surfer-form">
-                  <input type="hidden" id="surfer-edit-id">
-                  <div class="form-group">
-                    <label class="form-label">ID (slug)</label>
-                    <input class="form-input" id="surfer-id" placeholder="john-john-florence" required>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Full Name</label>
-                    <input class="form-input" id="surfer-name" placeholder="John John Florence" required>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Country</label>
-                      <input class="form-input" id="surfer-country" placeholder="HAW" maxlength="5">
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Rank</label>
-                      <input class="form-input" id="surfer-rank" type="number" min="1">
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Tour</label>
-                    <select class="form-select" id="surfer-tour">
-                      <option value="mens">Men's CT</option>
-                      <option value="womens">Women's CT</option>
-                    </select>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Value ($)</label>
-                      <input class="form-input" id="surfer-value" type="number" min="0" step="250000" required>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Bracket</label>
-                      <select class="form-select" id="surfer-bracket">
-                        <option value="elite">Elite ($8M+)</option>
-                        <option value="high">High ($5-7.9M)</option>
-                        <option value="mid">Mid ($3-4.9M)</option>
-                        <option value="low">Low ($1-2.9M)</option>
-                        <option value="budget">Budget (&lt;$1M)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Photo Path</label>
-                    <input class="form-input" id="surfer-photo" placeholder="data/photos/john-john-florence.png">
-                    <div id="surfer-photo-preview" style="margin-top:0.5rem"></div>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label class="form-label">Stance</label>
-                      <select class="form-select" id="surfer-stance">
-                        <option value="">Unknown</option>
-                        <option value="regular">Regular</option>
-                        <option value="goofy">Goofy</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Status</label>
-                      <select class="form-select" id="surfer-status">
-                        <option value="active">Active</option>
-                        <option value="injured">Injured (INJ)</option>
-                        <option value="inactive">Inactive (wildcard/hidden)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-actions">
-                    <button type="submit" class="btn btn--primary">Save Surfer</button>
-                    <button type="button" class="btn btn--outline" id="surfer-form-reset">Clear</button>
-                  </div>
-                </form>
+          <!-- Surfer Modal -->
+          <div class="modal-overlay" id="surfer-modal" style="display:none">
+            <div class="modal">
+              <div class="modal__header">
+                <span class="modal__title" id="surfer-form-title">Add Surfer</span>
+                <button class="modal__close" id="surfer-modal-close">&times;</button>
               </div>
+              <form id="surfer-form">
+                <input type="hidden" id="surfer-edit-id">
+                <div class="form-group">
+                  <label class="form-label">ID (slug)</label>
+                  <input class="form-input" id="surfer-id" placeholder="john-john-florence" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Full Name</label>
+                  <input class="form-input" id="surfer-name" placeholder="John John Florence" required>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Country</label>
+                    <input class="form-input" id="surfer-country" placeholder="HAW" maxlength="5">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Rank</label>
+                    <input class="form-input" id="surfer-rank" type="number" min="1">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tour</label>
+                  <select class="form-select" id="surfer-tour">
+                    <option value="mens">Men's CT</option>
+                    <option value="womens">Women's CT</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value ($)</label>
+                  <input class="form-input" id="surfer-value" type="number" min="0" step="250000" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Photo Path</label>
+                  <input class="form-input" id="surfer-photo" placeholder="data/photos/john-john-florence.png">
+                  <div id="surfer-photo-preview" style="margin-top:0.5rem"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Stance</label>
+                  <select class="form-select" id="surfer-stance">
+                    <option value="">Unknown</option>
+                    <option value="regular">Regular</option>
+                    <option value="goofy">Goofy</option>
+                  </select>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn--primary">Save Surfer</button>
+                  <button type="button" class="btn btn--outline" id="surfer-modal-cancel">Cancel</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -700,50 +696,11 @@
         });
       });
 
-      // ── SURFER FORM ──
-      document.getElementById("surfer-form")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const editId = document.getElementById("surfer-edit-id").value;
-        const id = editId || document.getElementById("surfer-id").value.trim();
-        if (!id) return;
-        const data = {
-          name: document.getElementById("surfer-name").value.trim(),
-          country: document.getElementById("surfer-country").value.trim().toUpperCase(),
-          rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
-          value: parseInt(document.getElementById("surfer-value").value, 10) || 0,
-          priceBracket: document.getElementById("surfer-bracket").value,
-          tour: document.getElementById("surfer-tour").value,
-          stance: document.getElementById("surfer-stance").value || null,
-          photoUrl: document.getElementById("surfer-photo").value.trim() || null,
-          status: document.getElementById("surfer-status").value,
-          active: document.getElementById("surfer-status").value !== "inactive"
-        };
-        if (data.value % 250000 !== 0) {
-          toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
-          return;
-        }
-        try {
-          await saveSurfer(id, data);
-          toast("Surfer saved!", "success");
-          surfers = await getAllSurfers();
-          renderAdmin(container);
-        } catch (err) {
-          toast("Error: " + err.message, "error");
-        }
-      });
-
-      document.getElementById("surfer-form-reset")?.addEventListener("click", () => {
-        document.getElementById("surfer-form").reset();
-        document.getElementById("surfer-edit-id").value = "";
-        document.getElementById("surfer-id").disabled = false;
-        document.getElementById("surfer-form-title").textContent = "Add Surfer";
-        document.getElementById("surfer-photo-preview").innerHTML = "";
-      });
-
-      container.querySelectorAll("[data-edit-surfer]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const s = surfers.find((x) => x.id === btn.dataset.editSurfer);
-          if (!s) return;
+      // ── SURFER MODAL ──
+      const surferModal = document.getElementById("surfer-modal");
+      const openSurferModal = (s) => {
+        const preview = document.getElementById("surfer-photo-preview");
+        if (s) {
           document.getElementById("surfer-edit-id").value = s.id;
           document.getElementById("surfer-id").value = s.id;
           document.getElementById("surfer-id").disabled = true;
@@ -751,15 +708,72 @@
           document.getElementById("surfer-country").value = s.country || "";
           document.getElementById("surfer-rank").value = s.rank || "";
           document.getElementById("surfer-value").value = s.value || 0;
-          document.getElementById("surfer-bracket").value = s.priceBracket || "mid";
           document.getElementById("surfer-tour").value = s.tour || "mens";
           document.getElementById("surfer-stance").value = s.stance || "";
-          document.getElementById("surfer-status").value = s.status || (s.active === false ? "inactive" : "active");
-          const photoInput = document.getElementById("surfer-photo");
-          photoInput.value = s.photoUrl || "";
-          const preview = document.getElementById("surfer-photo-preview");
+          document.getElementById("surfer-photo").value = s.photoUrl || "";
           preview.innerHTML = s.photoUrl ? `<img src="${s.photoUrl}" class="surfer-photo--sm" alt="">` : "";
           document.getElementById("surfer-form-title").textContent = "Edit Surfer";
+        } else {
+          document.getElementById("surfer-form").reset();
+          document.getElementById("surfer-edit-id").value = "";
+          document.getElementById("surfer-id").disabled = false;
+          preview.innerHTML = "";
+          document.getElementById("surfer-form-title").textContent = "Add Surfer";
+        }
+        surferModal.style.display = "flex";
+      };
+      const closeSurferModal = () => { surferModal.style.display = "none"; };
+
+      document.getElementById("btn-add-surfer")?.addEventListener("click", () => openSurferModal(null));
+      document.getElementById("surfer-modal-close")?.addEventListener("click", closeSurferModal);
+      document.getElementById("surfer-modal-cancel")?.addEventListener("click", closeSurferModal);
+      surferModal?.addEventListener("click", (e) => { if (e.target === surferModal) closeSurferModal(); });
+
+      document.getElementById("surfer-form")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById("surfer-edit-id").value;
+        const id = editId || document.getElementById("surfer-id").value.trim();
+        if (!id) return;
+        const value = parseInt(document.getElementById("surfer-value").value, 10) || 0;
+        const data = {
+          name: document.getElementById("surfer-name").value.trim(),
+          country: document.getElementById("surfer-country").value.trim().toUpperCase(),
+          rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
+          value,
+          tour: document.getElementById("surfer-tour").value,
+          stance: document.getElementById("surfer-stance").value || null,
+          photoUrl: document.getElementById("surfer-photo").value.trim() || null
+        };
+        // For new surfers, set defaults for fields managed via inline selects
+        if (!editId) {
+          data.priceBracket = value >= 8000000 ? "elite"
+            : value >= 5000000 ? "high"
+            : value >= 3000000 ? "mid"
+            : value >= 1000000 ? "low"
+            : "budget";
+          data.status = "active";
+          data.active = true;
+        }
+        if (data.value % 250000 !== 0) {
+          toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
+          return;
+        }
+        try {
+          await saveSurfer(id, data);
+          toast("Surfer saved!", "success");
+          closeSurferModal();
+          surfers = await getAllSurfers();
+          renderAdmin(container);
+        } catch (err) {
+          toast("Error: " + err.message, "error");
+        }
+      });
+
+      container.querySelectorAll("[data-edit-surfer]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const s = surfers.find((x) => x.id === btn.dataset.editSurfer);
+          if (!s) return;
+          openSurferModal(s);
         });
       });
 
@@ -770,6 +784,40 @@
           toast("Surfer deleted.", "info");
           surfers = await getAllSurfers();
           renderAdmin(container);
+        });
+      });
+
+      // ── INLINE SURFER BRACKET SELECT ──
+      container.querySelectorAll("[data-bracket-surfer]").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const surferId = sel.dataset.bracketSurfer;
+          const prev = sel.dataset.current;
+          try {
+            await saveSurfer(surferId, { priceBracket: sel.value });
+            toast(`Bracket updated to "${sel.value}".`, "success");
+            surfers = await getAllSurfers();
+            renderAdmin(container);
+          } catch (err) {
+            toast("Error: " + err.message, "error");
+            sel.value = prev;
+          }
+        });
+      });
+
+      // ── INLINE SURFER STATUS SELECT ──
+      container.querySelectorAll("[data-status-surfer]").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const surferId = sel.dataset.statusSurfer;
+          const prev = sel.dataset.current;
+          try {
+            await saveSurfer(surferId, { status: sel.value, active: sel.value !== "inactive" });
+            toast(`Status updated to "${sel.value}".`, "success");
+            surfers = await getAllSurfers();
+            renderAdmin(container);
+          } catch (err) {
+            toast("Error: " + err.message, "error");
+            sel.value = prev;
+          }
         });
       });
 
