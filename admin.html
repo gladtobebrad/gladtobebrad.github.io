@@ -34,7 +34,7 @@
       saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatSalaryFull, formatDate } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatSalaryFull, formatDate, confirmModal } from "./js/ui.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -637,47 +637,178 @@
       container.querySelectorAll("[data-toggle-trading]").forEach((label) => {
         const checkbox = label.querySelector("input");
         const labelText = label.querySelector(".toggle__label");
-        checkbox.addEventListener("change", async (evt) => {
+        // Use click + preventDefault so the browser does NOT auto-flip the
+        // checkbox visual on mousedown. We flip it ourselves only after the
+        // admin commits step 1, so the toggle stays in its pre-click color
+        // (green for "Open", red for "Locked") throughout the dialog flow.
+        checkbox.addEventListener("click", async (evt) => {
+          evt.preventDefault();
           const eventId = label.dataset.toggleTrading;
-          const locking = !checkbox.checked;
-          if (locking && !confirm("Lock trading for this event? Teams will be frozen.")) {
-            checkbox.checked = true; // revert
+          const ev = events.find((e) => e.id === eventId);
+          // Derive intent from the persisted event data (single source of
+          // truth). Reading checkbox.checked is fragile because some browsers
+          // toggle the property in unexpected places relative to preventDefault.
+          // Treat a missing tradingOpen field as "open" (matches the render and
+          // the initial seed in the events list).
+          const wasOpen = ev?.tradingOpen !== false;
+          const locking = wasOpen; // open → click means lock; locked → means open
+          const evName = ev?.name || eventId;
+          const evTour = ev?.tour || "mens";
+          const tourLabel = evTour === "womens" ? "Women's" : "Men's";
+          const evNumLabel = ev?.eventNumber ? `${tourLabel} Event ${ev.eventNumber}` : tourLabel;
+          // Synchronous check (events already loaded): is there an earlier locked
+          // event on the same tour that carry-forward could pull from? If not,
+          // skip the second confirm — nothing to carry.
+          const currentNum = ev?.eventNumber ?? Infinity;
+          const hasPriorLocked = events.some(
+            (e) => (e.tour || "mens") === evTour
+              && e.eventNumber < currentNum
+              && e.tradingOpen === false
+          );
+
+          // Stepper labels. Carry-forward only appears if there's a source.
+          // Popularity snapshot only on the lock path.
+          const steps = [locking ? "Lock trading" : "Open trading"];
+          if (hasPriorLocked) steps.push("Carry forward");
+          if (locking) steps.push("Popularity");
+          const stepIdx = { action: 1, carry: hasPriorLocked ? 2 : null, pop: hasPriorLocked ? 3 : 2 };
+
+          // ── STEP 1: confirm the toggle action itself ──
+          const dialog1Body = locking
+            ? `<p>You're about to lock trading for <strong>"${evName}"</strong> (${evNumLabel}).</p>`
+              + `<p>This will:</p>`
+              + `<ul>`
+              + `<li>Freeze all submitted teams — users can no longer add, drop, or swap surfers for this event.</li>`
+              + `</ul>`
+              + `<p class="text-sm text-muted" style="margin-top:0.75rem">You'll be asked separately about carry-forward and the popularity snapshot.</p>`
+            : `<p>You're about to open trading for <strong>"${evName}"</strong> (${evNumLabel}).</p>`
+              + `<p>This will:</p>`
+              + `<ul>`
+              + `<li>Unfreeze teams so users can edit their roster for this event.</li>`
+              + `</ul>`
+              + (hasPriorLocked
+                ? `<p class="text-sm text-muted" style="margin-top:0.75rem">You'll be asked separately about carry-forward.</p>`
+                : "");
+          const dialog1Confirmed = await confirmModal({
+            title: locking ? "Lock trading?" : "Open trading?",
+            bodyHtml: dialog1Body,
+            confirmLabel: locking ? "Lock trading" : "Open trading",
+            cancelLabel: "Cancel",
+            confirmTone: locking ? "danger" : "primary",
+            steps,
+            currentStep: stepIdx.action
+          });
+          if (!dialog1Confirmed) {
+            // preventDefault held the checkbox in its pre-click state, so
+            // there's nothing to revert visually. Just bail.
             return;
           }
-          // Optimistic UI: update label immediately so it stays in sync with the toggle
+          // Step 1 committed → flip the toggle visual + label now. The
+          // remaining dialogs are opt-ins for additional side effects; they
+          // do not change whether the lock/open happens.
+          checkbox.checked = !locking;
           labelText.textContent = locking ? "Locked" : "Open";
+
+          // ── STEP 2: opt-in for carry-forward (only if there's a source) ──
+          let shouldCarryForward = false;
+          if (hasPriorLocked) {
+            const cfChoiceCopy = locking
+              ? `For each user who didn't submit a team for <strong>"${evName}"</strong>, copy their most recent locked roster (purchase prices preserved) into this event. User-saved teams are never overwritten. This is the normal end-of-trading flow.`
+              : `Pre-populate <strong>"${evName}"</strong> with each user's most recent locked roster. When users open My Team, they'll see their last-event roster with updated market-value deltas (no blank teams). User-saved teams are never overwritten.`;
+            const skipChoiceCopy = locking
+              ? `Use this if you're re-locking after an accidental Open, or don't want stale rosters scored here.`
+              : `Use this if you opened by mistake, or if users should explicitly re-pick.`;
+            const dialog2Body =
+              `<p>Should we also carry forward rosters from the previous event into <strong>"${evName}"</strong>?</p>`
+              + `<div class="confirm-modal__choice">`
+              +   `<span class="confirm-modal__choice-label">Carry forward</span>`
+              +   `${cfChoiceCopy}`
+              + `</div>`
+              + `<div class="confirm-modal__choice confirm-modal__choice--alt">`
+              +   `<span class="confirm-modal__choice-label">Skip</span>`
+              +   `${skipChoiceCopy}`
+              + `</div>`;
+            shouldCarryForward = await confirmModal({
+              title: "Carry forward rosters?",
+              bodyHtml: dialog2Body,
+              confirmLabel: "Carry forward",
+              cancelLabel: "Skip",
+              confirmTone: "primary",
+              steps,
+              currentStep: stepIdx.carry
+            });
+          }
+
+          // ── STEP 3 (LOCK ONLY): opt-in for popularity snapshot ──
+          let shouldSnapshotPopularity = false;
+          if (locking) {
+            const dialog3Body =
+              `<p>Should we also snapshot surfer popularity for <strong>"${evName}"</strong>?</p>`
+              + `<div class="confirm-modal__choice">`
+              +   `<span class="confirm-modal__choice-label">Snapshot</span>`
+              +   `Count how many users picked each surfer, compute % of teams, and save the snapshot to the event doc. This drives the popularity % column on the Surfers page. Required if this is the final lock for this event.`
+              + `</div>`
+              + `<div class="confirm-modal__choice confirm-modal__choice--alt">`
+              +   `<span class="confirm-modal__choice-label">Skip</span>`
+              +   `Don't capture popularity now. Use this if you're temporarily re-locking after an accidental Open and a real snapshot already exists, or if you want to redo it later.`
+              + `</div>`;
+            shouldSnapshotPopularity = await confirmModal({
+              title: "Snapshot popularity?",
+              bodyHtml: dialog3Body,
+              confirmLabel: "Snapshot",
+              cancelLabel: "Skip",
+              confirmTone: "primary",
+              steps,
+              currentStep: stepIdx.pop
+            });
+          }
+
+          // Visual already flipped at step 1 commit. Persist now.
           try {
             await saveEvent(eventId, { tradingOpen: !locking });
+            // Keep the local events array in sync so a follow-up click that
+            // lands while team ops are still in flight reads the just-saved
+            // state, not the stale pre-save value.
+            const idx = events.findIndex((e) => e.id === eventId);
+            if (idx >= 0) events[idx] = { ...events[idx], tradingOpen: !locking };
           } catch (err) {
             toast("Error saving trading status: " + err.message, "error");
-            checkbox.checked = !checkbox.checked; // revert
+            // Persist failed — roll back the toggle + label to original state.
+            checkbox.checked = locking;
+            labelText.textContent = locking ? "Open" : "Locked";
             return;
           }
           // Team operations may fail if Firestore rules don't allow admin writes to teams/
           try {
+            const carried = shouldCarryForward ? await carryForwardTeams(eventId, SEASON) : 0;
             if (locking) {
-              const carried = await carryForwardTeams(eventId, SEASON);
               await lockTeamsForEvent(eventId, true);
 
-              // Snapshot popularity %
-              const teams = await getTeamsForEvent(eventId);
-              const totalTeams = teams.length;
-              const surferCounts = {};
-              for (const team of teams) {
-                const surferIds = new Set();
-                if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
-                if (team.alternate) surferIds.add(team.alternate.surferId);
-                for (const sid of surferIds) surferCounts[sid] = (surferCounts[sid] || 0) + 1;
+              let popularityNote = "";
+              if (shouldSnapshotPopularity) {
+                const teams = await getTeamsForEvent(eventId);
+                const totalTeams = teams.length;
+                const surferCounts = {};
+                for (const team of teams) {
+                  const surferIds = new Set();
+                  if (team.surfers) team.surfers.forEach(s => surferIds.add(s.surferId));
+                  if (team.alternate) surferIds.add(team.alternate.surferId);
+                  for (const sid of surferIds) surferCounts[sid] = (surferCounts[sid] || 0) + 1;
+                }
+                const popularityPct = {};
+                for (const [sid, count] of Object.entries(surferCounts)) {
+                  popularityPct[sid] = totalTeams > 0
+                    ? parseFloat(((count / totalTeams) * 100).toFixed(1))
+                    : 0;
+                }
+                await saveEvent(eventId, { popularityPct, totalTeams });
+                popularityNote = ` Popularity snapshot saved (${totalTeams} team${totalTeams === 1 ? "" : "s"}).`;
               }
-              const popularityPct = {};
-              for (const [sid, count] of Object.entries(surferCounts)) {
-                popularityPct[sid] = parseFloat(((count / totalTeams) * 100).toFixed(1));
-              }
-              await saveEvent(eventId, { popularityPct, totalTeams });
-              toast(`Trading locked.${carried > 0 ? ` ${carried} roster(s) carried forward.` : ""}`, "success");
+              const carriedNote = carried > 0 ? ` ${carried} roster(s) carried forward.` : "";
+              toast(`Trading locked.${carriedNote}${popularityNote}`, "success");
             } else {
               await lockTeamsForEvent(eventId, false);
-              toast("Trading opened.", "success");
+              toast(`Trading opened.${carried > 0 ? ` ${carried} roster(s) carried forward.` : ""}`, "success");
             }
           } catch (err) {
             toast(locking ? "Trading locked, but team operations failed (check Firestore permissions)." : "Trading opened, but team unlock failed.", "warning");
