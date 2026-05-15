@@ -1111,7 +1111,7 @@
               continue;
             }
 
-            const { places, warnings: placeWarnings } = computeFinishPositions(heats);
+            const { places, warnings: placeWarnings } = computeFinishPositions(heats, totalRounds);
             allWarnings.push(...placeWarnings);
 
             // Build wslId → displayName lookup for the resolver.

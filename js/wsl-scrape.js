@@ -76,12 +76,15 @@ export async function fetchSchedule(season = 2026, log = () => {}) {
 }
 
 // Pick the single target venue. Priority: first active (live/on/standby) >
-// most recent completed (over). Skip upcoming/canceled. The schedule is in
-// chronological order, so the last "over" is the most recently completed.
-// Returns one venue entry or null.
+// most recent completed (over). Skip upcoming/canceled. We explicitly sort
+// by eventNumber so the choice is independent of WSL's render order. Returns
+// one venue entry or null.
 export function pickTargetVenue(schedule) {
   const ACTIVE = new Set(["live", "on", "standby"]);
-  const eligible = schedule.filter((e) => e.status !== "canceled" && e.status !== "upcoming");
+  const eligible = schedule
+    .filter((e) => e.status !== "canceled" && e.status !== "upcoming")
+    .slice()
+    .sort((a, b) => (a.eventNumber ?? 0) - (b.eventNumber ?? 0));
   const active = eligible.find((e) => ACTIVE.has(e.status));
   if (active) return active;
   const completed = eligible.filter((e) => e.status === "over");
@@ -208,9 +211,15 @@ export async function fetchRoundHeats(event, season, roundId, defaultRoundNumber
 
       // The Final winner is tagged "--winner" (no one advances from the
       // Final, so they don't get "--advance-winner"). All other round
-      // winners get "--advance-winner".
-      const advanced = /hot-heat-athlete--(advance-winner|winner)\b/.test(acls);
-      const eliminated = /hot-heat-athlete--eliminated/.test(acls);
+      // winners get "--advance-winner". Anchor the match to word-end
+      // (whitespace or end-of-string) to avoid catching hypothetical
+      // variants like "--winner-something".
+      const advanced = /hot-heat-athlete--(?:advance-winner|winner)(?:\s|$)/.test(acls);
+      const eliminated = /hot-heat-athlete--eliminated(?:\s|$)/.test(acls);
+      // Did the athlete catch any waves? Surfers who don't surf their heat
+      // (medical pull-out, no-show) lack this class. Combined with score 0,
+      // it's a strong signal for a withdrawal.
+      const hasWaves = /hot-heat-athlete--has-waves(?:\s|$)/.test(acls);
 
       const nameEl = ad.querySelector(".hot-heat-athlete__name--short");
       const displayName = nameEl ? nameEl.textContent.trim() : "";
@@ -224,7 +233,7 @@ export async function fetchRoundHeats(event, season, roundId, defaultRoundNumber
 
       athletes.push({
         wslId, displayName, placeInHeat, heatTotal,
-        advanced, eliminated, dataStatus,
+        advanced, eliminated, hasWaves, dataStatus,
       });
     }
 

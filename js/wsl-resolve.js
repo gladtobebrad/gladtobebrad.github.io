@@ -67,7 +67,12 @@ export function resolveSurfer(displayName, index) {
 // Rounds that are not fully completed are skipped — losers there don't get
 // a final place yet because heat-total tiebreaks aren't valid until every
 // heat in the round is over.
-export function computeFinishPositions(heats) {
+//
+// `totalRounds` should be the bracket's true round count (passed in by
+// scrapeEventForGender, which knows it because it parsed QF/SF/Final from
+// heat names). Falling back to the highest round with heats would
+// misidentify e.g. SF as the Final if the Final heat hasn't been seeded yet.
+export function computeFinishPositions(heats, totalRounds = null) {
   const warnings = [];
   const places = new Map();
   if (!heats.length) return { places, warnings };
@@ -80,7 +85,7 @@ export function computeFinishPositions(heats) {
   }
   const roundNums = [...byRound.keys()].sort((a, b) => a - b);
   if (!roundNums.length) return { places, warnings };
-  const totalRounds = roundNums[roundNums.length - 1];
+  if (totalRounds == null) totalRounds = roundNums[roundNums.length - 1];
 
   const isRoundComplete = (R) => byRound.get(R).every((h) => h.status === "over");
 
@@ -116,7 +121,11 @@ export function computeFinishPositions(heats) {
       const winner = fh.athletes.find((a) => a.advanced || a.placeInHeat === 1);
       const loser = fh.athletes.find((a) => a.eliminated || a.placeInHeat === 2);
       if (winner) places.set(winner.wslId, { finish: 1, withdrawn: false, heatTotal: winner.heatTotal });
-      if (loser) places.set(loser.wslId, { finish: 2, withdrawn: false, heatTotal: loser.heatTotal });
+      // Guard against pathological 1-athlete Final where find() returns the
+      // same athlete twice — never overwrite place 1 with place 2.
+      if (loser && (!winner || loser.wslId !== winner.wslId)) {
+        places.set(loser.wslId, { finish: 2, withdrawn: false, heatTotal: loser.heatTotal });
+      }
       continue;
     }
 
@@ -162,17 +171,23 @@ export function computeFinishPositions(heats) {
     });
   }
 
-  // Flag zero-score athletes as possible-withdrawal candidates. WSL marks
-  // actual withdrawals with a separate signal we haven't pinned down yet,
-  // so for now we just surface them and let the admin set WDRW manually.
+  // Flag likely withdrawals. WSL doesn't expose a definitive "withdrew"
+  // flag we can rely on yet, so we use two heuristics:
+  //   - No waves caught (`hasWaves` false) AND heat total 0 → strong signal.
+  //   - heat total 0 with waves caught → weaker signal (could be a real bad
+  //     heat, e.g. interference penalty). Still worth flagging for review.
+  // Only flag athletes who actually got placed (skipping in-progress rounds).
   for (const r of roundNums) {
     for (const h of byRound.get(r)) {
       for (const a of h.athletes) {
-        if (a.heatTotal === 0 && places.has(a.wslId)) {
-          warnings.push(
-            `${a.displayName} (R${r} ${h.heatName}) scored 0.00 — possibly withdrew? Verify and set to WDRW manually if so.`,
-          );
-        }
+        if (!places.has(a.wslId)) continue;
+        if (a.heatTotal !== 0) continue;
+        const strong = a.hasWaves === false;
+        warnings.push(
+          strong
+            ? `${a.displayName} (R${r} ${h.heatName}) scored 0.00 with no waves — likely withdrew. Set to WDRW manually if so.`
+            : `${a.displayName} (R${r} ${h.heatName}) scored 0.00 — verify and set to WDRW manually if withdrawn.`,
+        );
       }
     }
   }
