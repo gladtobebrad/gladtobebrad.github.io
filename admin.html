@@ -640,6 +640,7 @@
       // ── TRADING TOGGLE ──
       container.querySelectorAll("[data-toggle-trading]").forEach((label) => {
         const checkbox = label.querySelector("input");
+        const labelText = label.querySelector(".toggle__label");
         checkbox.addEventListener("change", async (evt) => {
           const eventId = label.dataset.toggleTrading;
           const locking = !checkbox.checked;
@@ -647,6 +648,8 @@
             checkbox.checked = true; // revert
             return;
           }
+          // Optimistic UI: update label immediately so it stays in sync with the toggle
+          labelText.textContent = locking ? "Locked" : "Open";
           try {
             await saveEvent(eventId, { tradingOpen: !locking });
           } catch (err) {
