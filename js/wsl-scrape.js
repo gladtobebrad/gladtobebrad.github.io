@@ -206,7 +206,10 @@ export async function fetchRoundHeats(event, season, roundId, defaultRoundNumber
       const placeM = acls.match(/hot-heat-athlete--athlete-place-(\d+)/);
       const placeInHeat = placeM ? parseInt(placeM[1], 10) : null;
 
-      const advanced = /hot-heat-athlete--advance-winner/.test(acls);
+      // The Final winner is tagged "--winner" (no one advances from the
+      // Final, so they don't get "--advance-winner"). All other round
+      // winners get "--advance-winner".
+      const advanced = /hot-heat-athlete--(advance-winner|winner)\b/.test(acls);
       const eliminated = /hot-heat-athlete--eliminated/.test(acls);
 
       const nameEl = ad.querySelector(".hot-heat-athlete__name--short");
