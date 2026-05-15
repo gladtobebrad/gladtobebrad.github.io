@@ -84,6 +84,13 @@ export async function getCurrentEventForTour(tour, season = 2026) {
     || null;
 }
 
+// Fetch a single event directly from Firestore, bypassing all caches.
+// Use this for trading-critical checks where stale data = exploit.
+export async function getEventFresh(eventId) {
+  const snap = await getDoc(doc(db, "events", eventId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
 export async function saveEvent(eventId, data) {
   await setDoc(doc(db, "events", eventId), data, { merge: true });
 }

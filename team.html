@@ -182,7 +182,7 @@
 
   <script type="module">
     import { initAuth, requireAuth, getCurrentUser } from "./js/auth.js";
-    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam } from "./js/db.js";
+    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules } from "./js/team.js";
     import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
 
@@ -228,6 +228,12 @@
           return;
         }
 
+        // Always fetch fresh event data from Firestore to get accurate tradingOpen status.
+        // The cached version from getEvents() may be stale (sessionStorage).
+        const freshEvent = await getEventFresh(currentEvent.id);
+        if (freshEvent) {
+          currentEvent = { ...currentEvent, ...freshEvent };
+        }
         tradingOpen = currentEvent.tradingOpen !== false;
 
         // Load existing team
@@ -651,6 +657,22 @@
           validation.errors.forEach((err) => toast(err, "error", 5000));
           return;
         }
+
+        // Re-check trading status from Firestore RIGHT NOW before saving.
+        // This prevents saves even if the page loaded with stale cached data.
+        try {
+          const liveEvent = await getEventFresh(currentEvent.id);
+          if (!liveEvent || liveEvent.tradingOpen === false) {
+            tradingOpen = false;
+            toast("Trading has been locked for this event. Your changes were NOT saved.", "error", 8000);
+            renderTeamPage(container, user);
+            return;
+          }
+        } catch (err) {
+          toast("Unable to verify trading status. Please try again.", "error");
+          return;
+        }
+
         const totalSpent = roster.reduce((sum, s) => sum + s.purchasePrice, 0);
         try {
           await saveTeam(user.uid, currentEvent.id, {
