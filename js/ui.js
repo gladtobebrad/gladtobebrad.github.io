@@ -204,17 +204,43 @@ export function renderHeader() {
       const photoSrc = profile?.avatarUrl || user.photoURL;
       const photo = photoSrc
         ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-        : "";
+        : `<div class="nav-avatar" style="background:var(--color-sage);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
         : "";
       authEl.innerHTML = `
         ${adminLink}
-        ${photo}
-        <span class="nav-user-name">${user.displayName || "User"}</span>
-        <button class="btn btn--sm btn--outline" id="btn-signout">Sign Out</button>
+        <div class="nav-user-menu">
+          <button class="nav-user-btn" id="nav-user-btn" aria-haspopup="true" aria-expanded="false">
+            ${photo}
+            <span class="nav-user-name">${user.displayName || "User"}</span>
+            <span class="nav-user-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-user-dropdown" id="nav-user-dropdown" role="menu">
+            <button data-action="profile" role="menuitem">Profile</button>
+            <button data-action="signout" role="menuitem">Sign Out</button>
+          </div>
+        </div>
       `;
-      document.getElementById("btn-signout")?.addEventListener("click", signOut);
+      const userBtn = document.getElementById("nav-user-btn");
+      const dropdown = document.getElementById("nav-user-dropdown");
+      userBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isOpen = dropdown.classList.toggle("open");
+        userBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+      document.addEventListener("click", (e) => {
+        if (dropdown && !dropdown.contains(e.target) && !userBtn.contains(e.target)) {
+          dropdown.classList.remove("open");
+          userBtn.setAttribute("aria-expanded", "false");
+        }
+      });
+      dropdown?.querySelector('[data-action="profile"]')?.addEventListener("click", () => {
+        dropdown.classList.remove("open");
+        userBtn.setAttribute("aria-expanded", "false");
+        openProfileEditModal(user, profile);
+      });
+      dropdown?.querySelector('[data-action="signout"]')?.addEventListener("click", signOut);
 
       // Banners: fetch the live-status (cached) and the countdown inputs in
       // parallel. Live banner takes priority — if WSL reports an active
@@ -324,22 +350,35 @@ function ensureToastContainer() {
 }
 
 /**
- * Show a toast notification
+ * Show a toast notification.
+ * Dedupes by message+type: if an identical toast is currently visible, the
+ * call is a no-op (does not stack, does not reset the timer).
  * @param {string} message
  * @param {"success"|"error"|"info"} type
  * @param {number} duration - ms
  */
 export function toast(message, type = "info", duration = 3500) {
   ensureToastContainer();
+  // Dedupe: skip if an identical visible toast is already up.
+  for (const existing of toastContainer.children) {
+    if (
+      existing.dataset.toastMessage === message
+      && existing.classList.contains(`toast--${type}`)
+      && existing.classList.contains("toast--visible")
+    ) {
+      return;
+    }
+  }
   const el = document.createElement("div");
   el.className = `toast toast--${type}`;
   el.textContent = message;
+  el.dataset.toastMessage = message;
   toastContainer.appendChild(el);
   // Trigger animation
   requestAnimationFrame(() => el.classList.add("toast--visible"));
   setTimeout(() => {
     el.classList.remove("toast--visible");
-    el.addEventListener("transitionend", () => el.remove());
+    el.addEventListener("transitionend", () => el.remove(), { once: true });
   }, duration);
 }
 
@@ -419,6 +458,129 @@ export function confirmModal({
     document.addEventListener("keydown", onKey);
     document.body.appendChild(overlay);
     overlay.querySelector('[data-confirm-action="confirm"]')?.focus();
+  });
+}
+
+// ── Profile Edit Modal ───────────────────────────────
+
+/**
+ * Open a modal dialog to edit the current user's profile (team name + avatar).
+ * Called from the nav-user dropdown ("Profile" item). Reloads page on save.
+ */
+export function openProfileEditModal(user, profile) {
+  const avatarUrl = profile?.avatarUrl || profile?.photoUrl || user.photoURL || "";
+  const initial = (profile?.displayName || user.displayName || "?")[0];
+  const avatarPreview = avatarUrl
+    ? `<img src="${avatarUrl}" alt="" class="avatar-preview" id="pe-avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+    : `<div class="avatar-preview avatar-preview--empty" id="pe-avatar-preview">${initial}</div>`;
+  const urlValue = (profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : "";
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pe-title">
+      <div class="modal__header">
+        <span class="modal__title" id="pe-title">Edit Profile</span>
+        <button class="modal__close" aria-label="Close" data-action="close">&times;</button>
+      </div>
+      <div class="profile-edit">
+        <div class="profile-edit__avatar">${avatarPreview}</div>
+        <div class="profile-edit__fields">
+          <div class="form-group mb-1">
+            <label class="form-label">Team Name</label>
+            <input type="text" class="search-input" id="pe-team-name" maxlength="30" value="${profile?.teamName || ""}">
+          </div>
+          <div class="form-group mb-1">
+            <label class="form-label">Profile Photo</label>
+            <div id="pe-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
+              <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
+                Choose File
+                <input type="file" id="pe-file" accept="image/*" style="display:none">
+              </label>
+              <span class="text-xs text-muted" id="pe-file-name">or drag &amp; drop here</span>
+            </div>
+            <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${urlValue}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
+          </div>
+        </div>
+      </div>
+      <div class="confirm-modal__actions" style="margin-top:1rem">
+        <button class="btn btn--outline" data-action="close">Cancel</button>
+        <button class="btn btn--primary" id="pe-save">Save Profile</button>
+      </div>
+    </div>
+  `;
+
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  };
+  function onKey(e) {
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+  }
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) return close();
+    if (e.target.closest('[data-action="close"]')) return close();
+  });
+  document.addEventListener("keydown", onKey);
+
+  document.body.appendChild(overlay);
+
+  // ── File / URL / drag-drop handlers ──
+  const applyFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    document.getElementById("pe-file-name").textContent = file.name;
+    document.getElementById("pe-url").value = "";
+    const preview = document.getElementById("pe-avatar-preview");
+    if (preview && preview.tagName === "IMG") preview.src = URL.createObjectURL(file);
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById("pe-file").files = dt.files;
+  };
+  document.getElementById("pe-file")?.addEventListener("change", (e) => applyFile(e.target.files[0]));
+
+  const dropZone = document.getElementById("pe-drop-zone");
+  if (dropZone) {
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.style.borderColor = "var(--color-sage)"; dropZone.style.background = "rgba(0,0,0,0.03)"; });
+    dropZone.addEventListener("dragleave", () => { dropZone.style.borderColor = ""; dropZone.style.background = ""; });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = "";
+      dropZone.style.background = "";
+      applyFile(e.dataTransfer.files[0]);
+    });
+  }
+
+  // ── Save ──
+  document.getElementById("pe-save")?.addEventListener("click", async () => {
+    const name = document.getElementById("pe-team-name")?.value.trim();
+    if (!name) { toast("Team name is required.", "error"); return; }
+
+    const file = document.getElementById("pe-file")?.files[0];
+    const urlInput = document.getElementById("pe-url")?.value.trim();
+    let finalUrl = urlInput || profile?.avatarUrl || "";
+
+    if (file) {
+      toast("Uploading photo…", "info");
+      try {
+        const { storage } = await import("./firebase-config.js");
+        const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js");
+        const storageRef = ref(storage, `avatars/${user.uid}`);
+        await uploadBytes(storageRef, file);
+        finalUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        toast("Upload failed: " + err.message, "error");
+        return;
+      }
+    }
+
+    try {
+      const { updateUser } = await import("./db.js");
+      await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl });
+      toast("Profile saved!", "success");
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      toast("Save failed: " + err.message, "error");
+    }
   });
 }
 
