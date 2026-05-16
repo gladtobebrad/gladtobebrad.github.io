@@ -3,8 +3,8 @@ import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassw
 // ── Navigation ───────────────────────────────────────
 
 const NAV_ITEMS = [
-  { title: "Dashboard", href: "index.html" },
   { title: "My Team", href: "team.html" },
+  { title: "Standings", href: "standings.html" },
   { title: "Clubhouse", href: "club.html" },
   { title: "Data Vault", href: "surfers.html" },
   { title: "About", href: "about.html" },
