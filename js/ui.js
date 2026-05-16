@@ -10,6 +10,125 @@ const NAV_ITEMS = [
   { title: "About", href: "about.html" },
 ];
 
+// ── Countdown Banner Helpers ─────────────────────────
+
+/**
+ * Pure: resolve which event drives the countdown banner.
+ * Ignores siteConfig.showCountdown — caller decides visibility.
+ * @returns {{event, deadline, eventName, tour, deadlineSource} | null}
+ */
+export function resolveCountdownState({ mensEv, womensEv }) {
+  const tradingEvents = [mensEv, womensEv].filter((e) => e && e.tradingOpen && e.startDate);
+  if (tradingEvents.length === 0) return null;
+
+  const soonest = tradingEvents.reduce((a, b) => {
+    const aTime = a.tradingCloseTime || a.startDate;
+    const bTime = b.tradingCloseTime || b.startDate;
+    return aTime < bTime ? a : b;
+  });
+
+  let deadline;
+  let deadlineSource;
+  if (soonest.tradingCloseTime && soonest.tradingCloseTimezone) {
+    const tz = parseFloat(soonest.tradingCloseTimezone);
+    const sign = tz >= 0 ? "+" : "-";
+    const absH = String(Math.floor(Math.abs(tz))).padStart(2, "0");
+    const absM = String(Math.round((Math.abs(tz) % 1) * 60)).padStart(2, "0");
+    deadline = new Date(soonest.tradingCloseTime + sign + absH + ":" + absM).getTime();
+    deadlineSource = "tradingCloseTime";
+  } else {
+    deadline = new Date(soonest.startDate + "T00:00:00").getTime();
+    deadlineSource = "startDate (fallback)";
+  }
+
+  return {
+    event: soonest,
+    deadline,
+    eventName: soonest.name || "the next event",
+    tour: soonest.tour || "mens",
+    deadlineSource,
+  };
+}
+
+// Session-cached fetch of WSL's live event status. Bounded to one network
+// hit per ~60s window per browser tab so the banner stays near-real-time
+// without flooding WSL on every page nav. The wsl-scrape module is loaded
+// lazily so non-banner pages don't pay the cost.
+const LIVE_STATUS_TTL_MS = 60_000;
+const LIVE_STATUS_KEY = "wsl_live_status";
+
+export async function fetchLiveStatusCached(season) {
+  try {
+    const cached = sessionStorage.getItem(LIVE_STATUS_KEY);
+    if (cached) {
+      const { data, fetchedAt, forSeason } = JSON.parse(cached);
+      if (forSeason === season && Date.now() - fetchedAt < LIVE_STATUS_TTL_MS) {
+        return data;
+      }
+    }
+  } catch {}
+  try {
+    const { fetchLiveEventStatus } = await import("./wsl-scrape.js");
+    const data = await fetchLiveEventStatus(season);
+    try {
+      sessionStorage.setItem(
+        LIVE_STATUS_KEY,
+        JSON.stringify({ data, fetchedAt: Date.now(), forSeason: season }),
+      );
+    } catch {}
+    return data;
+  } catch {
+    // WSL fetch failed — return null so banner just doesn't render. Don't
+    // cache the failure: next call will retry.
+    return null;
+  }
+}
+
+/**
+ * Paint live-status HTML into el. Returns nothing (no tick — status is
+ * mostly static between WSL refreshes). Pass null to clear/hide.
+ */
+export function renderLiveStatusBanner(el, status) {
+  if (!status) {
+    el.innerHTML = "";
+    el.style.display = "none";
+    return;
+  }
+  const labelHtml = status.statusLabel
+    ? `<span style="display:inline-block;padding:0.1rem 0.6rem;border-radius:4px;background:${status.statusColor || "#616161"};color:#fff;font-weight:600;font-size:0.78rem;margin-right:0.6rem;vertical-align:middle">${status.statusLabel}</span>`
+    : "";
+  const eventPrefix = status.eventName ? `<strong>${status.eventName}:</strong> ` : "";
+  const msg = status.statusMessage || "";
+  el.innerHTML = `${labelHtml}${eventPrefix}${msg}`;
+  el.style.display = "";
+}
+
+/**
+ * Paint banner HTML into el and start a 1s tick. Returns the interval id.
+ */
+export function startCountdownTimer(el, state) {
+  const { deadline, eventName } = state;
+  el.innerHTML = `First Call for ${eventName} is in <strong class="countdown-timer-text"></strong><br>But trading won't close until the hooter blows`;
+  const timerEl = el.querySelector(".countdown-timer-text");
+  let intervalId = null;
+  const tick = () => {
+    const diff = deadline - Date.now();
+    if (diff <= 0) {
+      el.innerHTML = `First Call for ${eventName} is now <strong>Pending</strong>!<br>But trading won't close until the hooter blows`;
+      if (intervalId) clearInterval(intervalId);
+      return;
+    }
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    if (timerEl) timerEl.textContent = `${d}d : ${h}h : ${m}m : ${s}s`;
+  };
+  tick();
+  intervalId = setInterval(tick, 1000);
+  return intervalId;
+}
+
 /**
  * Render the shared header/nav into an element with id="app-header"
  */
@@ -34,13 +153,21 @@ export function renderHeader() {
     </div>
   `;
 
-  // Countdown banner (inserted after header)
+  // Banners (inserted after header). Two slots; only one is shown at a time
+  // — live takes priority over countdown when active.
+  let liveStatusEl = document.getElementById("live-status-banner");
+  if (!liveStatusEl) {
+    liveStatusEl = document.createElement("div");
+    liveStatusEl.id = "live-status-banner";
+    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal)";
+    header.parentNode.insertBefore(liveStatusEl, header.nextSibling);
+  }
   let countdownEl = document.getElementById("trading-countdown");
   if (!countdownEl) {
     countdownEl = document.createElement("div");
     countdownEl.id = "trading-countdown";
     countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal)";
-    header.parentNode.insertBefore(countdownEl, header.nextSibling);
+    header.parentNode.insertBefore(countdownEl, liveStatusEl.nextSibling);
   }
 
   // Hamburger toggle
@@ -72,60 +199,38 @@ export function renderHeader() {
       `;
       document.getElementById("btn-signout")?.addEventListener("click", signOut);
 
-      // Countdown timer
+      // Banners: fetch the live-status (cached) and the countdown inputs in
+      // parallel. Live banner takes priority — if WSL reports an active
+      // event and the admin hasn't hidden it, show it and suppress the
+      // countdown. Otherwise fall back to the countdown if eligible.
       try {
         const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
         const SEASON = new Date().getFullYear();
-        const [mensEv, womensEv, siteConfig] = await Promise.all([
+        const [mensEv, womensEv, siteConfig, liveStatus] = await Promise.all([
           getCurrentEventForTour("mens", SEASON),
           getCurrentEventForTour("womens", SEASON),
-          getSiteConfig()
+          getSiteConfig(),
+          fetchLiveStatusCached(SEASON),
         ]);
-        const tradingEvents = [mensEv, womensEv].filter(e => e && e.tradingOpen && e.startDate);
         if (window._countdownInterval) clearInterval(window._countdownInterval);
-        if (siteConfig.showCountdown === false) {
+
+        const showLive = siteConfig.showLiveStatus !== false && !!liveStatus;
+        if (showLive) {
+          renderLiveStatusBanner(liveStatusEl, liveStatus);
           countdownEl.style.display = "none";
-        } else if (tradingEvents.length > 0) {
-          const soonest = tradingEvents.reduce((a, b) => {
-            const aTime = a.tradingCloseTime || a.startDate;
-            const bTime = b.tradingCloseTime || b.startDate;
-            return aTime < bTime ? a : b;
-          });
-          let deadline;
-          if (soonest.tradingCloseTime && soonest.tradingCloseTimezone) {
-            // Build UTC time from local event time + timezone offset
-            const tz = parseFloat(soonest.tradingCloseTimezone);
-            const sign = tz >= 0 ? "+" : "-";
-            const absH = String(Math.floor(Math.abs(tz))).padStart(2, "0");
-            const absM = String(Math.round((Math.abs(tz) % 1) * 60)).padStart(2, "0");
-            deadline = new Date(soonest.tradingCloseTime + sign + absH + ":" + absM).getTime();
-          } else {
-            deadline = new Date(soonest.startDate + "T00:00:00").getTime();
-          }
-          const eventName = soonest.name || "the next event";
-          countdownEl.innerHTML = `First Call for ${eventName} is in <strong id="countdown-timer"></strong><br>But trading won't close until the hooter blows`;
-          countdownEl.style.display = "";
-          const timerEl = document.getElementById("countdown-timer");
-          const tick = () => {
-            const diff = deadline - Date.now();
-            if (diff <= 0) {
-              countdownEl.innerHTML = `First Call for ${eventName} is now <strong>Pending</strong>!<br>But trading won't close until the hooter blows`;
-              clearInterval(window._countdownInterval);
-              return;
-            }
-            const d = Math.floor(diff / 86400000);
-            const h = Math.floor((diff % 86400000) / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            const s = Math.floor((diff % 60000) / 1000);
-            timerEl.textContent = `${d}d : ${h}h : ${m}m : ${s}s`;
-          };
-          tick();
-          window._countdownInterval = setInterval(tick, 1000);
         } else {
-          countdownEl.style.display = "none";
+          renderLiveStatusBanner(liveStatusEl, null);
+          const state = resolveCountdownState({ mensEv, womensEv });
+          if (siteConfig.showCountdown === false || !state) {
+            countdownEl.style.display = "none";
+          } else {
+            countdownEl.style.display = "";
+            window._countdownInterval = startCountdownTimer(countdownEl, state);
+          }
         }
-      } catch (e) { /* silently skip countdown if fetch fails */ }
+      } catch (e) { /* silently skip banners if fetch fails */ }
     } else {
+      renderLiveStatusBanner(liveStatusEl, null);
       countdownEl.style.display = "none";
       authEl.innerHTML = `
         <button class="btn btn--sm btn--primary" id="btn-signin">Sign In with Google</button>

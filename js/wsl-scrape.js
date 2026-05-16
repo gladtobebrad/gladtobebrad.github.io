@@ -307,3 +307,68 @@ export async function scrapeEventForGender(event, season, log = () => {}) {
   log(`  Total: ${allHeats.length} heats across ${totalRounds} rounds.`);
   return { heats: allHeats, totalRounds };
 }
+
+// Fetch the live status banner for the currently-active venue. Reuses
+// fetchSchedule + pickTargetVenue to find the active event, then parses the
+// `.status-module__container` block from its /main page. Returns null if
+// nothing is active or the status module can't be located. Callers should
+// cache the result — this performs 2 HTTP requests.
+//
+// Shape:
+//   { eventName, statusLabel, statusColor, statusMessage, nextCallDisplay }
+//   - statusLabel:    e.g. "Live", "Standby", "Off", "On"
+//   - statusColor:    inline bg color WSL applies to the badge (hex or rgb)
+//   - statusMessage:  the prose to the right of the badge, e.g.
+//                     "Off for the Day, Next Call May 17, 2026 7:15 AM FJT"
+//   - nextCallDisplay: just the formatted next-call timestamp if WSL embedded
+//                     a .user-time-display span, else null
+export async function fetchLiveEventStatus(season = 2026, log = () => {}) {
+  const schedule = await fetchSchedule(season, log);
+  const venue = pickTargetVenue(schedule);
+  if (!venue) {
+    log("No active venue to fetch live status for.");
+    return null;
+  }
+  // Only fetch status for venues that are actually running. pickTargetVenue
+  // falls back to "over" (most recent completed) when nothing is active;
+  // showing a status banner for a finished event would be misleading.
+  const ACTIVE = new Set(["live", "on", "standby", "off"]);
+  if (!ACTIVE.has(venue.status)) {
+    log(`Most recent venue "${venue.name}" is ${venue.status} — no live banner.`);
+    return null;
+  }
+
+  const url = `${WSL_BASE}/events/${season}/ct/${venue.wslEventId}/${venue.slug}/main`;
+  log(`Fetching live status from ${url}`);
+  const doc = await fetchDoc(url);
+
+  const container = doc.querySelector(".status-module__container");
+  if (!container) {
+    log("status-module__container not found on main page.", "warn");
+    return null;
+  }
+  const labelEl = container.querySelector(".status-module__status");
+  const messageEl = container.querySelector(".status-module__status-message");
+  const timeEl = container.querySelector(".user-time-display");
+
+  const statusLabel = (labelEl?.textContent || "").trim() || null;
+  // Inline style="background-color:#616161" — pull just the value.
+  let statusColor = null;
+  const styleAttr = labelEl?.getAttribute("style") || "";
+  const colorM = styleAttr.match(/background-color\s*:\s*([^;]+)/i);
+  if (colorM) statusColor = colorM[1].trim();
+  const statusMessage = (messageEl?.textContent || "").replace(/\s+/g, " ").trim() || null;
+  const nextCallDisplay = (timeEl?.textContent || "").trim() || null;
+
+  if (!statusLabel && !statusMessage) {
+    log("Status module had no label or message — treating as no status.", "warn");
+    return null;
+  }
+  return {
+    eventName: venue.name,
+    statusLabel,
+    statusColor,
+    statusMessage,
+    nextCallDisplay,
+  };
+}

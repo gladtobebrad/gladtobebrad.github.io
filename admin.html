@@ -25,16 +25,18 @@
     import { initAuth, requireAdmin, getCurrentUser } from "./js/auth.js";
     import {
       getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
-      getEvents, saveEvent, deleteEvent,
+      getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
-      saveLeaderboardEntry, saveLeaderboardBatch, clearLeaderboard, getLeaderboard, touchLeaderboardVersion,
-      savePlayerDirectory, getUser, getAllUsers,
+      touchLeaderboardVersion,
+      savePlayerDirectory, getAllUsers,
       getAllClubs, deleteClub,
-      saveSiteConfig
+      getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatSalaryFull, formatDate, confirmModal } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatSalaryFull, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
+    import { db } from "./js/firebase-config.js";
+    import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions } from "./js/wsl-resolve.js";
 
@@ -72,6 +74,13 @@
     }
 
     function renderAdmin(container) {
+      // Stop any running countdown-preview tick before re-rendering — the
+      // element it points at is about to be replaced. Without this, dead
+      // intervals accumulate every tab switch.
+      if (window._countdownPreviewInterval) {
+        clearInterval(window._countdownPreviewInterval);
+        window._countdownPreviewInterval = null;
+      }
       surfers.sort((a, b) => (a.rank || 999) - (b.rank || 999));
       events.sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
 
@@ -82,7 +91,6 @@
           <button class="tab-btn ${activeTab === "events" ? "active" : ""}" data-tab="events">Events</button>
           <button class="tab-btn ${activeTab === "surfers" ? "active" : ""}" data-tab="surfers">Surfers</button>
           <button class="tab-btn ${activeTab === "results" ? "active" : ""}" data-tab="results">Results</button>
-          <button class="tab-btn ${activeTab === "scoring" ? "active" : ""}" data-tab="scoring">Score & Leaderboard</button>
           <button class="tab-btn ${activeTab === "players" ? "active" : ""}" data-tab="players">Players (${users.length})</button>
           <button class="tab-btn ${activeTab === "clubs" ? "active" : ""}" data-tab="clubs">Clubs (${clubs.length})</button>
           <button class="tab-btn ${activeTab === "seed" ? "active" : ""}" data-tab="seed">Seed Data</button>
@@ -91,6 +99,30 @@
         <!-- EVENTS TAB -->
         <div class="tab-panel ${activeTab === "events" ? "active" : ""}" id="tab-events">
           <div>
+              <div class="card mb-3">
+                <div class="card__header">
+                  <span class="card__title">Site Banners</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.6rem">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray);min-width:120px">Live Status</span>
+                  <div id="live-status-preview" style="flex:1;min-width:240px;text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <label class="toggle" id="toggle-live-status">
+                    <input type="checkbox">
+                    <span class="toggle__track"></span>
+                    <span class="toggle__label">Hidden</span>
+                  </label>
+                </div>
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray);min-width:120px">Countdown</span>
+                  <div id="countdown-preview" style="flex:1;min-width:240px;text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <label class="toggle" id="toggle-banner">
+                    <input type="checkbox">
+                    <span class="toggle__track"></span>
+                    <span class="toggle__label">Hidden</span>
+                  </label>
+                </div>
+                <p class="text-xs text-muted" style="margin:0.6rem 0 0">Live status takes priority — when WSL reports an active event, the countdown is hidden even if shown here.</p>
+              </div>
               <div class="card">
                 <div class="card__header">
                   <span class="card__title">${SEASON} Events</span>
@@ -364,44 +396,6 @@
           </div>
         </div>
 
-        <!-- SCORING TAB -->
-        <div class="tab-panel ${activeTab === "scoring" ? "active" : ""}" id="tab-scoring">
-          <div class="card mb-3">
-            <div class="card__header"><span class="card__title">Calculate Scores & Update Leaderboard</span></div>
-            <div class="form-group">
-              <label class="form-label">Select Event</label>
-              <select class="form-select" id="scoring-event-select">
-                <option value="">Choose an event...</option>
-                ${events.filter((e) => e.status === "completed" || e.resultsEntered).map((e) =>
-                  `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
-                ).join("")}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Update Leaderboard For</label>
-              <select class="form-select" id="leaderboard-tour-select" style="max-width:220px">
-                <option value="both">Both Tours</option>
-                <option value="womens">Women's CT only</option>
-                <option value="mens">Men's CT only</option>
-              </select>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn--primary" id="btn-calculate-scores">Calculate All Scores</button>
-              <button class="btn btn--secondary" id="btn-update-leaderboard">Update Season Leaderboard</button>
-            </div>
-            <div id="scoring-output" class="mt-3"></div>
-          </div>
-
-          <div class="card">
-            <div class="card__header"><span class="card__title">Countdown Banner</span></div>
-            <p class="text-sm text-muted mb-2">Show or hide the countdown banner across the site.</p>
-            <div class="form-actions">
-              <button class="btn btn--primary" id="btn-banner-on">Show Banner</button>
-              <button class="btn btn--danger" id="btn-banner-off">Hide Banner</button>
-            </div>
-          </div>
-        </div>
-
         <!-- PLAYERS TAB -->
         <div class="tab-panel ${activeTab === "players" ? "active" : ""}" id="tab-players">
           <div class="card">
@@ -532,6 +526,297 @@
       wireAdminEvents(container);
     }
 
+    async function wireCountdownBanner() {
+      const countdownPreview = document.getElementById("countdown-preview");
+      const countdownToggle = document.getElementById("toggle-banner");
+      const liveStatusPreview = document.getElementById("live-status-preview");
+      const liveStatusToggle = document.getElementById("toggle-live-status");
+      if (!countdownPreview || !countdownToggle || !liveStatusPreview || !liveStatusToggle) return;
+
+      // Fetch siteConfig + countdown inputs + live status in parallel.
+      // getCurrentEventForTour bypasses the events-list cache so trading
+      // toggled on another tab is reflected immediately.
+      let siteConfig = {};
+      let mensEv = null, womensEv = null, liveStatus = null;
+      try {
+        [siteConfig, mensEv, womensEv, liveStatus] = await Promise.all([
+          getSiteConfig(),
+          getCurrentEventForTour("mens", SEASON),
+          getCurrentEventForTour("womens", SEASON),
+          fetchLiveStatusCached(SEASON),
+        ]);
+      } catch (err) {
+        countdownPreview.textContent = "Could not load banner state.";
+        return;
+      }
+
+      // ── Live status row ──
+      const liveCheckbox = liveStatusToggle.querySelector("input");
+      const liveLabel = liveStatusToggle.querySelector(".toggle__label");
+      const liveInitiallyShown = siteConfig.showLiveStatus !== false;
+      liveCheckbox.checked = liveInitiallyShown;
+      liveLabel.textContent = liveInitiallyShown ? "Shown" : "Hidden";
+      if (liveStatus) {
+        liveStatusPreview.style.color = "var(--color-charcoal)";
+        liveStatusPreview.title = `Source: WSL /events/${SEASON}/ct (cached ~60s)`;
+        renderLiveStatusBanner(liveStatusPreview, liveStatus);
+        liveStatusPreview.style.display = ""; // renderLiveStatusBanner hides on null
+      } else {
+        liveStatusPreview.style.color = "var(--color-warm-gray)";
+        liveStatusPreview.removeAttribute("title");
+        liveStatusPreview.style.display = "";
+        liveStatusPreview.textContent = "Nothing — WSL has no active event right now.";
+      }
+      liveCheckbox.addEventListener("change", async () => {
+        const shown = liveCheckbox.checked;
+        liveLabel.textContent = shown ? "Shown" : "Hidden";
+        try {
+          await saveSiteConfig({ showLiveStatus: shown });
+          toast(`Live status banner ${shown ? "shown" : "hidden"}.`, "success");
+        } catch (err) {
+          toast("Error saving banner state: " + err.message, "error");
+          liveCheckbox.checked = !shown;
+          liveLabel.textContent = !shown ? "Shown" : "Hidden";
+        }
+      });
+
+      // ── Countdown row ──
+      const cdCheckbox = countdownToggle.querySelector("input");
+      const cdLabel = countdownToggle.querySelector(".toggle__label");
+      const cdInitiallyShown = siteConfig.showCountdown !== false;
+      cdCheckbox.checked = cdInitiallyShown;
+      cdLabel.textContent = cdInitiallyShown ? "Shown" : "Hidden";
+
+      // Preview always shows what the banner WOULD display if enabled,
+      // independent of the toggle — so admin can sanity-check before flipping.
+      const state = resolveCountdownState({ mensEv, womensEv });
+      if (!state) {
+        countdownPreview.textContent = "Nothing — no tour has open trading with a start date.";
+        countdownPreview.style.color = "var(--color-warm-gray)";
+        countdownPreview.removeAttribute("title");
+      } else {
+        countdownPreview.style.color = "var(--color-charcoal)";
+        countdownPreview.title = `Source: ${state.event.name} (${state.tour === "womens" ? "Women's" : "Men's"}) · deadline from ${state.deadlineSource}`;
+        window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
+      }
+      cdCheckbox.addEventListener("change", async () => {
+        const shown = cdCheckbox.checked;
+        cdLabel.textContent = shown ? "Shown" : "Hidden";
+        try {
+          await saveSiteConfig({ showCountdown: shown });
+          toast(`Countdown banner ${shown ? "shown" : "hidden"}.`, "success");
+        } catch (err) {
+          toast("Error saving banner state: " + err.message, "error");
+          cdCheckbox.checked = !shown;
+          cdLabel.textContent = !shown ? "Shown" : "Hidden";
+        }
+      });
+    }
+
+    // ── LEADERBOARD RECALC (hardened) ──────────────────
+    //
+    // Integrity contract (see memory: feedback-scoring-integrity):
+    //  1. Compute the entire new leaderboard in memory before touching Firestore.
+    //  2. Pre-flight: skip a tour entirely if it has no events with results
+    //     entered — never overwrite a real leaderboard with empties.
+    //  3. Single atomic writeBatch per tour: all sets + orphan deletes commit
+    //     together, so a failure mid-flight leaves the leaderboard untouched.
+    //  4. Per-tour try/catch so one tour's failure cannot corrupt the other.
+    //  5. User team rosters (teams/) are read-only here — never written.
+    async function recalcLeaderboardForTour(tour, freshEvents, freshUsers) {
+      // Pre-flight: bail (don't write) if we can't compute a meaningful result.
+      if (!freshUsers.length) {
+        return { tour, status: "skipped", reason: "no registered users" };
+      }
+      const tourEvents = freshEvents.filter(
+        (e) => (e.tour || "mens") === tour && (e.resultsEntered || e.status === "completed")
+      );
+      if (tourEvents.length === 0) {
+        return { tour, status: "skipped", reason: "no events with results entered" };
+      }
+
+      // Build empty seed entries for every registered user — ensures players
+      // who haven't picked any team still appear in standings (with 0s).
+      const userScores = {};
+      for (const u of freshUsers) {
+        userScores[u.id] = {
+          displayName: u.displayName || "",
+          teamName: u.teamName || u.displayName || "",
+          avatarUrl: u.avatarUrl || "",
+          eventScores: {},
+        };
+      }
+
+      // Parallel-fetch all (results, teams) tuples. Any rejection bubbles up
+      // and the catch in promptUpdateLeaderboard records "failed" — Firestore
+      // is not touched.
+      const fetched = await Promise.all(
+        tourEvents.map((ev) => Promise.all([getResults(ev.id), getTeamsForEvent(ev.id)]))
+      );
+      for (let i = 0; i < tourEvents.length; i++) {
+        const ev = tourEvents[i];
+        const [results, teams] = fetched[i];
+        for (const team of teams) {
+          if (!userScores[team.userId]) continue; // ghost team for an unregistered user — skip
+          const score = scoreTeam(team, results, tour);
+          // scoreTeam returns 0 for empty rosters; that's intentional and
+          // preserves prior gracefully-handled behavior.
+          userScores[team.userId].eventScores[ev.id] = score.totalPoints;
+        }
+      }
+
+      const entries = Object.entries(userScores).map(([userId, data]) => ({ userId, ...data }));
+      const newStandings = calculateSeasonStandings(entries);
+      if (!newStandings.length) {
+        return { tour, status: "skipped", reason: "computed empty standings" };
+      }
+
+      // Find existing leaderboard userIds so we can delete orphans (users no
+      // longer in `users`) in the same atomic commit.
+      const existingSnap = await getDocs(query(
+        collection(db, "leaderboard"),
+        where("season", "==", SEASON),
+        where("tour", "==", tour)
+      ));
+      const existingUserIds = new Set();
+      existingSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (data.userId) existingUserIds.add(data.userId);
+      });
+      const newUserIds = new Set(newStandings.map((s) => s.userId));
+
+      const batch = writeBatch(db);
+      for (const entry of newStandings) {
+        const docId = `${entry.userId}_${SEASON}_${tour}`;
+        batch.set(doc(db, "leaderboard", docId), {
+          userId: entry.userId,
+          season: SEASON,
+          tour,
+          displayName: entry.displayName,
+          teamName: entry.teamName,
+          eventScores: entry.eventScores,
+          bestNineTotal: entry.bestNineTotal,
+          allEventsTotal: entry.allEventsTotal,
+          eventsPlayed: entry.eventsPlayed,
+        });
+      }
+      for (const oldUserId of existingUserIds) {
+        if (!newUserIds.has(oldUserId)) {
+          batch.delete(doc(db, "leaderboard", `${oldUserId}_${SEASON}_${tour}`));
+        }
+      }
+      await batch.commit(); // atomic — all-or-nothing
+
+      return {
+        tour,
+        status: "updated",
+        players: newStandings.length,
+        eventsUsed: tourEvents.length,
+      };
+    }
+
+    // Confirm-then-recalc dialog. Wired into both result-save flows (WSL
+    // scrape and manual entry). Always shows the dialog so admin retains
+    // explicit control; never auto-runs.
+    async function promptUpdateLeaderboard() {
+      // Refresh events + users from source so the recalc sees the latest
+      // resultsEntered flags and any signups since page load.
+      try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
+      let freshEvents, freshUsers;
+      try {
+        [freshEvents, freshUsers] = await Promise.all([getEvents(SEASON), getAllUsers()]);
+      } catch (err) {
+        toast("Could not check leaderboard state: " + err.message, "error");
+        return;
+      }
+
+      // Per-tour summary: count of events with results + the two most-recent
+      // events (by eventNumber) labeled Last/Current update so admin can see
+      // exactly what's being added.
+      const roundSuffix = (ev) => {
+        if (ev.status === "completed") return " — Final";
+        if (ev.roundsCompleted && ev.totalRounds) {
+          return ` — Round ${ev.roundsCompleted} of ${ev.totalRounds} Complete`;
+        }
+        return "";
+      };
+      const summary = ["mens", "womens"].map((tour) => {
+        const evs = freshEvents
+          .filter((e) => (e.tour || "mens") === tour && (e.resultsEntered || e.status === "completed"))
+          .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0)); // newest first
+        return {
+          tour,
+          label: tour === "womens" ? "Women's CT" : "Men's CT",
+          count: evs.length,
+          current: evs[0] || null,
+          last: evs[1] || null,
+        };
+      });
+      const updatable = summary.filter((s) => s.count > 0);
+      if (updatable.length === 0) {
+        toast("Nothing to update — no events have results entered yet.", "info");
+        return;
+      }
+
+      const renderTourBlock = (s) => {
+        if (s.count === 0) {
+          return `<div style="margin-bottom:0.6rem"><strong>${s.label}:</strong> <span class="text-sm text-muted">no events with results yet — will skip</span></div>`;
+        }
+        const lastLine = s.last
+          ? `<div class="text-sm text-muted" style="margin-left:1rem">Last update: ${s.last.name}${roundSuffix(s.last)}</div>`
+          : `<div class="text-sm text-muted" style="margin-left:1rem">Last update: —</div>`;
+        const currentLine = `<div class="text-sm text-muted" style="margin-left:1rem">Current update: ${s.current.name}${roundSuffix(s.current)}</div>`;
+        return `<div style="margin-bottom:0.6rem">`
+          + `<strong>${s.label}:</strong> ${s.count} event${s.count === 1 ? "" : "s"} with results`
+          + lastLine + currentLine
+          + `</div>`;
+      };
+      const body =
+          `<p>Recalculate team scores and the season leaderboard from the current stored event results?</p>`
+        + summary.map(renderTourBlock).join("");
+
+      const confirmed = await confirmModal({
+        title: "Update team scores & leaderboard?",
+        bodyHtml: body,
+        confirmLabel: "Update Now",
+        cancelLabel: "Skip",
+        confirmTone: "primary",
+      });
+      if (!confirmed) return;
+
+      const outcomes = [];
+      for (const tour of ["mens", "womens"]) {
+        try {
+          outcomes.push(await recalcLeaderboardForTour(tour, freshEvents, freshUsers));
+        } catch (err) {
+          // Atomic batch failed → that tour's leaderboard is unchanged. Record
+          // the failure and continue with the other tour.
+          outcomes.push({ tour, status: "failed", reason: err.message });
+        }
+      }
+
+      // Bump leaderboard version so all clients re-fetch from cache.
+      if (outcomes.some((o) => o.status === "updated")) {
+        try { await touchLeaderboardVersion(); } catch {}
+      }
+
+      // Refresh module-level events/users so subsequent admin actions see the
+      // same data the recalc used.
+      events = freshEvents;
+      users = freshUsers;
+
+      const labelOf = (t) => (t === "womens" ? "Women's" : "Men's");
+      const parts = outcomes.map((o) => {
+        if (o.status === "updated") return `${labelOf(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
+        if (o.status === "skipped") return `${labelOf(o.tour)} skipped (${o.reason})`;
+        return `${labelOf(o.tour)} FAILED: ${o.reason}`;
+      });
+      const anyFailed = outcomes.some((o) => o.status === "failed");
+      const anyUpdated = outcomes.some((o) => o.status === "updated");
+      const tone = anyFailed ? "warning" : anyUpdated ? "success" : "info";
+      toast(parts.join(" · "), tone);
+    }
+
     function wireAdminEvents(container) {
       // Tab switching
       container.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -540,6 +825,9 @@
           renderAdmin(container);
         });
       });
+
+      // ── COUNTDOWN BANNER PREVIEW + TOGGLE ──
+      if (activeTab === "events") wireCountdownBanner();
 
       // ── EVENT MODAL ──
       const eventModal = document.getElementById("event-modal");
@@ -1150,8 +1438,21 @@
               allWarnings.push(`${unmatched.length} unmatched ${tour} athlete(s): ${unmatched.map((u) => `${u.displayName} (#${u.finish})`).join("; ")}. Likely rookies/wildcards — add them in the Surfers tab and re-run, or enter manually.`);
             }
 
-            scrapedByTour[tour] = { wslEvent, localEvent, resolvedResults, unmatched, totalRounds };
-            wslLog(`  ${tour} done: ${resolvedResults.length} placements (${unmatched.length} unmatched).`);
+            // Count fully-completed rounds (every heat in that round status === "over").
+            // Drives the "Round N of M Complete" suffix in the leaderboard-update dialog.
+            const byRound = new Map();
+            for (const h of heats) {
+              if (h.roundNumber == null) continue;
+              if (!byRound.has(h.roundNumber)) byRound.set(h.roundNumber, []);
+              byRound.get(h.roundNumber).push(h);
+            }
+            let roundsCompleted = 0;
+            for (const [, hs] of byRound) {
+              if (hs.every((h) => h.status === "over")) roundsCompleted++;
+            }
+
+            scrapedByTour[tour] = { wslEvent, localEvent, resolvedResults, unmatched, totalRounds, roundsCompleted };
+            wslLog(`  ${tour} done: ${resolvedResults.length} placements (${unmatched.length} unmatched, ${roundsCompleted}/${totalRounds} rounds complete).`);
           }
 
           wslFetchOut.innerHTML = renderScrapeSummary(scrapedByTour, allWarnings);
@@ -1169,14 +1470,41 @@
                 if (!g) continue;
                 existingByTour[tour] = await getResults(g.localEvent.id);
               }
-              const hasNonEmpty = Object.values(existingByTour).some((arr) =>
-                arr.some((r) => r.finish || r.withdrawn),
-              );
-              if (hasNonEmpty && !confirm("This event already has saved results. Overwrite them with the scraped data?")) {
-                wslLog("Save canceled by admin.", "warn");
-                saveBtn.disabled = false;
-                saveBtn.textContent = "Save Scraped Results to Firestore";
-                return;
+              // List the tours that already have non-empty stored results, so
+              // the confirm can name them rather than say "this event."
+              const overwriteTours = [];
+              for (const tour of ["mens", "womens"]) {
+                const arr = existingByTour[tour] || [];
+                if (arr.some((r) => r.finish || r.withdrawn)) {
+                  const g = scrapedByTour[tour];
+                  overwriteTours.push({
+                    tour,
+                    label: tour === "womens" ? "Women's" : "Men's",
+                    eventName: g?.localEvent?.name || "this event",
+                  });
+                }
+              }
+              if (overwriteTours.length > 0) {
+                const lines = overwriteTours
+                  .map((t) => `<li><strong>${t.label}:</strong> ${t.eventName}</li>`).join("");
+                const body =
+                    `<p>The following event${overwriteTours.length === 1 ? "" : "s"} already ${overwriteTours.length === 1 ? "has" : "have"} saved results in Firestore:</p>`
+                  + `<ul style="margin:0.4rem 0 0.6rem 1.2rem;padding:0">${lines}</ul>`
+                  + `<p>Overwrite ${overwriteTours.length === 1 ? "it" : "them"} with the scraped data?</p>`
+                  + `<p class="text-sm text-muted" style="margin-top:0.5rem">Use this when re-scraping after additional rounds complete. Skip if you've made manual corrections you want to preserve.</p>`;
+                const ok = await confirmModal({
+                  title: "Overwrite existing results?",
+                  bodyHtml: body,
+                  confirmLabel: "Overwrite",
+                  cancelLabel: "Cancel",
+                  confirmTone: "danger",
+                });
+                if (!ok) {
+                  wslLog("Save canceled by admin.", "warn");
+                  saveBtn.disabled = false;
+                  saveBtn.textContent = "Save Scraped Results to Firestore";
+                  return;
+                }
               }
 
               saveBtn.textContent = "Saving…";
@@ -1192,12 +1520,19 @@
                   tour,
                 }));
                 await saveResultsBatch(g.localEvent.id, batch);
-                await saveEvent(g.localEvent.id, { resultsEntered: true });
-                wslLog(`Saved ${batch.length} ${tour} results to "${g.localEvent.name}".`);
+                await saveEvent(g.localEvent.id, {
+                  resultsEntered: true,
+                  resultsSource: "wsl",
+                  roundsCompleted: g.roundsCompleted,
+                  totalRounds: g.totalRounds,
+                });
+                wslLog(`Saved ${batch.length} ${tour} results to "${g.localEvent.name}" (${g.roundsCompleted}/${g.totalRounds} rounds).`);
               }
               try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
-              toast("Scraped results saved. Reload the page to see updated event statuses.", "success");
+              toast("Scraped results saved.", "success");
               saveBtn.textContent = "Saved ✓";
+              // Offer the leaderboard recalc now that fresh results landed.
+              await promptUpdateLeaderboard();
             } catch (err) {
               wslLog(`Save failed: ${err.message}`, "error");
               toast(`Save failed: ${err.message}`, "error");
@@ -1306,10 +1641,15 @@
           }
           try {
             await saveResultsBatch(eventId, resultsArr);
-            await saveEvent(eventId, { resultsEntered: true });
+            // Manual entry has no round-completion info — leave any existing
+            // roundsCompleted/totalRounds (from a prior WSL scrape on this
+            // event) untouched. Just stamp the source.
+            await saveEvent(eventId, { resultsEntered: true, resultsSource: "manual" });
             try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
             events = await getEvents(SEASON);
             toast(`Saved ${resultsArr.length} results!`, "success");
+            // Offer the leaderboard recalc now that fresh results landed.
+            await promptUpdateLeaderboard();
           } catch (err) {
             toast("Error: " + err.message, "error");
           }
@@ -1330,121 +1670,6 @@
         } catch (err) {
           toast("Error clearing results: " + err.message, "error");
         }
-      });
-
-      document.getElementById("btn-calculate-scores")?.addEventListener("click", async () => {
-        const eventId = document.getElementById("scoring-event-select").value;
-        if (!eventId) { toast("Select an event first.", "error"); return; }
-
-        const output = document.getElementById("scoring-output");
-        output.innerHTML = `<div class="loading"><div class="spinner"></div><p>Calculating...</p></div>`;
-
-        const ev = events.find((e) => e.id === eventId);
-        const tour = ev?.tour || "mens";
-        const [results, teams] = await Promise.all([
-          getResults(eventId),
-          getTeamsForEvent(eventId)
-        ]);
-
-        if (results.length === 0) {
-          output.innerHTML = `<p class="text-muted">No results found for this event.</p>`;
-          return;
-        }
-
-        const scores = [];
-        for (const team of teams) {
-          const userDoc = await getUser(team.userId);
-          const score = scoreTeam(team, results, tour);
-          scores.push({
-            userId: team.userId,
-            name: userDoc?.teamName || userDoc?.displayName || team.userId,
-            ...score
-          });
-        }
-        scores.sort((a, b) => b.totalPoints - a.totalPoints);
-
-        output.innerHTML = `
-          <h4>Results for ${teams.length} team(s):</h4>
-          <table class="data-table">
-            <thead><tr><th>#</th><th>Team</th><th>Points</th><th>Alt Used</th></tr></thead>
-            <tbody>
-              ${scores.map((s, i) => `
-                <tr><td>${i + 1}</td><td>${s.name}</td><td><strong>${s.totalPoints}</strong></td><td>${s.alternateUsed ? "Yes" : "No"}</td></tr>
-              `).join("")}
-            </tbody>
-          </table>
-        `;
-      });
-
-      // ── UPDATE LEADERBOARD ──
-      document.getElementById("btn-update-leaderboard")?.addEventListener("click", async () => {
-        const output = document.getElementById("scoring-output");
-        output.innerHTML = `<div class="loading"><div class="spinner"></div><p>Updating leaderboard...</p></div>`;
-
-        try {
-          const completedEvents = events.filter((e) => e.resultsEntered || e.status === "completed");
-
-          async function calcAndSaveTour(tour) {
-            await clearLeaderboard(SEASON, tour); // wipe stale entries first
-            const tourEvents = completedEvents.filter((e) => (e.tour || "mens") === tour);
-            // Seed all registered users so everyone appears in standings (0 for missed events)
-            const userScores = {};
-            for (const u of users) {
-              userScores[u.id] = {
-                displayName: u.displayName || "",
-                teamName: u.teamName || u.displayName || "",
-                avatarUrl: u.avatarUrl || "",
-                eventScores: {}
-              };
-            }
-            for (const ev of tourEvents) {
-              const [results, teams] = await Promise.all([getResults(ev.id), getTeamsForEvent(ev.id)]);
-              for (const team of teams) {
-                const score = scoreTeam(team, results, tour);
-                userScores[team.userId].eventScores[ev.id] = score.totalPoints;
-              }
-            }
-            const entries = Object.entries(userScores).map(([userId, data]) => ({ userId, ...data }));
-            const standings = calculateSeasonStandings(entries);
-            await saveLeaderboardBatch(standings, SEASON, tour);
-            return standings;
-          }
-
-          const tourFilter = document.getElementById("leaderboard-tour-select")?.value || "both";
-          const toursToRun = tourFilter === "both" ? ["mens", "womens"] : [tourFilter];
-
-          const results = await Promise.all(toursToRun.map(calcAndSaveTour));
-          await touchLeaderboardVersion();
-
-          function standingsTable(standings) {
-            if (!standings.length) return `<p class="text-muted text-sm">No entries yet.</p>`;
-            return `<table class="data-table">
-              <thead><tr><th>#</th><th>Team</th><th>Best 9</th><th>Total</th><th>Events</th></tr></thead>
-              <tbody>${standings.map((s, i) => `
-                <tr><td>${i + 1}</td><td>${s.teamName}</td><td><strong>${s.bestNineTotal}</strong></td><td>${s.allEventsTotal}</td><td>${s.eventsPlayed}</td></tr>
-              `).join("")}</tbody>
-            </table>`;
-          }
-
-          const labels = { mens: "Men's CT", womens: "Women's CT" };
-          output.innerHTML = toursToRun.map((tour, i) => `
-            <h4 style="margin:${i > 0 ? "1rem" : "0"} 0 0.25rem">${labels[tour]} (${results[i].length} players)</h4>
-            ${standingsTable(results[i])}
-          `).join("");
-          toast("Leaderboard updated!", "success");
-        } catch (err) {
-          output.innerHTML = `<p class="text-muted">Error: ${err.message}</p>`;
-          toast("Failed to update leaderboard.", "error");
-        }
-      });
-
-      document.getElementById("btn-banner-on")?.addEventListener("click", async () => {
-        await saveSiteConfig({ showCountdown: true });
-        location.reload();
-      });
-      document.getElementById("btn-banner-off")?.addEventListener("click", async () => {
-        await saveSiteConfig({ showCountdown: false });
-        location.reload();
       });
 
       // ── SEED DATA ──
