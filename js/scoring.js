@@ -29,6 +29,17 @@ export function getPoints(finish, tour = "mens") {
 }
 
 /**
+ * Highest finish position that earns points for a given tour.
+ * Hides the (table.length - 1) detail of how the scoring arrays are indexed.
+ * @param {"mens"|"womens"} tour
+ * @returns {number}
+ */
+export function getMaxFinishPosition(tour = "mens") {
+  const table = tour === "womens" ? WOMEN_SCORING : MEN_SCORING;
+  return table.length - 1;
+}
+
+/**
  * Score a team for a single event
  * @param {Object} team - team doc with .surfers[] and .alternate
  * @param {Object[]} results - array of result docs for this event
