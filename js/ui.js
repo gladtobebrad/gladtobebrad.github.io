@@ -1,4 +1,4 @@
-import { getCurrentUser, getUserProfile, signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
+import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
 
 // ── Navigation ───────────────────────────────────────
 

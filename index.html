@@ -33,10 +33,10 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth, getCurrentUser, getUserProfile } from "./js/auth.js";
+    import { initAuth, onAuth } from "./js/auth.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub, getUserClubIds } from "./js/db.js";
     import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, formatSalary, formatDate, statusBadge, tradingBadge, renderTable } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, formatDate, statusBadge, tradingBadge } from "./js/ui.js";
 
     const SEASON = 2026;
     let activeTab = "homepage";

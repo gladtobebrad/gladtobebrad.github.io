@@ -22,9 +22,9 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAdmin, getCurrentUser } from "./js/auth.js";
+    import { initAuth, requireAdmin } from "./js/auth.js";
     import {
-      getSurfers, getAllSurfers, saveSurfer, deleteSurfer,
+      getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
@@ -34,7 +34,7 @@
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, getPoints, MEN_SCORING, WOMEN_SCORING, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatSalaryFull, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender } from "./js/wsl-scrape.js";
