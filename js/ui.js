@@ -54,34 +54,51 @@ export function resolveCountdownState({ mensEv, womensEv }) {
 // hit per ~60s window per browser tab so the banner stays near-real-time
 // without flooding WSL on every page nav. The wsl-scrape module is loaded
 // lazily so non-banner pages don't pay the cost.
+//
+// WSL outages are non-rare. We enforce a hard timeout (LIVE_STATUS_TIMEOUT_MS)
+// so callers never hang waiting on a dead network. On timeout or any other
+// failure, we return null AND cache the null with a short TTL so we don't
+// retry on every page navigation while WSL is down.
 const LIVE_STATUS_TTL_MS = 60_000;
+const LIVE_STATUS_FAIL_TTL_MS = 15_000;
+const LIVE_STATUS_TIMEOUT_MS = 4_000;
 const LIVE_STATUS_KEY = "wsl_live_status";
 
 export async function fetchLiveStatusCached(season) {
   try {
     const cached = sessionStorage.getItem(LIVE_STATUS_KEY);
     if (cached) {
-      const { data, fetchedAt, forSeason } = JSON.parse(cached);
-      if (forSeason === season && Date.now() - fetchedAt < LIVE_STATUS_TTL_MS) {
+      const { data, fetchedAt, forSeason, ttl } = JSON.parse(cached);
+      const ttlMs = ttl || LIVE_STATUS_TTL_MS;
+      if (forSeason === season && Date.now() - fetchedAt < ttlMs) {
         return data;
       }
     }
   } catch {}
+  let data = null;
+  let ttl = LIVE_STATUS_TTL_MS;
   try {
     const { fetchLiveEventStatus } = await import("./wsl-scrape.js");
-    const data = await fetchLiveEventStatus(season);
-    try {
-      sessionStorage.setItem(
-        LIVE_STATUS_KEY,
-        JSON.stringify({ data, fetchedAt: Date.now(), forSeason: season }),
-      );
-    } catch {}
-    return data;
+    data = await Promise.race([
+      fetchLiveEventStatus(season),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("WSL fetch timeout")), LIVE_STATUS_TIMEOUT_MS)
+      ),
+    ]);
   } catch {
-    // WSL fetch failed — return null so banner just doesn't render. Don't
-    // cache the failure: next call will retry.
-    return null;
+    // Network failure, timeout, or parser error — cache null with a short
+    // TTL so a transient outage doesn't retry-storm WSL on every nav, but
+    // the banner recovers on its own within ~15s of WSL coming back up.
+    data = null;
+    ttl = LIVE_STATUS_FAIL_TTL_MS;
   }
+  try {
+    sessionStorage.setItem(
+      LIVE_STATUS_KEY,
+      JSON.stringify({ data, fetchedAt: Date.now(), forSeason: season, ttl }),
+    );
+  } catch {}
+  return data;
 }
 
 /**

@@ -103,19 +103,19 @@
                 <div class="card__header">
                   <span class="card__title">Site Banners</span>
                 </div>
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.6rem">
-                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray);min-width:120px">Live Status</span>
-                  <div id="live-status-preview" style="flex:1;min-width:240px;text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
-                  <label class="toggle" id="toggle-live-status">
+                <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center;margin-bottom:0.6rem">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Live Status</span>
+                  <div id="live-status-preview" style="text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <label class="toggle" id="toggle-live-status" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
                     <span class="toggle__label">Hidden</span>
                   </label>
                 </div>
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray);min-width:120px">Countdown</span>
-                  <div id="countdown-preview" style="flex:1;min-width:240px;text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
-                  <label class="toggle" id="toggle-banner">
+                <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Countdown</span>
+                  <div id="countdown-preview" style="text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <label class="toggle" id="toggle-banner" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
                     <span class="toggle__label">Hidden</span>
@@ -526,6 +526,30 @@
       wireAdminEvents(container);
     }
 
+    // Apply a tri-state to a banner toggle: "available" (Shown/Hidden, clickable),
+    // "unavailable" (locked + greyed; preserves the user's saved preference for
+    // when content reappears), or "checking" (locked + greyed while a fetch is
+    // in flight). The saved checkbox value is preserved across states so the
+    // toggle restores correctly when content becomes eligible again.
+    function setBannerToggleState(toggleEl, { state, savedShown, reason }) {
+      const checkbox = toggleEl.querySelector("input");
+      const label = toggleEl.querySelector(".toggle__label");
+      checkbox.checked = savedShown;
+      if (state === "available") {
+        checkbox.disabled = false;
+        label.textContent = savedShown ? "Shown" : "Hidden";
+        toggleEl.style.opacity = "";
+        toggleEl.style.cursor = "";
+        toggleEl.removeAttribute("title");
+      } else {
+        checkbox.disabled = true;
+        label.textContent = state === "checking" ? "Checking…" : "Unavailable";
+        toggleEl.style.opacity = "0.5";
+        toggleEl.style.cursor = "not-allowed";
+        if (reason) toggleEl.title = reason;
+      }
+    }
+
     async function wireCountdownBanner() {
       const countdownPreview = document.getElementById("countdown-preview");
       const countdownToggle = document.getElementById("toggle-banner");
@@ -533,42 +557,38 @@
       const liveStatusToggle = document.getElementById("toggle-live-status");
       if (!countdownPreview || !countdownToggle || !liveStatusPreview || !liveStatusToggle) return;
 
-      // Fetch siteConfig + countdown inputs + live status in parallel.
-      // getCurrentEventForTour bypasses the events-list cache so trading
-      // toggled on another tab is reflected immediately.
+      // Phase 1: load only the fast/local inputs (Firestore). Anything that
+      // depends on WSL goes into Phase 2 below so a WSL outage cannot brick
+      // the toggles or the countdown preview.
       let siteConfig = {};
-      let mensEv = null, womensEv = null, liveStatus = null;
+      let mensEv = null, womensEv = null;
       try {
-        [siteConfig, mensEv, womensEv, liveStatus] = await Promise.all([
+        [siteConfig, mensEv, womensEv] = await Promise.all([
           getSiteConfig(),
           getCurrentEventForTour("mens", SEASON),
           getCurrentEventForTour("womens", SEASON),
-          fetchLiveStatusCached(SEASON),
         ]);
       } catch (err) {
         countdownPreview.textContent = "Could not load banner state.";
         return;
       }
 
-      // ── Live status row ──
+      // ── Live status row: preview placeholder + toggle in "Checking…" state ──
+      // The toggle starts locked because we don't yet know if WSL has an
+      // active event to display. Phase 2 below transitions it to either
+      // "available" (when WSL returns content) or "unavailable".
+      const liveSavedShown = siteConfig.showLiveStatus !== false;
+      liveStatusPreview.style.color = "var(--color-warm-gray)";
+      liveStatusPreview.removeAttribute("title");
+      liveStatusPreview.textContent = "Checking WSL…";
+      liveStatusPreview.style.display = "";
+      setBannerToggleState(liveStatusToggle, { state: "checking", savedShown: liveSavedShown });
+
       const liveCheckbox = liveStatusToggle.querySelector("input");
-      const liveLabel = liveStatusToggle.querySelector(".toggle__label");
-      const liveInitiallyShown = siteConfig.showLiveStatus !== false;
-      liveCheckbox.checked = liveInitiallyShown;
-      liveLabel.textContent = liveInitiallyShown ? "Shown" : "Hidden";
-      if (liveStatus) {
-        liveStatusPreview.style.color = "var(--color-charcoal)";
-        liveStatusPreview.title = `Source: WSL /events/${SEASON}/ct (cached ~60s)`;
-        renderLiveStatusBanner(liveStatusPreview, liveStatus);
-        liveStatusPreview.style.display = ""; // renderLiveStatusBanner hides on null
-      } else {
-        liveStatusPreview.style.color = "var(--color-warm-gray)";
-        liveStatusPreview.removeAttribute("title");
-        liveStatusPreview.style.display = "";
-        liveStatusPreview.textContent = "Nothing — WSL has no active event right now.";
-      }
       liveCheckbox.addEventListener("change", async () => {
+        // Native disabled prevents firing in "checking"/"unavailable" states.
         const shown = liveCheckbox.checked;
+        const liveLabel = liveStatusToggle.querySelector(".toggle__label");
         liveLabel.textContent = shown ? "Shown" : "Hidden";
         try {
           await saveSiteConfig({ showLiveStatus: shown });
@@ -580,27 +600,30 @@
         }
       });
 
-      // ── Countdown row ──
-      const cdCheckbox = countdownToggle.querySelector("input");
-      const cdLabel = countdownToggle.querySelector(".toggle__label");
-      const cdInitiallyShown = siteConfig.showCountdown !== false;
-      cdCheckbox.checked = cdInitiallyShown;
-      cdLabel.textContent = cdInitiallyShown ? "Shown" : "Hidden";
-
-      // Preview always shows what the banner WOULD display if enabled,
-      // independent of the toggle — so admin can sanity-check before flipping.
+      // ── Countdown row: preview + toggle ──
+      // Wired entirely from local data; never blocks on WSL.
+      const cdSavedShown = siteConfig.showCountdown !== false;
       const state = resolveCountdownState({ mensEv, womensEv });
       if (!state) {
         countdownPreview.textContent = "Nothing — no tour has open trading with a start date.";
         countdownPreview.style.color = "var(--color-warm-gray)";
         countdownPreview.removeAttribute("title");
+        setBannerToggleState(countdownToggle, {
+          state: "unavailable",
+          savedShown: cdSavedShown,
+          reason: "No tour has open trading with a start date.",
+        });
       } else {
         countdownPreview.style.color = "var(--color-charcoal)";
         countdownPreview.title = `Source: ${state.event.name} (${state.tour === "womens" ? "Women's" : "Men's"}) · deadline from ${state.deadlineSource}`;
         window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
+        setBannerToggleState(countdownToggle, { state: "available", savedShown: cdSavedShown });
       }
+
+      const cdCheckbox = countdownToggle.querySelector("input");
       cdCheckbox.addEventListener("change", async () => {
         const shown = cdCheckbox.checked;
+        const cdLabel = countdownToggle.querySelector(".toggle__label");
         cdLabel.textContent = shown ? "Shown" : "Hidden";
         try {
           await saveSiteConfig({ showCountdown: shown });
@@ -609,6 +632,40 @@
           toast("Error saving banner state: " + err.message, "error");
           cdCheckbox.checked = !shown;
           cdLabel.textContent = !shown ? "Shown" : "Hidden";
+        }
+      });
+
+      // Phase 2: fetch live status in the background. Resolves the toggle's
+      // state (available vs unavailable) once we know what WSL returned.
+      fetchLiveStatusCached(SEASON).then((liveStatus) => {
+        if (!document.body.contains(liveStatusPreview)) return;
+        if (liveStatus) {
+          liveStatusPreview.style.color = "var(--color-charcoal)";
+          liveStatusPreview.title = `Source: WSL /events/${SEASON}/ct (cached ~60s)`;
+          renderLiveStatusBanner(liveStatusPreview, liveStatus);
+          liveStatusPreview.style.display = "";
+          setBannerToggleState(liveStatusToggle, { state: "available", savedShown: liveSavedShown });
+        } else {
+          liveStatusPreview.style.color = "var(--color-warm-gray)";
+          liveStatusPreview.removeAttribute("title");
+          liveStatusPreview.style.display = "";
+          // Distinguish "WSL says no active event" from "WSL unreachable" by
+          // peeking at the cache's fail-TTL stamp.
+          let failed = false;
+          try {
+            const cached = JSON.parse(sessionStorage.getItem("wsl_live_status") || "null");
+            failed = cached && cached.data === null && cached.ttl < 30_000;
+          } catch {}
+          liveStatusPreview.textContent = failed
+            ? "WSL unreachable — banner will retry automatically."
+            : "Nothing — WSL has no active event right now.";
+          setBannerToggleState(liveStatusToggle, {
+            state: "unavailable",
+            savedShown: liveSavedShown,
+            reason: failed
+              ? "WSL is currently unreachable."
+              : "WSL has no active event right now.",
+          });
         }
       });
     }
@@ -733,10 +790,14 @@
       // Per-tour summary: count of events with results + the two most-recent
       // events (by eventNumber) labeled Last/Current update so admin can see
       // exactly what's being added.
+      // Wrap suffix in white-space:nowrap so phrases like "Round 1 of 6
+      // Complete" never split across lines mid-suffix.
       const roundSuffix = (ev) => {
-        if (ev.status === "completed") return " — Final";
+        if (ev.status === "completed") {
+          return ` <span style="white-space:nowrap">— Final</span>`;
+        }
         if (ev.roundsCompleted && ev.totalRounds) {
-          return ` — Round ${ev.roundsCompleted} of ${ev.totalRounds} Complete`;
+          return ` <span style="white-space:nowrap">— Round ${ev.roundsCompleted} of ${ev.totalRounds} Complete</span>`;
         }
         return "";
       };
@@ -763,9 +824,9 @@
           return `<div style="margin-bottom:0.6rem"><strong>${s.label}:</strong> <span class="text-sm text-muted">no events with results yet — will skip</span></div>`;
         }
         const lastLine = s.last
-          ? `<div class="text-sm text-muted" style="margin-left:1rem">Last update: ${s.last.name}${roundSuffix(s.last)}</div>`
-          : `<div class="text-sm text-muted" style="margin-left:1rem">Last update: —</div>`;
-        const currentLine = `<div class="text-sm text-muted" style="margin-left:1rem">Current update: ${s.current.name}${roundSuffix(s.current)}</div>`;
+          ? `<div class="text-sm text-muted">Last: ${s.last.name}${roundSuffix(s.last)}</div>`
+          : `<div class="text-sm text-muted">Last: —</div>`;
+        const currentLine = `<div class="text-sm text-muted">Now: ${s.current.name}${roundSuffix(s.current)}</div>`;
         return `<div style="margin-bottom:0.6rem">`
           + `<strong>${s.label}:</strong> ${s.count} event${s.count === 1 ? "" : "s"} with results`
           + lastLine + currentLine

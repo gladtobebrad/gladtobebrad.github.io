@@ -7,12 +7,27 @@
 
 const WSL_BASE = "https://www.worldsurfleague.com";
 const TOUR_CODE = { MCT: "mens", WCT: "womens" };
+const FETCH_TIMEOUT_MS = 15_000;
 
-async function fetchDoc(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
-  const html = await res.text();
-  return new DOMParser().parseFromString(html, "text/html");
+// Wraps `fetch` with an AbortController-based timeout so a hung WSL request
+// can't stall a scrape forever. On timeout, the underlying request is
+// aborted and the AbortError surfaces to the caller as a normal exception.
+async function fetchDoc(url, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
+    const html = await res.text();
+    return new DOMParser().parseFromString(html, "text/html");
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(`Timed out after ${timeoutMs}ms fetching ${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Parse the season schedule. The schedule URL shows ONE row per venue —
