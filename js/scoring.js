@@ -117,19 +117,3 @@ export function calculateSeasonStandings(entries) {
     return 0;
   });
 }
-
-/**
- * Tiebreaker between two teams for a specific event
- * Compare top-scoring surfer, then second-highest, etc.
- * @returns {number} negative if A wins, positive if B wins, 0 if still tied
- */
-export function breakTie(scoresA, scoresB) {
-  const a = [...scoresA].sort((x, y) => y - x);
-  const b = [...scoresB].sort((x, y) => y - x);
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    const diff = (b[i] || 0) - (a[i] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}

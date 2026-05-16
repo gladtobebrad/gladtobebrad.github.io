@@ -70,16 +70,3 @@ export function calculateRemaining(surfers, tour = "mens") {
 export function getTeamRules(tour = "mens") {
   return TEAM_RULES[tour] || TEAM_RULES.mens;
 }
-
-/**
- * Build a reverted team from the previous event snapshot
- * Restores previous roster with original purchase prices
- */
-export function buildRevertTeam(previousTeam) {
-  if (!previousTeam) return null;
-  return {
-    surfers: [...previousTeam.surfers],
-    alternate: previousTeam.alternate ? { ...previousTeam.alternate } : null,
-    totalSpent: previousTeam.totalSpent
-  };
-}

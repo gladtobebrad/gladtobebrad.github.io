@@ -33,11 +33,6 @@ export async function getAllSurfers() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export async function getSurfer(surferId) {
-  const snap = await getDoc(doc(db, "surfers", surferId));
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-}
-
 export async function saveSurfer(surferId, data) {
   await setDoc(doc(db, "surfers", surferId), data, { merge: true });
 }
@@ -68,14 +63,6 @@ export async function getEvent(eventId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-export async function getCurrentEvent(season = 2026) {
-  const events = await getEvents(season);
-  // Try "live" first, then "upcoming"
-  return events.find((e) => e.status === "live")
-    || events.find((e) => e.status === "upcoming")
-    || null;
-}
-
 export async function getCurrentEventForTour(tour, season = 2026) {
   const events = await getEvents(season);
   const tourEvents = events.filter((e) => (e.tour || "mens") === tour);
@@ -104,11 +91,6 @@ export async function deleteEvent(eventId) {
 export async function getResults(eventId) {
   const snap = await getDocs(query(collection(db, "results"), where("eventId", "==", eventId)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-export async function saveResult(eventId, surferId, data) {
-  const docId = `${eventId}_${surferId}`;
-  await setDoc(doc(db, "results", docId), { eventId, surferId, ...data }, { merge: true });
 }
 
 export async function saveResultsBatch(eventId, resultsArray) {
@@ -284,44 +266,10 @@ export async function getLeaderboard(season = 2026, tour = null) {
   return data;
 }
 
-export async function saveLeaderboardEntry(userId, season, tour, data) {
-  const docId = `${userId}_${season}_${tour}`;
-  await setDoc(doc(db, "leaderboard", docId), {
-    userId,
-    season,
-    tour,
-    ...data
-  });
-}
-
-// Write all leaderboard entries in a single batch (max 500 ops — fine for 100 users)
-export async function saveLeaderboardBatch(entries, season, tour) {
-  const batch = writeBatch(db);
-  for (const entry of entries) {
-    const docId = `${entry.userId}_${season}_${tour}`;
-    batch.set(doc(db, "leaderboard", docId), {
-      userId: entry.userId,
-      season,
-      tour,
-      displayName: entry.displayName,
-      teamName: entry.teamName,
-      eventScores: entry.eventScores,
-      bestNineTotal: entry.bestNineTotal,
-      allEventsTotal: entry.allEventsTotal,
-      eventsPlayed: entry.eventsPlayed,
-    });
-  }
-  await batch.commit();
-}
-
-export async function clearLeaderboard(season, tour) {
-  // Query only the docs we need to delete rather than fetching the whole collection
-  const snap = await getDocs(query(collection(db, "leaderboard"), where("season", "==", season), where("tour", "==", tour)));
-  if (snap.empty) return;
-  const batch = writeBatch(db);
-  snap.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
-}
+// Leaderboard writes go through admin.html's recalcLeaderboardForTour, which
+// builds a single atomic writeBatch (sets + orphan deletes) so the leaderboard
+// is never partially updated. There is intentionally no standalone clear or
+// batch-write export — see memory: feedback-scoring-integrity.
 
 // ── Player Directory (meta/players snapshot) ─────────
 
@@ -346,10 +294,6 @@ export async function getPlayerDirectory() {
 export async function getUser(userId) {
   const snap = await getDoc(doc(db, "users", userId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-}
-
-export async function createUser(userId, profile) {
-  await setDoc(doc(db, "users", userId), profile);
 }
 
 export async function updateUser(userId, data) {

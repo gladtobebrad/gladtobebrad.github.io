@@ -528,26 +528,3 @@ export function showAuthGate(container) {
 
   render();
 }
-
-// ── Generic Table Renderer ───────────────────────────
-
-/**
- * Render a simple HTML table
- * @param {string[]} headers
- * @param {string[][]} rows - each row is an array of cell HTML
- * @returns {string} HTML string
- */
-export function renderTable(headers, rows) {
-  return `
-    <table class="data-table">
-      <thead>
-        <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>
-      </thead>
-      <tbody>
-        ${rows.map((row) =>
-          `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`
-        ).join("")}
-      </tbody>
-    </table>
-  `;
-}
