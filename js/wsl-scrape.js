@@ -35,6 +35,12 @@ async function fetchDoc(url, timeoutMs = FETCH_TIMEOUT_MS) {
 // it solely to pick the target venue (by status). Per-gender statEventIds
 // are then discovered via discoverGenders() against the event landing page.
 //
+// During active competition days, WSL replaces the canonical event link on
+// the live row with an "It's On" post URL (e.g. /posts/554157/its-on-day-2-…),
+// so the regular regex misses it and the row drops out of our results. When
+// that happens we follow the post URL once to recover the canonical
+// /events/{year}/ct/{wslEventId}/{slug} URL.
+//
 // Returns: [{ statEventId, wslEventId, slug, name, primaryTour, status, eventNumber }]
 export async function fetchSchedule(season = 2026, log = () => {}) {
   log(`Fetching WSL ${season} CT schedule…`);
@@ -51,10 +57,28 @@ export async function fetchSchedule(season = 2026, log = () => {}) {
     const anchor = row.querySelector("a.event-schedule-details__event-name");
     if (!anchor) continue;
     const href = anchor.getAttribute("href") || "";
+    let wslEventId = null;
+    let slug = null;
     const hrefM = href.match(/\/events\/\d+\/ct\/(\d+)\/([a-z0-9-]+)/);
-    if (!hrefM) continue;
-    const wslEventId = parseInt(hrefM[1], 10);
-    const slug = hrefM[2];
+    if (hrefM) {
+      wslEventId = parseInt(hrefM[1], 10);
+      slug = hrefM[2];
+    } else if (/\/posts\//.test(href)) {
+      // Live event: link points to an "It's On" announcement post. Fetch the
+      // post page and extract the first canonical /events/{year}/ct/{N}/{slug}
+      // anchor — the post's own body links back to the event it announces.
+      log(`  Live event row — resolving canonical URL via ${href.replace(WSL_BASE, "")}…`);
+      try {
+        const postDoc = await fetchDoc(href);
+        for (const a of postDoc.querySelectorAll('a[href*="/events/"]')) {
+          const m2 = (a.getAttribute("href") || "").match(/\/events\/\d+\/ct\/(\d+)\/([a-z0-9-]+)/);
+          if (m2) { wslEventId = parseInt(m2[1], 10); slug = m2[2]; break; }
+        }
+      } catch (err) {
+        log(`    failed to resolve live event URL: ${err.message}`, "warn");
+      }
+    }
+    if (wslEventId == null || !slug) continue;
 
     // Strip the sponsor span out of the anchor; the remaining text is the name.
     const clone = anchor.cloneNode(true);
