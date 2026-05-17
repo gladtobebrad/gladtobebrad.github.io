@@ -517,6 +517,21 @@ img { max-width: 100%; }
   text-overflow: ellipsis;
 }
 
+/* Wrap-variant: lets the name break to a 2nd line instead of truncating.
+   Used by the Dashboard schedule so long event names like
+   "Western Australia Margaret River Pro" stay fully readable on mobile.
+   Capped at 2 lines as a safety net against future absurdly long names. */
+.surfer-row--wrap .surfer-row__name {
+  white-space: normal;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
 .surfer-row__country {
   font-size: 0.8rem;
   color: var(--color-warm-brown);
@@ -1184,6 +1199,13 @@ img { max-width: 100%; }
   gap: 1.5rem;
   align-items: start;
 }
+/* Grid children default to min-width:auto, which refuses to shrink below
+   their intrinsic content width. A single long event name like
+   "Western Australia Margaret River Pro" in the schedule was forcing the
+   right track — and therefore the whole grid — wider than the viewport on
+   mobile. Allowing the tracks to shrink lets .surfer-row__name's existing
+   text-overflow:ellipsis actually engage. */
+.dash-grid-2 > * { min-width: 0; }
 .dash-grid-2--stretch { align-items: stretch; }
 
 /* Tall (2-col) is the default; wide variant hidden until snap. */

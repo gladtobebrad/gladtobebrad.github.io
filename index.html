@@ -341,7 +341,7 @@
           ? `<p class="text-muted">No events scheduled yet.</p>`
           : `<div class="surfer-list">
               ${scheduleEvents.map(e => `
-                <div class="surfer-row">
+                <div class="surfer-row surfer-row--wrap">
                   <span class="surfer-row__rank">${e.eventNumber}</span>
                   <span class="surfer-row__name">
                     ${e.status !== "upcoming" ? `<a href="event.html?id=${e.id}" style="color:inherit;text-decoration:none">${e.name}</a>` : e.name}
