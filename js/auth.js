@@ -33,12 +33,18 @@ export async function signIn() {
     }
   } catch (err) {
     if (err.code === "auth/popup-blocked") {
-      // Show inline message rather than falling back to redirect
-      const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
-      const msg = document.createElement("p");
-      msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
-      msg.textContent = "Pop-up was blocked. Please allow pop-ups for this site, then try again — or use email sign-in below.";
-      if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
+      // Firebase raises popup-blocked spuriously on iOS Safari, in-app
+      // webviews, and storage-partitioned browsers even when the popup is
+      // actually open and auth completes a few seconds later. Delay the
+      // error so we can suppress it if onAuthStateChanged fires first.
+      setTimeout(() => {
+        if (currentUser) return;
+        const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
+        const msg = document.createElement("p");
+        msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
+        msg.textContent = "Pop-up was blocked. Please allow pop-ups for this site, then try again — or use email sign-in below.";
+        if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
+      }, 3000);
     } else if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/popup-cancelled-by-user") {
       console.error("Sign-in error:", err);
     }
