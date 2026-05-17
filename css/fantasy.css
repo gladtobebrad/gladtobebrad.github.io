@@ -34,7 +34,10 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.05);
 
   --transition: 250ms ease;
-  --max-width: 1200px;
+  /* 984 = 920 (content panes) + 2 × 32 (app-main horizontal padding).
+     This means app-main's content area is exactly 920px, matching the
+     team panes' natural width, so everything aligns to the same column. */
+  --max-width: 984px;
 }
 
 html {
@@ -85,7 +88,9 @@ img { max-width: 100%; }
 }
 
 .nav-inner {
-  max-width: var(--max-width);
+  /* Pinned to 920px (not --max-width) so the right edge aligns exactly
+     with the team panes / dashboard content right edge. */
+  max-width: 920px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -141,6 +146,60 @@ img { max-width: 100%; }
   font-size: 0.85rem;
   color: var(--color-warm-brown);
 }
+
+.nav-user-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.nav-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+.nav-user-btn:hover {
+  background: var(--color-cream);
+  border-color: var(--color-beige);
+}
+.nav-user-caret {
+  font-size: 0.65rem;
+  color: var(--color-warm-brown);
+  margin-left: 0.1rem;
+}
+.nav-user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 160px;
+  background: var(--color-warm-white);
+  border: 1px solid var(--color-beige);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  padding: 0.35rem 0;
+  display: none;
+}
+.nav-user-dropdown.open { display: block; }
+.nav-user-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: var(--color-charcoal);
+}
+.nav-user-dropdown button:hover { background: var(--color-cream); }
 
 .nav-admin-link {
   font-size: 0.85rem;
@@ -596,19 +655,6 @@ img { max-width: 100%; }
   max-width: 500px;
   margin-left: auto;
   margin-right: auto;
-}
-
-/* ── Locked Banner ─────────────────────────────────── */
-
-.locked-banner {
-  background: #fde8e4;
-  color: #c0392b;
-  text-align: center;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
 }
 
 /* ── Dashboard Sections ───────────────────────────── */
@@ -1140,9 +1186,274 @@ img { max-width: 100%; }
 }
 .dash-grid-2--stretch { align-items: stretch; }
 
-@media (max-width: 768px) {
+/* Tall (2-col) is the default; wide variant hidden until snap. */
+.league-chart-wide { display: none; }
+
+/* Snap to single column at the same breakpoint where team-row wraps,
+   so the whole dashboard goes mobile-friendly together. Post-snap, the
+   chart switches to the flat-aspect wide variant which fills the full
+   pane width with rendered-at-scale fonts (mirroring the clubhouse chart). */
+@media (max-width: 1000px) {
   .dash-grid-2 { grid-template-columns: 1fr; }
+  .league-chart-tall { display: none; }
+  .league-chart-wide { display: block; }
+}
+@media (max-width: 768px) {
   .card { padding: 1rem; }
+}
+
+/* ── Dashboard header + subtitle ───────────────────────────── */
+.dash-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+
+/* No-op now that --max-width handles content sizing; kept as a hook for
+   future per-section width overrides. */
+.dash-content-cap {}
+.dash-title { min-width: 0; }
+.dash-subtitle {
+  font-family: var(--font-heading);
+  font-style: italic;
+  color: var(--color-warm-brown);
+  font-size: 0.95rem;
+  margin-top: 0.2rem;
+}
+@media (max-width: 600px) {
+  .dash-subtitle { font-size: 0.8rem; }
+}
+
+/* ── Single-row team display (dashboard) ───────────────────── */
+/* Default: single nowrap row, left-aligned. App-main's content area is
+   exactly 920px (via --max-width: 984 minus padding), so team-card
+   naturally fills that without needing its own max-width.
+   Below 1000px viewport: hard switch to 4×2 wrap layout. */
+.team-card {}
+.team-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.6rem 0.4rem;
+  margin-top: 0.75rem;
+  width: 100%;
+}
+.team-row__surfer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 90px;
+  min-width: 0;
+}
+.team-row__photo,
+.team-row__photo--empty {
+  width: 90px;
+  height: 90px;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: top center;
+  border: 1px solid var(--color-beige);
+  background: var(--color-cream);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  display: block;
+}
+.team-row__photo--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--color-warm-brown);
+  font-size: 1.1rem;
+}
+.team-row__photo--alt {
+  border-style: dashed;
+  border-color: var(--color-warm-gray);
+  opacity: 0.85;
+}
+.team-row__name {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  line-height: 1.15;
+  color: var(--color-warm-black);
+  gap: 0.1rem;
+}
+.team-row__firstname,
+.team-row__lastname {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  color: var(--color-warm-black);
+}
+/* Stance shown below the name in the editable Your Roster strip —
+   matches the format of available-card stance (smaller, non-bold).
+   margin-top is intentionally small so stance tucks tight under name,
+   mirroring the spacing inside .available-card__body. */
+.team-row__stance {
+  font-size: 0.62rem;
+  font-weight: 400;
+  color: var(--color-warm-brown);
+  line-height: 1.1;
+  margin-top: 0.05rem;
+}
+.team-row__alt-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-warm-gray);
+  text-transform: uppercase;
+  margin-top: 0.1rem;
+}
+.team-row__alt-divider {
+  flex: 0 0 1px;
+  align-self: stretch;
+  background: var(--color-beige);
+  margin: 0 0.25rem;
+  min-height: 2.5rem;
+}
+
+
+/* Price + delta annotations (used in the editable Your Roster strip on
+   team.html). Sit below the name label inside .team-row__surfer. */
+.team-row__price {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin-top: 0.5rem;
+}
+.team-row__delta {
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  margin-top: 0.2rem;
+}
+.team-row__delta--up { color: #2e7d32; background: rgba(46, 125, 50, 0.1); }
+.team-row__delta--down { color: #c0392b; background: rgba(192, 57, 43, 0.1); }
+
+/* Small × button overlay on each editable roster tile. */
+.team-row__drop-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.team-row__drop-btn:hover { background: #c0392b; color: #fff; }
+
+/* Editable variant: tiles get the same card-style background + border as
+   the .available-card so the visual treatment is consistent between
+   "your roster" and "available surfers". All tiles share a fixed
+   min-height matching the tallest possible athlete box (photo + first +
+   last + stance + price + delta) PLUS a small bottom buffer, so empty
+   placeholders, filled tiles with/without delta, and the dashed drop
+   indicator all occupy the same rectangle and the delta row never sits
+   flush against the tile's bottom edge.
+   No overflow:hidden — the ::before pseudo for drag-feedback needs to
+   render outside the tile bounds. */
+.team-row--editable .team-row__surfer {
+  position: relative;
+  /* A touch darker than warm-white (a midpoint between --color-cream
+     and --color-beige) so filled tiles read as distinct from the
+     warm-white empty placeholders below, without going as dark as the
+     beige border. */
+  background: #F0EBE4;
+  border: 1px solid var(--color-beige);
+  border-radius: var(--radius-md);
+  min-height: 190px;
+  padding-bottom: 0.35rem;
+  /* Disable the default flex-gap so each row's spacing is controlled
+     explicitly via margin-top — gives us tight available-pane-style
+     spacing between name → stance → price, with deliberate gaps below
+     the photo and a small buffer above delta. */
+  gap: 0;
+}
+/* Empty roster slots stay warm-white so they're visually obvious as
+   open drop targets against the slightly-darker filled tiles. */
+.team-row--editable .team-row__surfer--empty {
+  background: var(--color-warm-white);
+}
+.team-row--editable .team-row__name {
+  margin-top: 0.3rem;
+}
+.team-row--editable .team-row__surfer[draggable] { cursor: grab; }
+.team-row--editable .team-row__surfer[draggable]:active { cursor: grabbing; }
+/* Photo fills the tile's content width (auto-shrinks for the 1px border
+   on each side), top-rounds to match the tile corners, and drops its
+   own outer border (the tile container holds the border now). */
+.team-row--editable .team-row__photo,
+.team-row--editable .team-row__photo--empty {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: none;
+  box-shadow: none;
+  border-bottom: 1px solid var(--color-beige);
+}
+
+/* Drag-feedback classes for reorder/drop on the editable strip.
+   The dashed indicator is a rounded ::before pseudo-element positioned
+   ~3px outside the tile, so it wraps the full athlete box (photo + name
+   + price + delta) cleanly with a small buffer and rounded corners. */
+.team-row__surfer--dragging { opacity: 0.4; }
+.team-row__surfer--drag-over::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 2px dashed var(--color-sage);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+.team-row__surfer--drag-over {
+  background: rgba(156, 168, 152, 0.1);
+  border-radius: 8px;
+}
+
+/* Hard switch to 4×2 wrap layout once the single row can no longer fit.
+   Men's row needs ~870px content width; with 24px card padding × 2 +
+   32px app-main padding × 2 = 112px overhead, single row no longer
+   fits below ~982px viewport. Set 1000px for safety margin (incl. the
+   ALT tile + divider). */
+@media (max-width: 1000px) {
+  .team-row {
+    flex-wrap: wrap;
+    gap: 0.6rem 0.5rem;
+  }
+  .team-row__surfer {
+    flex: 0 0 calc((100% - 1.5rem) / 4);
+  }
+  .team-row__photo,
+  .team-row__photo--empty {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+  .team-row__alt-divider { display: none; }
 }
 
 /* ── Profile widget ─────────────────────────────────────────── */

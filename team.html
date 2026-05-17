@@ -15,22 +15,11 @@
       border: 2px solid #3a6b1f;
       background: #d6ebca;
     }
+    /* Unaffordable surfers in the Available pane just fade out — clearer
+       affordance than tinting the tile color, which previously got
+       confused with regular tile background styling. */
     .surfer-row--unaffordable {
-      position: relative;
-    }
-    .surfer-row--unaffordable::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: rgba(210, 205, 200, 0.55);
-      z-index: 0;
-      pointer-events: none;
-    }
-    .surfer-row--unaffordable .surfer-row__info {
-      opacity: 0.35;
-    }
-    .surfer-row--unaffordable .surfer-row__action {
-      opacity: 0.75;
+      opacity: 0.45;
     }
     .btn--unaffordable {
       background: none;
@@ -39,29 +28,90 @@
       cursor: default;
       font-weight: 700;
     }
-    .roster-slot--empty {
-      height: 52px;
-      border: 2px dashed #d5d0ca;
-      border-radius: 6px;
-      background: #f5f3f0;
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
-    }
-    /* Side-by-side layout */
-    .team-layout {
-      display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 1rem;
-      align-items: start;
-    }
-    /* Single-column roster list */
-    .roster-grid {
+    /* Stacked layout: Your Roster on top, Available Surfers below.
+       Each section is full pane width. Replaces the prior side-by-side. */
+    .team-stack {
       display: flex;
       flex-direction: column;
-      gap: 0.3rem;
+      gap: 0.75rem;
     }
-    /* Available pool: 4 columns in the right panel */
+    .team-stack .card { padding: 1.1rem 1.25rem; }
+    /* Available pool: 9-column grid at desktop (so ~36 surfers fit in 4 rows).
+       Steps down to fewer columns at narrower widths. */
     #available-list.surfer-list--grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(9, 1fr);
+      gap: 0.4rem;
+    }
+    @media (max-width: 900px) {
+      #available-list.surfer-list--grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+    @media (max-width: 600px) {
+      #available-list.surfer-list--grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    @media (max-width: 420px) {
+      #available-list.surfer-list--grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    /* At 9-col density, available-card needs tighter padding/font.
+       Photos are 1:1 square (matches the team strip aesthetic). */
+    .team-stack .available-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .team-stack .available-card__photo-wrap {
+      width: 100%;
+      height: auto;
+      align-self: auto;
+    }
+    .team-stack .available-card__photo,
+    .team-stack .available-card__photo--empty {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      object-position: top center;
+    }
+    .team-stack .available-card__body {
+      padding: 0.25rem 0.35rem 0.3rem;
+      text-align: center;
+      gap: 0.05rem;
+    }
+    .team-stack .available-card__name {
+      align-items: center;
+      gap: 0;
+      line-height: 1.1;
+    }
+    /* Uniform bold first/last names at the same size. */
+    .team-stack .available-card__firstname,
+    .team-stack .available-card__lastname {
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    /* Stance: smaller, non-bold, sits between name and price to give the
+       tile some visual texture without taking much vertical room. */
+    .team-stack .available-card__stance {
+      display: block;
+      font-size: 0.62rem;
+      font-weight: 400;
+      color: var(--color-warm-brown);
+      line-height: 1.1;
+      margin-top: 0.05rem;
+    }
+    .team-stack .available-card__footer {
+      margin-top: 0.1rem;
+    }
+    .team-stack .available-card__price {
+      font-size: 0.75rem;
+      font-weight: 600;
     }
     /* Photo-flush card: photo spans full height, buttons appear on hover over photo */
     .available-card {
@@ -164,10 +214,6 @@
       font-weight: 600;
       color: var(--color-charcoal);
     }
-    @media (max-width: 900px) {
-      .team-layout { grid-template-columns: 1fr; }
-      .roster-slot--empty { height: 88px; }
-    }
   </style>
 </head>
 <body>
@@ -182,20 +228,206 @@
 
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
-    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh } from "./js/db.js";
+    import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules } from "./js/team.js";
-    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
+    import { scoreTeam } from "./js/scoring.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
 
     // Working state
     let activeTour = new URLSearchParams(window.location.search).get("tour") || "mens";
-    let roster = [];       // { surferId, purchasePrice }
+    // Sparse roster: fixed-length array of size = rosterSize. Each slot is
+    // either { surferId, purchasePrice } or null. This lets the user leave
+    // intentional gaps in the lineup while editing. On save we compact to a
+    // dense array (existing storage format).
+    let roster = [];
     let alternate = null;  // { surferId, purchasePrice }
     let allSurfers = {};   // id → surfer doc
     let currentEvent = null;
     let existingTeam = null;
     let tradingOpen = true;
+    let priorRosters = []; // [{ event, team, score|null }] for this season, excluding currentEvent
+
+    // Sparse <-> compact roster helpers. padToSparseRoster() is shared
+    // with the Dashboard and prior-rosters renderer (in ui.js) so all
+    // three views inflate saved teams identically.
+    const padToSparse = (saved, size) => padToSparseRoster(saved, size);
+    // Compact + annotate each surfer with its sparse position so gaps
+    // survive a save/load round trip through Firestore.
+    function compactRosterWithPositions(sparse) {
+      const out = [];
+      (sparse || []).forEach((s, i) => {
+        if (!s) return;
+        out.push({ ...s, team_position: i });
+      });
+      return out;
+    }
+    const compactRoster = (sparse) => (sparse || []).filter(Boolean);
+    const firstEmptySlot = (sparse) => sparse.findIndex((s) => s === null);
+    const findSlotByName = (sparse, surferId) => sparse.findIndex((s) => s && s.surferId === surferId);
+
+    // ── Name-split helpers (mirror dashboard) ───────────
+    const splitName = (fullName) => {
+      const parts = (fullName || "").trim().split(/\s+/);
+      if (parts.length === 0) return { first: "", last: "" };
+      if (parts.length === 1) return { first: "", last: parts[0] };
+      const last = parts.pop();
+      return { first: parts.join(" "), last };
+    };
+    const nameLabelHtml = (fullName) => {
+      const { first, last } = splitName(fullName);
+      return `<span class="team-row__name">
+        ${first ? `<span class="team-row__firstname">${first}</span>` : ""}
+        <span class="team-row__lastname">${last || fullName}</span>
+      </span>`;
+    };
+
+    // Render a saved team as a single-row strip of surfer tiles + alternate.
+    // Reuses the dashboard's .team-row CSS for consistency. Position-aware
+    // so sparse-saved teams (with gaps) render at their stored positions.
+    function renderRosterStrip(team, tour) {
+      const rosterSize = tour === "womens" ? 5 : 8;
+      if (!team) return `<p class="text-muted text-sm">No team submitted.</p>`;
+      const positional = padToSparse(team.surfers, rosterSize);
+      const tiles = [];
+      for (let i = 0; i < rosterSize; i++) {
+        const s = positional[i];
+        if (s) {
+          const data = allSurfers[s.surferId] || {};
+          const name = data.name || s.surferId.replace(/-/g, " ");
+          const photo = data.photoUrl
+            ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+            : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
+          tiles.push(`<div class="team-row__surfer">${photo}${nameLabelHtml(name)}</div>`);
+        } else {
+          tiles.push(`<div class="team-row__surfer"><div class="team-row__photo team-row__photo--empty" style="opacity:0.4"></div><span class="team-row__name" style="opacity:0">—</span></div>`);
+        }
+      }
+      let altTile;
+      if (team.alternate) {
+        const d = allSurfers[team.alternate.surferId] || {};
+        const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
+        const p = d.photoUrl
+          ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+          : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
+        altTile = `<div class="team-row__surfer">${p}${nameLabelHtml(altName)}<span class="team-row__alt-label">ALT</span></div>`;
+      } else {
+        altTile = `<div class="team-row__surfer"><div class="team-row__photo team-row__photo--empty team-row__photo--alt" style="opacity:0.4"></div><span class="team-row__name" style="opacity:0">—</span><span class="team-row__alt-label">ALT</span></div>`;
+      }
+      return `<div class="team-row">${tiles.join("")}<div class="team-row__alt-divider" aria-hidden="true"></div>${altTile}</div>`;
+    }
+
+    // Editable variant of the roster strip used for Your Roster. The roster
+    // is sparse (length = rosterSize, with nulls for empty slots); each slot
+    // is a discrete drop target via data-roster-index, so drag-and-drop can
+    // place a surfer at any specific position (including leaving gaps).
+    function renderEditableRosterStrip(roster, alternate, rosterSize, tour) {
+      const tiles = [];
+      for (let i = 0; i < rosterSize; i++) {
+        const s = roster[i];
+        if (s) {
+          const data = allSurfers[s.surferId] || {};
+          const name = data.name || s.surferId.replace(/-/g, " ");
+          const marketVal = data.value || s.purchasePrice;
+          const delta = marketVal - s.purchasePrice;
+          const photo = data.photoUrl
+            ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+            : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
+          const dropBtn = tradingOpen
+            ? `<button class="team-row__drop-btn" data-drop="${s.surferId}" aria-label="Drop ${name}">×</button>`
+            : "";
+          const stanceHtml = data.stance
+            ? `<span class="team-row__stance">${data.stance === "goofy" ? "Goofy" : "Regular"}</span>`
+            : "";
+          const deltaHtml = delta !== 0
+            ? `<span class="team-row__delta team-row__delta--${delta > 0 ? "up" : "down"}">${delta > 0 ? "▲" : "▼"} ${formatSalary(Math.abs(delta))}</span>`
+            : "";
+          tiles.push(`
+            <div class="team-row__surfer" data-roster-index="${i}" ${tradingOpen ? `draggable="true"` : ""}>
+              ${photo}${dropBtn}
+              ${nameLabelHtml(name)}
+              ${stanceHtml}
+              <span class="team-row__price">${formatSalary(s.purchasePrice)}</span>
+              ${deltaHtml}
+            </div>`);
+        } else {
+          // Empty slot — also has data-roster-index so drag-drop can target it.
+          tiles.push(`
+            <div class="team-row__surfer team-row__surfer--empty" data-roster-index="${i}">
+              <div class="team-row__photo team-row__photo--empty" style="opacity:0.4"></div>
+              <span class="team-row__name" style="opacity:0">—</span>
+            </div>`);
+        }
+      }
+
+      let altTile;
+      if (alternate) {
+        const d = allSurfers[alternate.surferId] || {};
+        const altName = d.name || alternate.surferId.replace(/-/g, " ");
+        const marketVal = d.value || alternate.purchasePrice;
+        const delta = marketVal - alternate.purchasePrice;
+        const photo = d.photoUrl
+          ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+          : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
+        const dropBtn = tradingOpen
+          ? `<button class="team-row__drop-btn" data-drop-alt aria-label="Remove alternate">×</button>`
+          : "";
+        const stanceHtml = d.stance
+          ? `<span class="team-row__stance">${d.stance === "goofy" ? "Goofy" : "Regular"}</span>`
+          : "";
+        const deltaHtml = delta !== 0
+          ? `<span class="team-row__delta team-row__delta--${delta > 0 ? "up" : "down"}">${delta > 0 ? "▲" : "▼"} ${formatSalary(Math.abs(delta))}</span>`
+          : "";
+        altTile = `
+          <div class="team-row__surfer" id="alternate-slot" ${tradingOpen ? `draggable="true" data-alt-drag="1"` : ""}>
+            ${photo}${dropBtn}
+            ${nameLabelHtml(altName)}
+            ${stanceHtml}
+            <span class="team-row__price">${formatSalary(alternate.purchasePrice)}</span>
+            ${deltaHtml}
+            <span class="team-row__alt-label">ALT</span>
+          </div>`;
+      } else {
+        altTile = `
+          <div class="team-row__surfer team-row__surfer--empty" id="alternate-slot">
+            <div class="team-row__photo team-row__photo--empty team-row__photo--alt" style="opacity:0.4"></div>
+            <span class="team-row__name" style="opacity:0">—</span>
+            <span class="team-row__alt-label">ALT</span>
+          </div>`;
+      }
+
+      return `
+        <div class="team-row team-row--editable" id="roster-list">
+          ${tiles.join("")}
+          <div class="team-row__alt-divider" aria-hidden="true"></div>
+          ${altTile}
+        </div>`;
+    }
+
+    // Load all of this user's saved teams for the active tour this season,
+    // excluding the current event (which is shown above). Returns [] if none.
+    async function loadPriorRosters(userId) {
+      const tour = activeTour;
+      const currentId = currentEvent?.id;
+      const allEvents = await getEvents(SEASON);
+      const tourEvents = allEvents
+        .filter((e) => (e.tour || "mens") === tour && e.id !== currentId)
+        .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
+      const rows = await Promise.all(tourEvents.map(async (event) => {
+        const team = await getTeam(userId, event.id);
+        if (!team) return null;
+        let score = null;
+        if (event.status === "completed") {
+          try {
+            const results = await getResults(event.id);
+            score = scoreTeam(team, results, tour);
+          } catch { /* score remains null */ }
+        }
+        return { event, team, score };
+      }));
+      return rows.filter(Boolean);
+    }
 
     initAuth();
     renderHeader();
@@ -220,6 +452,7 @@
         // Reset working state when switching tours
         roster = [];
         alternate = null;
+        priorRosters = [];
 
         if (!currentEvent) {
           renderTourTabs(container);
@@ -236,11 +469,19 @@
         }
         tradingOpen = currentEvent.tradingOpen !== false;
 
-        // Load existing team
-        existingTeam = await getTeam(user.uid, currentEvent.id);
+        // Load existing team + prior rosters in parallel
+        const [existing, priors] = await Promise.all([
+          getTeam(user.uid, currentEvent.id),
+          loadPriorRosters(user.uid),
+        ]);
+        existingTeam = existing;
+        priorRosters = priors;
+        const rules = getTeamRules(currentEvent.tour || "mens");
         if (existingTeam) {
-          roster = [...existingTeam.surfers];
+          roster = padToSparse(existingTeam.surfers, rules.rosterSize);
           alternate = existingTeam.alternate ? { ...existingTeam.alternate } : null;
+        } else {
+          roster = padToSparse([], rules.rosterSize);
         }
 
         renderTeamPage(container, user);
@@ -257,15 +498,22 @@
 
     function renderTeamPage(container, user) {
       const rules = getTeamRules(currentEvent.tour || "mens");
-      const remaining = calculateRemaining(roster, currentEvent.tour || "mens");
+      // Ensure roster is sparse with the right size (defensive — handles
+      // initial render before any drag-drop edits and across tour switches).
+      if (!Array.isArray(roster) || roster.length !== rules.rosterSize) {
+        roster = padToSparse(compactRoster(roster), rules.rosterSize);
+      }
+      const compact = compactRoster(roster);
+      const remaining = calculateRemaining(compact, currentEvent.tour || "mens");
       const spent = rules.salaryCap - remaining;
       const pct = Math.min((spent / rules.salaryCap) * 100, 100);
       const overCap = remaining < 0;
       const altCap = (currentEvent.tour || "mens") === "womens" ? 5_000_000 : 4_000_000;
       const altCapLabel = (currentEvent.tour || "mens") === "womens" ? "$5M" : "$4M";
+      const tour = currentEvent.tour || "mens";
 
-      // Surfers on roster (by id)
-      const onRoster = new Set(roster.map((s) => s.surferId));
+      // Surfers on roster (by id) — only the filled slots
+      const onRoster = new Set(compact.map((s) => s.surferId));
       if (alternate) onRoster.add(alternate.surferId);
 
       // All surfers for this tour — selected ones shown greyed out
@@ -285,80 +533,13 @@
           <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
         </div>
 
-        ${!tradingOpen ? `<div class="locked-banner mb-2">Trading is locked for this event. You cannot make changes until the event is completed.</div>` : ""}
+        <!-- Stacked layout (locked → status/trading badges above are the sole indicator) -->
+        <div class="team-stack">
 
-        <!-- Side-by-side layout -->
-        <div class="team-layout">
-
-          <!-- LEFT: Roster -->
-          <div class="card team-layout__roster">
-            <div class="card__header">
-              <span class="card__title">Your Roster (${roster.length}/${rules.rosterSize})</span>
-            </div>
-            <div class="roster-grid" id="roster-list">
-              ${roster.map((s, i) => {
-                const data = allSurfers[s.surferId] || {};
-                const photo = data.photoUrl
-                  ? `<img src="${data.photoUrl}" class="surfer-photo--sm" alt="">`
-                  : `<div class="surfer-photo--sm surfer-photo--empty">${(data.name || "?")[0]}</div>`;
-                const marketVal = data.value || s.purchasePrice;
-                const delta = marketVal - s.purchasePrice;
-                const deltaHtml = delta !== 0
-                  ? `<span class="price-delta ${delta > 0 ? "price-delta--up" : "price-delta--down"}">${delta > 0 ? "▲" : "▼"} ${formatSalary(Math.abs(delta))}</span>`
-                  : "";
-                return `<div class="surfer-row" ${tradingOpen ? `draggable="true" data-roster-index="${i}" style="cursor:grab"` : ""}>
-                  ${photo}
-                  <div class="surfer-row__info">
-                    <span class="surfer-row__name">${data.name || s.surferId.replace(/-/g, " ")}</span>
-                    <span class="surfer-row__meta">#${data.rank || "—"} &middot; ${formatSalary(s.purchasePrice)} ${deltaHtml}</span>
-                  </div>
-                  <span class="surfer-row__action">
-                    ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop="${s.surferId}" title="Drop">&times;</button>` : ""}
-                  </span>
-                </div>`;
-              }).join("")}
-              ${Array.from({ length: rules.rosterSize - roster.length }, () => `<div class="roster-slot--empty"></div>`).join("")}
-            </div>
-
-            <!-- Alternate -->
-            <div class="mt-3" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-              <div style="flex-shrink:0">
-                <span class="text-sm" style="font-weight:600">Alternate</span>
-                <span class="text-xs text-muted" style="display:block">Under ${altCapLabel} · excl. from cap</span>
-              </div>
-              <div id="alternate-slot" style="flex:1;min-width:160px;min-height:52px;display:flex;align-items:center">
-                ${alternate ? (() => {
-                  const altData = allSurfers[alternate.surferId] || {};
-                  const altPhoto = altData.photoUrl
-                    ? `<img src="${altData.photoUrl}" class="surfer-photo--sm" alt="">`
-                    : `<div class="surfer-photo--sm surfer-photo--empty">${(altData.name || "?")[0]}</div>`;
-                  return `<div class="surfer-row surfer-row--alternate" style="width:100%">
-                    ${altPhoto}
-                    <div class="surfer-row__info">
-                      <span class="surfer-row__name">${altData.name || alternate.surferId.replace(/-/g, " ")}</span>
-                      <span class="surfer-row__meta">ALT &middot; ${formatSalary(alternate.purchasePrice)}</span>
-                    </div>
-                    <span class="surfer-row__action">
-                      ${tradingOpen ? `<button class="btn btn--danger btn--icon" data-drop-alt title="Drop">&times;</button>` : ""}
-                    </span>
-                  </div>`;
-                })() : `<p class="text-muted text-sm">${tradingOpen ? "Drag a surfer under $4M here." : "No alternate."}</p>`}
-              </div>
-            </div>
-
-            <!-- Actions -->
-            ${tradingOpen ? `
-              <div class="form-actions" style="margin-top:0.75rem">
-                <button class="btn btn--outline btn--sm" id="btn-revert">Revert</button>
-                <button class="btn btn--primary btn--sm" id="btn-save">Save Team</button>
-              </div>
-              <p class="text-xs text-muted" style="margin-top:0.4rem">Revert loads your roster from the last completed event.</p>
-            ` : ""}
-          </div>
-
-          <!-- RIGHT: Available surfers -->
+          <!-- Your Roster (strip) — strip then salary bar; Save/Revert sit in the bottom-right with the helper text. -->
           <div class="card">
-            <div class="salary-bar" style="margin-top:0;margin-bottom:0.75rem">
+            ${renderEditableRosterStrip(roster, alternate, rules.rosterSize, tour)}
+            <div class="salary-bar" style="margin-top:1rem;margin-bottom:0">
               <div class="salary-bar__header">
                 <span>Salary Cap: ${formatSalaryFull(spent)} / ${formatSalaryFull(rules.salaryCap)}</span>
                 <span>Remaining: <strong style="color:${overCap ? "#c0392b" : "inherit"}">${formatSalaryFull(Math.abs(remaining))}${overCap ? " OVER" : ""}</strong></span>
@@ -367,12 +548,45 @@
                 <div class="salary-bar__fill ${overCap ? "salary-bar__fill--over" : pct > 90 ? "salary-bar__fill--warn" : ""}" style="width:${pct}%"></div>
               </div>
             </div>
+            ${tradingOpen ? `
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:0.75rem;flex-wrap:wrap">
+                <p class="text-xs text-muted" style="margin:0;flex:1;min-width:200px">Alternate must be under ${altCapLabel} · excluded from cap. Revert loads your roster from the last completed event.</p>
+                <div style="display:flex;gap:0.5rem">
+                  <button class="btn btn--outline" id="btn-revert">Revert</button>
+                  <button class="btn btn--primary" id="btn-save">Save Team</button>
+                </div>
+              </div>
+            ` : ""}
+          </div>
+
+          <!-- Available Surfers (4-col grid) -->
+          <div class="card">
+            <div class="card__header"><span class="card__title">Available Surfers</span></div>
             <div class="surfer-list surfer-list--grid" id="available-list">
               ${renderAvailable(available, onRoster, alternate?.surferId, remaining, altCap)}
             </div>
           </div>
 
         </div>
+
+        ${priorRosters.length > 0 ? `
+          <div class="mt-4">
+            <h2 style="margin:0 0 0.75rem;font-size:1.25rem">${SEASON} Rosters</h2>
+            <div class="prior-rosters">
+              ${priorRosters.map(({ event, team, score }) => `
+                <div class="card mb-3">
+                  <div class="card__header" style="padding-bottom:0.5rem;margin-bottom:0.5rem">
+                    <span class="card__title" style="font-size:0.95rem">${event.name}</span>
+                    <span class="text-sm" style="font-weight:600;color:var(--color-warm-black);white-space:nowrap">
+                      ${score ? `${score.totalPoints} pts` : (event.status === "live" ? "Live" : "—")}
+                    </span>
+                  </div>
+                  ${renderRosterStrip(team, currentEvent.tour || "mens")}
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
       `;
 
       // Wire up event handlers
@@ -404,9 +618,14 @@
         );
         const isInjured = s.status === "injured";
         const cardAction = !tradingOpen ? "" : isAlt ? `data-card-drop-alt` : isOnRoster ? `data-card-drop="${s.id}"` : isUnaffordable ? "" : `data-card-add="${s.id}" data-card-value="${s.value}"`;
+        // Alt-eligible surfers (under the alt cap) stay draggable even when
+        // they're unaffordable for the regular roster, so the user can drag
+        // them onto the ALT slot. The drop handlers enforce alt-cap rules.
+        const isAltEligible = !isSelected && s.value < altCap;
+        const canDrag = tradingOpen && !isSelected && (!isUnaffordable || isAltEligible);
         return `
           <div class="surfer-row available-card${rowClass}" data-bracket="${s.priceBracket || ""}"
-            ${tradingOpen && !isSelected && !isUnaffordable ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}
+            ${canDrag ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}
             ${cardAction} ${tradingOpen && !isUnaffordable ? 'style="cursor:pointer' + (isInjured ? ';position:relative;overflow:hidden"' : '"') : (isInjured ? 'style="position:relative;overflow:hidden"' : "")}
             ${isInjured ? 'data-injured="true"' : ""}>
             ${isInjured ? `<div style="position:absolute;inset:0;background:rgba(180,40,40,0.18);z-index:4;pointer-events:none"></div>
@@ -438,12 +657,15 @@
     }
 
     function wireEvents(container, user) {
-      // Drop from roster
+      // Drop from roster — set that slot to null (preserve gap)
       container.querySelectorAll("[data-drop]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.drop;
-          roster = roster.filter((s) => s.surferId !== id);
-          renderTeamPage(container, user);
+          const idx = findSlotByName(roster, id);
+          if (idx !== -1) {
+            roster[idx] = null;
+            renderTeamPage(container, user);
+          }
         });
       });
 
@@ -455,17 +677,17 @@
         });
       });
 
-      // Add to roster
+      // Add to roster — fill the first empty slot
       container.querySelectorAll("[data-add]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.dataset.add;
           const value = parseInt(btn.dataset.value, 10);
-          const rules = getTeamRules(currentEvent.tour || "mens");
-          if (roster.length >= rules.rosterSize) {
+          const idx = firstEmptySlot(roster);
+          if (idx === -1) {
             toast("Roster is full. Drop a surfer first.", "error");
             return;
           }
-          roster.push({ surferId: id, purchasePrice: value });
+          roster[idx] = { surferId: id, purchasePrice: value };
           renderTeamPage(container, user);
         });
       });
@@ -480,29 +702,32 @@
         });
       });
 
-      // Card-level click: add surfer
+      // Card-level click: add surfer at first empty slot
       container.querySelectorAll("[data-card-add]").forEach((card) => {
         card.addEventListener("click", (e) => {
           if (e.target.closest("button")) return; // let button handlers handle it
           const id = card.dataset.cardAdd;
           const value = parseInt(card.dataset.cardValue, 10);
-          const rules = getTeamRules(currentEvent.tour || "mens");
-          if (roster.length >= rules.rosterSize) {
+          const idx = firstEmptySlot(roster);
+          if (idx === -1) {
             toast("Roster is full. Drop a surfer first.", "error");
             return;
           }
-          roster.push({ surferId: id, purchasePrice: value });
+          roster[idx] = { surferId: id, purchasePrice: value };
           renderTeamPage(container, user);
         });
       });
 
-      // Card-level click: drop surfer
+      // Card-level click: drop surfer — null that slot (preserve gap)
       container.querySelectorAll("[data-card-drop]").forEach((card) => {
         card.addEventListener("click", (e) => {
           if (e.target.closest("button")) return;
           const id = card.dataset.cardDrop;
-          roster = roster.filter((s) => s.surferId !== id);
-          renderTeamPage(container, user);
+          const idx = findSlotByName(roster, id);
+          if (idx !== -1) {
+            roster[idx] = null;
+            renderTeamPage(container, user);
+          }
         });
       });
 
@@ -515,44 +740,99 @@
         });
       });
 
-      // Reorder within roster
+      // Roster-tile drag-drop. With the sparse model, EVERY slot (filled and
+      // empty) is a discrete drop target via data-roster-index. Filled tiles
+      // are also drag sources. Dropping a roster tile onto another slot
+      // SWAPS them (which naturally becomes a "move" when the target is null);
+      // dropping an available card onto any slot PLACES the surfer at that
+      // slot's index (replacing whatever's there).
       if (tradingOpen) {
         let dragSrcIndex = null;
-        container.querySelectorAll("#roster-list .surfer-row[data-roster-index]").forEach((row) => {
-          row.addEventListener("dragstart", (e) => {
-            dragSrcIndex = parseInt(row.dataset.rosterIndex, 10);
-            e.dataTransfer.setData("application/x-roster-index", dragSrcIndex);
-            e.dataTransfer.effectAllowed = "move";
-            row.classList.add("surfer-row--dragging");
-          });
-          row.addEventListener("dragend", () => {
-            row.classList.remove("surfer-row--dragging");
-            container.querySelectorAll(".surfer-row--drag-over").forEach((r) => r.classList.remove("surfer-row--drag-over"));
-          });
+        container.querySelectorAll("#roster-list .team-row__surfer[data-roster-index]").forEach((row) => {
+          const targetIdx = parseInt(row.dataset.rosterIndex, 10);
+          const isEmpty = row.classList.contains("team-row__surfer--empty");
+
+          if (!isEmpty) {
+            row.addEventListener("dragstart", (e) => {
+              dragSrcIndex = targetIdx;
+              e.dataTransfer.setData("application/x-roster-index", String(targetIdx));
+              e.dataTransfer.effectAllowed = "move";
+              row.classList.add("team-row__surfer--dragging");
+            });
+            row.addEventListener("dragend", () => {
+              dragSrcIndex = null;
+              row.classList.remove("team-row__surfer--dragging");
+              container.querySelectorAll(".team-row__surfer--drag-over").forEach((r) => r.classList.remove("team-row__surfer--drag-over"));
+              container.querySelectorAll(".drop-zone--over").forEach((r) => r.classList.remove("drop-zone--over"));
+            });
+          }
+
           row.addEventListener("dragover", (e) => {
-            if (dragSrcIndex === null) return; // not a reorder drag, let it bubble
-            e.preventDefault();
-            e.stopPropagation();
-            e.dataTransfer.dropEffect = "move";
-            row.classList.add("surfer-row--drag-over");
+            // Reorder drag (from another roster tile)
+            if (dragSrcIndex !== null) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              row.classList.add("team-row__surfer--drag-over");
+              return;
+            }
+            // Available drag (from pool)
+            if (e.dataTransfer.types.includes("application/json")) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "copy";
+              row.classList.add("team-row__surfer--drag-over");
+            }
           });
           row.addEventListener("dragleave", () => {
-            row.classList.remove("surfer-row--drag-over");
+            row.classList.remove("team-row__surfer--drag-over");
           });
           row.addEventListener("drop", (e) => {
+            // Reorder (swap — empty target becomes the source's new home)
+            if (dragSrcIndex !== null) {
+              e.preventDefault();
+              e.stopPropagation();
+              row.classList.remove("team-row__surfer--drag-over");
+              if (dragSrcIndex === targetIdx) return;
+              const newRoster = [...roster];
+              [newRoster[dragSrcIndex], newRoster[targetIdx]] = [newRoster[targetIdx], newRoster[dragSrcIndex]];
+              roster = newRoster;
+              dragSrcIndex = null;
+              renderTeamPage(container, user);
+              return;
+            }
+            // Available drag → place at this slot (fills if empty, replaces if filled)
+            const json = e.dataTransfer.getData("application/json");
+            if (!json) return;
             e.preventDefault();
-            if (dragSrcIndex === null) return; // not a reorder, let roster-list handler take it
             e.stopPropagation();
-            row.classList.remove("surfer-row--drag-over");
-            const targetIndex = parseInt(row.dataset.rosterIndex, 10);
-            if (dragSrcIndex === null || dragSrcIndex === targetIndex) return;
-            const newRoster = [...roster];
-            const [moved] = newRoster.splice(dragSrcIndex, 1);
-            newRoster.splice(targetIndex, 0, moved);
-            roster = newRoster;
-            dragSrcIndex = null;
-            renderTeamPage(container, user);
+            row.classList.remove("team-row__surfer--drag-over");
+            try {
+              const { id, value } = JSON.parse(json);
+              // Reject if surfer already on roster elsewhere or set as alt.
+              if (roster.some((s, i) => i !== targetIdx && s && s.surferId === id) || alternate?.surferId === id) return;
+              const newRoster = [...roster];
+              newRoster[targetIdx] = { surferId: id, purchasePrice: value };
+              const remainingAfter = calculateRemaining(compactRoster(newRoster), currentEvent.tour || "mens");
+              if (remainingAfter < 0) {
+                toast("Can't afford — would put you over the salary cap.", "error");
+                return;
+              }
+              roster = newRoster;
+              renderTeamPage(container, user);
+            } catch {}
           });
+        });
+
+        // Alt tile drag — only for drag-out-to-delete (not for swap with regular slots).
+        const altDragSlot = container.querySelector("[data-alt-drag]");
+        altDragSlot?.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("application/x-roster-alt", "1");
+          e.dataTransfer.effectAllowed = "move";
+          altDragSlot.classList.add("team-row__surfer--dragging");
+        });
+        altDragSlot?.addEventListener("dragend", () => {
+          altDragSlot.classList.remove("team-row__surfer--dragging");
         });
       }
 
@@ -573,65 +853,140 @@
           });
         });
 
-        // Drop on roster list
+        // Drop on roster list background — fallback for available drags that
+        // miss a specific slot. The team drop zone STOPS at the divider:
+        //   • Drops past the divider (alt zone) are routed to alt-set logic
+        //     so they never end up filling the team when the user clearly
+        //     aimed at the ALT box.
+        //   • Drops on team-side background fill the first empty slot.
+        // The drop-zone--over visual highlight only appears in the team area,
+        // not in the alt zone — so the team box no longer visually swallows
+        // the ALT box.
         const rosterList = container.querySelector("#roster-list");
+        const altDividerEl = container.querySelector("#roster-list .team-row__alt-divider");
+        const inAltZone = (e) => {
+          if (!altDividerEl) return false;
+          return e.clientX >= altDividerEl.getBoundingClientRect().left;
+        };
+        // rosterList does NOT add a whole-strip highlight — that visual
+        // would extend over the alt area and mislead the user about where
+        // drops will land. Tile-level highlights (.team-row__surfer--drag-over)
+        // give the per-slot feedback. When cursor is in the alt zone, we
+        // explicitly highlight the alt-tile so the user sees the drop target.
+        const altTileEl = container.querySelector("#alternate-slot");
         rosterList.addEventListener("dragover", (e) => {
+          if (!e.dataTransfer.types.includes("application/json")) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "copy";
-          rosterList.classList.add("drop-zone--over");
+          if (inAltZone(e)) {
+            altTileEl?.classList.add("team-row__surfer--drag-over");
+          } else {
+            altTileEl?.classList.remove("team-row__surfer--drag-over");
+          }
         });
-        rosterList.addEventListener("dragleave", () => {
-          rosterList.classList.remove("drop-zone--over");
+        rosterList.addEventListener("dragleave", (e) => {
+          if (!rosterList.contains(e.relatedTarget)) {
+            altTileEl?.classList.remove("team-row__surfer--drag-over");
+          }
         });
         rosterList.addEventListener("drop", (e) => {
+          if (!e.dataTransfer.types.includes("application/json")) return;
           e.preventDefault();
-          rosterList.classList.remove("drop-zone--over");
+          altTileEl?.classList.remove("team-row__surfer--drag-over");
           try {
             const { id, value } = JSON.parse(e.dataTransfer.getData("application/json"));
-            const rules = getTeamRules(currentEvent.tour || "mens");
-            if (roster.length >= rules.rosterSize) {
+            // Alt-zone smart routing
+            if (inAltZone(e)) {
+              if (parseInt(value) >= altCap) {
+                toast(`Alternate must be under ${altCapLabel}.`, "error");
+                return;
+              }
+              if (roster.some((s) => s && s.surferId === id)) return;
+              alternate = { surferId: id, purchasePrice: value };
+              renderTeamPage(container, user);
+              return;
+            }
+            // Team-side fallback: first empty slot
+            const idx = firstEmptySlot(roster);
+            if (idx === -1) {
               toast("Roster is full. Drop a surfer first.", "error");
               return;
             }
-            if (roster.some((s) => s.surferId === id) || alternate?.surferId === id) return;
-            roster.push({ surferId: id, purchasePrice: value });
+            if (roster.some((s) => s && s.surferId === id) || alternate?.surferId === id) return;
+            roster[idx] = { surferId: id, purchasePrice: value };
             renderTeamPage(container, user);
           } catch {}
         });
 
-        // Drop on alternate slot
-        const altSlot = container.querySelector("#alternate-slot");
-        altSlot.addEventListener("dragover", (e) => {
+        // Drop on available pool — deletes a roster tile (symmetric to dragging
+        // an available card onto the roster strip to add). Sets the slot to
+        // null so the gap is preserved.
+        const availableList = container.querySelector("#available-list");
+        availableList?.addEventListener("dragover", (e) => {
+          const types = e.dataTransfer.types;
+          if (!types.includes("application/x-roster-index") && !types.includes("application/x-roster-alt")) return;
           e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          availableList.classList.add("drop-zone--over");
+        });
+        availableList?.addEventListener("dragleave", (e) => {
+          if (!availableList.contains(e.relatedTarget)) {
+            availableList.classList.remove("drop-zone--over");
+          }
+        });
+        availableList?.addEventListener("drop", (e) => {
+          const rosterIdxStr = e.dataTransfer.getData("application/x-roster-index");
+          const altDrag = e.dataTransfer.getData("application/x-roster-alt");
+          if (!rosterIdxStr && !altDrag) return;
+          e.preventDefault();
+          availableList.classList.remove("drop-zone--over");
+          if (rosterIdxStr) {
+            const idx = parseInt(rosterIdxStr, 10);
+            if (!isNaN(idx) && idx >= 0 && idx < roster.length) {
+              roster[idx] = null;
+              renderTeamPage(container, user);
+            }
+          } else if (altDrag) {
+            alternate = null;
+            renderTeamPage(container, user);
+          }
+        });
+
+        // Alt-tile drop handler (belt+suspenders with rosterList smart routing
+        // below). Drops directly on the alt-tile are handled here. Drops in
+        // the gap between divider and alt-tile bubble to rosterList which
+        // smart-routes by cursor X. Either path correctly sets the alternate.
+        const altSlotEl = container.querySelector("#alternate-slot");
+        altSlotEl?.addEventListener("dragover", (e) => {
+          if (!e.dataTransfer.types.includes("application/json")) return;
+          e.preventDefault();
+          e.stopPropagation();
           e.dataTransfer.dropEffect = "copy";
-          altSlot.classList.add("drop-zone--over");
+          altSlotEl.classList.add("team-row__surfer--drag-over");
         });
-        altSlot.addEventListener("dragleave", () => {
-          altSlot.classList.remove("drop-zone--over");
+        altSlotEl?.addEventListener("dragleave", (e) => {
+          if (!altSlotEl.contains(e.relatedTarget)) {
+            altSlotEl.classList.remove("team-row__surfer--drag-over");
+          }
         });
-        altSlot.addEventListener("drop", (e) => {
+        altSlotEl?.addEventListener("drop", (e) => {
           e.preventDefault();
-          altSlot.classList.remove("drop-zone--over");
+          e.stopPropagation();
+          altSlotEl.classList.remove("team-row__surfer--drag-over");
+          const json = e.dataTransfer.getData("application/json");
+          if (!json) return;
           try {
-            const { id, value, bracket } = JSON.parse(e.dataTransfer.getData("application/json"));
+            const { id, value } = JSON.parse(json);
             if (parseInt(value) >= altCap) {
               toast(`Alternate must be under ${altCapLabel}.`, "error");
               return;
             }
-            if (roster.some((s) => s.surferId === id)) return;
+            if (roster.some((s) => s && s.surferId === id)) return;
             alternate = { surferId: id, purchasePrice: value };
             renderTeamPage(container, user);
           } catch {}
         });
       }
-
-      // Search
-      document.getElementById("surfer-search")?.addEventListener("input", (e) => {
-        filterAvailable(container);
-      });
-      document.getElementById("bracket-filter")?.addEventListener("change", () => {
-        filterAvailable(container);
-      });
 
       // Revert
       document.getElementById("btn-revert")?.addEventListener("click", async () => {
@@ -642,24 +997,39 @@
           toast("No previous event team to revert to.", "info");
           return;
         }
-        roster = [...prev.surfers];
+        const rules = getTeamRules(tour);
+        roster = padToSparse(prev.surfers, rules.rosterSize);
         alternate = prev.alternate ? { ...prev.alternate } : null;
         renderTeamPage(container, user);
         toast("Team reverted to last event's roster.", "success");
       });
 
-      // Save
+      // Locked-state interaction feedback: when trading is closed, clicking
+      // any roster slot, alternate slot, or available surfer card surfaces a
+      // toast. toast() dedupes by message so spam-clicking never stacks.
+      if (!tradingOpen) {
+        const stack = container.querySelector(".team-stack");
+        stack?.addEventListener("click", (e) => {
+          const interactive = e.target.closest(".surfer-row, .team-row__surfer, #alternate-slot");
+          if (!interactive) return;
+          toast("Trading closed — changes locked until event ends.", "info");
+        });
+      }
+
+      // Save — compact sparse roster (nulls dropped) before validating, but
+      // annotate each entry with its team_position so the gap layout survives
+      // a save/load round trip.
       document.getElementById("btn-save")?.addEventListener("click", async () => {
         const tour = currentEvent.tour || "mens";
         const rules = getTeamRules(tour);
-        const validation = validateTeam(roster, alternate, tour, allSurfers);
+        const compact = compactRoster(roster);
+        const validation = validateTeam(compact, alternate, tour, allSurfers);
         if (!validation.valid) {
           validation.errors.forEach((err) => toast(err, "error", 5000));
           return;
         }
 
         // Re-check trading status from Firestore RIGHT NOW before saving.
-        // This prevents saves even if the page loaded with stale cached data.
         try {
           const liveEvent = await getEventFresh(currentEvent.id);
           if (!liveEvent || liveEvent.tradingOpen === false) {
@@ -673,12 +1043,13 @@
           return;
         }
 
-        const totalSpent = roster.reduce((sum, s) => sum + s.purchasePrice, 0);
+        const surfersForSave = compactRosterWithPositions(roster);
+        const totalSpent = compact.reduce((sum, s) => sum + s.purchasePrice, 0);
         try {
           await saveTeam(user.uid, currentEvent.id, {
             season: SEASON,
             tour,
-            surfers: roster,
+            surfers: surfersForSave,
             alternate,
             totalSpent,
             salaryCap: rules.salaryCap,
@@ -716,18 +1087,6 @@
       });
     }
 
-    function filterAvailable(container) {
-      const search = (document.getElementById("surfer-search")?.value || "").toLowerCase();
-      const bracket = document.getElementById("bracket-filter")?.value || "";
-      const rows = container.querySelectorAll("#available-list .surfer-row");
-      rows.forEach((row) => {
-        const name = row.querySelector(".surfer-row__name")?.textContent.toLowerCase() || "";
-        const rb = row.dataset.bracket || "";
-        const matchSearch = !search || name.includes(search);
-        const matchBracket = !bracket || rb === bracket;
-        row.style.display = (matchSearch && matchBracket) ? "" : "none";
-      });
-    }
   </script>
 </body>
 </html>

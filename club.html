@@ -201,6 +201,109 @@
           : (a.tour || "mens").localeCompare(b.tour || "mens")
       );
 
+      // ── Rank progression chart helpers (mirror dashboard) ──
+      const mensCompletedIds = events
+        .filter(e => (e.tour || "mens") === "mens" && e.status === "completed")
+        .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
+        .map(e => e.id);
+      const womensCompletedIds = events
+        .filter(e => (e.tour || "") === "womens" && e.status === "completed")
+        .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
+        .map(e => e.id);
+
+      const buildRankProgression = (entries, completedEventIds) => {
+        if (entries.length === 0 || completedEventIds.length === 0) return [];
+        const ranks = [];
+        for (let n = 1; n <= completedEventIds.length; n++) {
+          const evSubset = completedEventIds.slice(0, n);
+          const standings = entries.map(e => {
+            const scores = evSubset
+              .map(evId => (e.eventScores || {})[evId] || 0)
+              .filter(s => s > 0)
+              .sort((a, b) => b - a);
+            return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
+          }).sort((a, b) => b.total - a.total);
+          const rank = standings.findIndex(s => s.userId === user.uid) + 1;
+          ranks.push(rank > 0 ? rank : null);
+        }
+        return ranks;
+      };
+
+      const MENS_LINE_COLOR = "#7D8975";   // sage-dark
+      const WOMENS_LINE_COLOR = "#B0837A"; // muted dusty rose
+
+      const renderRankChart = (mensRanks, womensRanks, totalPlayers) => {
+        const maxEvents = Math.max(mensRanks.length, womensRanks.length);
+        if (maxEvents === 0) return `<p class="text-muted text-sm" style="text-align:center;margin-top:0.75rem">Chart will appear after events are scored.</p>`;
+        // Flat-aspect viewBox so the chart fills the full pane width without
+        // running too tall. SVG will render at ~872 × 311 px on a 920px page.
+        const W = 280, H = 100, pad = { t: 5, r: 8, b: 20, l: 24 };
+        const chartW = W - pad.l - pad.r;
+        const chartH = H - pad.t - pad.b;
+        const maxRank = Math.max(totalPlayers, 1);
+        const toPoint = (ranks, i) => {
+          const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
+          const y = pad.t + ((ranks[i] - 1) / (maxRank - 1)) * chartH;
+          return { x, y };
+        };
+        const makeLine = (ranks, color) => {
+          const valid = ranks.map((r, i) => r != null ? i : null).filter(i => i != null);
+          if (valid.length === 0) return "";
+          const points = valid.map(i => { const p = toPoint(ranks, i); return `${p.x},${p.y}`; });
+          const pathD = points.length === 1 ? "" : `<polyline points="${points.join(" ")}" fill="none" stroke="${color}" stroke-width="1" />`;
+          const dots = valid.map(i => {
+            const p = toPoint(ranks, i);
+            return `<circle cx="${p.x}" cy="${p.y}" r="1.5" fill="${color}" />`;
+          }).join("");
+          return pathD + dots;
+        };
+        const yLabelCount = 7;
+        const yLabels = [...new Set(
+          Array.from({ length: yLabelCount }, (_, i) =>
+            Math.max(1, Math.round(1 + (maxRank - 1) * i / (yLabelCount - 1)))
+          )
+        )].sort((a, b) => a - b);
+        const yLabelHtml = yLabels.map(r => {
+          const y = pad.t + ((r - 1) / Math.max(maxRank - 1, 1)) * chartH;
+          return `<text x="${pad.l - 2}" y="${y + 1.5}" text-anchor="end" fill="var(--color-warm-gray)" font-size="4">${r}</text>`;
+        }).join("");
+        const xLabelHtml = Array.from({ length: maxEvents }, (_, i) => {
+          const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
+          return `<text x="${x}" y="${H - 11}" text-anchor="middle" fill="var(--color-warm-gray)" font-size="4">E${i + 1}</text>`;
+        }).join("");
+        const gridHtml = yLabels.map(r => {
+          const y = pad.t + ((r - 1) / Math.max(maxRank - 1, 1)) * chartH;
+          return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="var(--color-beige)" stroke-width="0.25" />`;
+        }).join("");
+        const yAxisLabelX = 5;
+        const yAxisLabelY = pad.t + chartH / 2;
+        const xAxisLabelY = H - 3;
+        return `
+          <div style="margin-top:0.75rem">
+            <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+              ${gridHtml}
+              ${yLabelHtml}
+              ${xLabelHtml}
+              <text x="${yAxisLabelX}" y="${yAxisLabelY}" text-anchor="middle" transform="rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})" fill="var(--color-warm-brown)" font-size="5" font-weight="600">Rank</text>
+              <text x="${pad.l + chartW / 2}" y="${xAxisLabelY}" text-anchor="middle" fill="var(--color-warm-brown)" font-size="5" font-weight="600">Event Number</text>
+              ${makeLine(mensRanks, MENS_LINE_COLOR)}
+              ${makeLine(womensRanks, WOMENS_LINE_COLOR)}
+            </svg>
+            <div style="display:flex;gap:1.25rem;justify-content:center;margin-top:0.25rem;font-size:0.72rem">
+              <span style="color:${MENS_LINE_COLOR};display:inline-flex;align-items:center;gap:0.3rem"><span style="display:inline-block;width:14px;height:2px;background:${MENS_LINE_COLOR}"></span>Men's CT</span>
+              <span style="color:${WOMENS_LINE_COLOR};display:inline-flex;align-items:center;gap:0.3rem"><span style="display:inline-block;width:14px;height:2px;background:${WOMENS_LINE_COLOR}"></span>Women's CT</span>
+            </div>
+          </div>`;
+      };
+
+      const clubMensRanks = buildRankProgression(mensMemberEntries, mensCompletedIds);
+      const clubWomensRanks = buildRankProgression(womensMemberEntries, womensCompletedIds);
+      const clubChartHtml = renderRankChart(
+        clubMensRanks,
+        clubWomensRanks,
+        Math.max(club.memberIds.length, 6)
+      );
+
       // Club tabs for multi-club users
       const clubTabsHtml = allUserClubs.length > 1 ? `
         <div class="tour-tabs mb-3">
@@ -284,6 +387,12 @@
           }).join("")}
         </div>
 
+        <!-- Club rank progression chart -->
+        <div class="card mb-3">
+          <div class="card__header"><span class="card__title">${club.name} Standings</span></div>
+          ${clubChartHtml}
+        </div>
+
         <!-- Join another club -->
         ${canJoinMore ? `
           <div class="card mb-3">
@@ -302,7 +411,7 @@
       document.querySelectorAll(".club-scoring-toggle").forEach((btn) => {
         btn.addEventListener("click", async () => {
           clubScoringMode = btn.dataset.mode;
-          await renderClubView(container, user, club, allUserClubs);
+          await renderClubView(container, user, userDoc, club, allUserClubs);
         });
       });
 

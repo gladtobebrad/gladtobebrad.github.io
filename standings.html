@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Players — Fantasy Surf League</title>
+  <title>Standings — Fantasy Surf League</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
@@ -141,8 +141,8 @@
         const womensPlayers = buildStandings(womensLb);
 
         container.innerHTML = `
-          <h1 class="page-title">Season Standings</h1>
-          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
+          <h1 class="page-title">Standings</h1>
+          <div class="standings-controls" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
             <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden">
               <button id="toggle-mens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:var(--color-charcoal);color:#fff">Men's CT</button>
               <button id="toggle-womens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:400;background:#fff;color:var(--color-sage)">Women's CT</button>
@@ -158,9 +158,6 @@
           </div>
           <div id="panel-womens" class="card mb-3" style="display:none">
             ${standingsTable(womensPlayers, womensEvents, "table-womens")}
-          </div>
-          <div class="mt-3">
-            <a href="index.html" class="btn btn--outline">&larr; Back to Dashboard</a>
           </div>
         `;
 
@@ -234,7 +231,7 @@
 
       } catch (err) {
         container.innerHTML = `
-          <h1 class="page-title">Season Standings</h1>
+          <h1 class="page-title">Standings</h1>
           <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
         `;
       }

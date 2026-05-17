@@ -34,13 +34,10 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getResults, getTeamsForEvent, getSurfers, getUser, getClub, getUserClubIds } from "./js/db.js";
-    import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, formatDate, statusBadge, tradingBadge } from "./js/ui.js";
+    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getSurfers } from "./js/db.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
-    let activeTab = "homepage";
-    let scoringMode = "best9"; // "best9" or "all"
 
     initAuth();
     renderHeader();
@@ -78,249 +75,106 @@
       }
 
       // Get user's teams for both tours
-      let mensTeam = null, womensTeam = null;
-      const [mt, wt] = await Promise.all([
+      const [mensTeam, womensTeam] = await Promise.all([
         mensEvent ? getTeam(user.uid, mensEvent.id) : null,
         womensEvent ? getTeam(user.uid, womensEvent.id) : null,
       ]);
-      mensTeam = mt; womensTeam = wt;
 
-      // Always load surfer data for name lookups
+      // Surfer name/photo lookup
       const surferMap = {};
       const surfers = await getSurfers();
       surfers.forEach((s) => { surferMap[s.id] = s; });
 
-      // Load all teams (per tour) when trading is closed
-      const userDocCache = {};
-      const enrichTeams = async (eventObj) => {
-        if (!eventObj || eventObj.tradingOpen) return [];
-        const raw = await getTeamsForEvent(eventObj.id);
-        const enriched = [];
-        for (const team of raw) {
-          if (!userDocCache[team.userId]) userDocCache[team.userId] = await getUser(team.userId);
-          const u = userDocCache[team.userId];
-          enriched.push({ ...team, displayName: u?.displayName || "Unknown", teamName: u?.teamName || u?.displayName || "—", avatarUrl: u?.avatarUrl || "" });
-        }
-        return enriched;
-      };
-      await Promise.all([enrichTeams(mensEvent), enrichTeams(womensEvent)]);
-
-      // Sort both leaderboards
-      mensLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
-      womensLeaderboard.sort((a, b) => (b.bestNineTotal || 0) - (a.bestNineTotal || 0));
-
-      // Find user's rank in each tour
-      const mensRank = mensLeaderboard.findIndex((e) => e.userId === user.uid) + 1;
-      const womensRank = womensLeaderboard.findIndex((e) => e.userId === user.uid) + 1;
-      const mensEntry = mensLeaderboard.find((e) => e.userId === user.uid);
-      const womensEntry = womensLeaderboard.find((e) => e.userId === user.uid);
-
-      // Load club data
-      const userDoc = await getUser(user.uid);
-      const clubIds = getUserClubIds(userDoc);
-      let allClubs = [];
-      let selectedClubIdx = 0;
-      let club = null;
-      let clubMembers = [];
-      let clubMembersMens = [];
-      let clubMembersWomens = [];
-      let clubTour = "mens";
-      let leagueTour = "mens";
-      let scheduleTour = "mens";
-      if (clubIds.length > 0) {
-        allClubs = (await Promise.all(clubIds.map(id => getClub(id)))).filter(Boolean);
-      }
-      const selectClub = (idx) => {
-        selectedClubIdx = idx;
-        club = allClubs[idx] || null;
-        clubMembersMens = [];
-        clubMembersWomens = [];
-        if (club) {
-          clubMembersMens = mensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
-          clubMembersWomens = womensLeaderboard.filter((e) => club.memberIds.includes(e.userId));
-        }
-        clubMembers = clubTour === "womens" ? clubMembersWomens : clubMembersMens;
-      };
-      // Default to user's preferred club
-      const defaultIdx = allClubs.findIndex(c => c.id === userDoc?.defaultClubId);
-      selectClub(defaultIdx >= 0 ? defaultIdx : 0);
-
-      // Profile info
-      const avatarUrl = profile?.avatarUrl || profile?.photoUrl || user.photoURL || "";
+      // ADScoin badge data (the only piece of user-specific content shown on dashboard;
+      // everything else lives in the nav-user dropdown now)
       const adsCoins = profile?.adsCoins ?? 10;
-      const clubLabel = allClubs.length > 0
-        ? allClubs.map(c => `<a href="club.html?id=${c.id}" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${c.name}</a>`).join("<br>")
-        : "No clubs yet";
 
-      // ── Rosters tab data (lazy-loaded once) ──
-      let rostersLoaded = false;
-      let mensRosters = [], womensRosters = [];
-
-      async function loadRosters() {
-        if (rostersLoaded) return;
-        const mensEvents = events.filter((e) => (e.tour || "mens") === "mens");
-        const womensEvents = events.filter((e) => e.tour === "womens");
-
-        const loadEventRosters = async (tourEvents) => {
-          const rosters = [];
-          for (const event of tourEvents) {
-            if (event.tradingOpen !== false) { rosters.push({ event, team: null, score: null }); continue; }
-            const team = await getTeam(user.uid, event.id);
-            if (!team) { rosters.push({ event, team: null, score: null }); continue; }
-            let score = null;
-            if (event.status === "completed") {
-              const results = await getResults(event.id);
-              score = scoreTeam(team, results, event.tour || "mens");
-            }
-            rosters.push({ event, team, score });
-          }
-          return rosters;
-        };
-
-        [mensRosters, womensRosters] = await Promise.all([
-          loadEventRosters(mensEvents),
-          loadEventRosters(womensEvents)
-        ]);
-        rostersLoaded = true;
-      }
-
-      // ── Render helpers from profile page ──
-      const shortName = (fullName) => {
-        const parts = fullName.trim().split(" ");
-        return parts.length > 1 ? `${parts[0][0]}. ${parts[parts.length - 1]}` : parts[0];
+      // ── Helpers ───────────────────────────────────────
+      // Split a full name into first/last for two-line display.
+      const splitName = (fullName) => {
+        const parts = (fullName || "").trim().split(/\s+/);
+        if (parts.length === 0) return { first: "", last: "" };
+        if (parts.length === 1) return { first: "", last: parts[0] };
+        const last = parts.pop();
+        return { first: parts.join(" "), last };
       };
 
-      const renderStrip = (team, score, large = false, tour = "mens") => {
-        if (!team) return `<p class="text-muted text-sm">No team submitted.</p>`;
-        const isMid = large === "mid";
-        const photoSize = isMid ? "50px" : large ? "80px" : "44px";
-        const surferWidth = isMid ? "50px" : large ? "80px" : "48px";
+      const nameLabelHtml = (fullName) => {
+        const { first, last } = splitName(fullName);
+        return `<span class="team-row__name">
+          ${first ? `<span class="team-row__firstname">${first}</span>` : ""}
+          <span class="team-row__lastname">${last || fullName}</span>
+        </span>`;
+      };
 
-        if (large || isMid) {
-          const rosterSize = tour === "womens" ? 5 : 8;
-          const slots = [];
-          for (let i = 0; i < rosterSize; i++) {
-            if (i < team.surfers.length) slots.push({ type: "surfer", s: team.surfers[i], i });
-            else slots.push({ type: "grey" });
-          }
-          slots.push(team.alternate ? { type: "alt", s: team.alternate } : { type: "grey" });
-          while (slots.length < 10) slots.push({ type: "invisible" });
-
-          const slotHtml = slots.map((slot) => {
-            if (slot.type === "invisible") {
-              return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}"><div style="width:${photoSize};height:${photoSize}"></div><span style="font-size:0.62rem;color:transparent">—</span></div>`;
-            }
-            if (slot.type === "grey") {
-              const isAltSlot = slots.indexOf(slot) === rosterSize;
-              return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}"><div style="position:relative;width:${photoSize};height:${photoSize}"><div style="width:100%;height:100%;border-radius:50%;background:var(--color-beige);opacity:0.35"></div>${isAltSlot ? `<span style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:0.5rem;font-weight:700;color:var(--color-warm-gray);background:rgba(255,255,255,0.85);border-radius:4px;padding:0 3px;line-height:1.4;white-space:nowrap">ALT</span>` : ""}</div><span style="font-size:0.62rem;color:transparent">—</span></div>`;
-            }
-            if (slot.type === "alt") {
-              const d = surferMap[slot.s.surferId] || {};
-              const altName = d.name || slot.s.surferId.replace(/-/g, " ");
-              const p = d.photoUrl
-                ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.8" alt="">`
-                : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.8">${altName[0]}</div>`;
-              return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}"><div style="position:relative;width:${photoSize};height:${photoSize}">${p}<span style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:0.5rem;font-weight:700;color:var(--color-warm-gray);background:rgba(255,255,255,0.85);border-radius:4px;padding:0 3px;line-height:1.4;white-space:nowrap">ALT${score?.alternateUsed ? "✓" : ""}</span></div><span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-warm-brown)">${shortName(altName)}</span></div>`;
-            }
-            const data = surferMap[slot.s.surferId] || {};
-            const sc = score?.surferScores?.[slot.i];
-            const name = data.name || slot.s.surferId.replace(/-/g, " ");
-            const photo = data.photoUrl
-              ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
-              : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
-            return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${photo}<span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}</div>`;
-          }).join("");
-          return `<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:${isMid ? "0.3rem" : "0.5rem"};margin-top:0.5rem">${slotHtml}</div>`;
+      // Render a team as a single horizontal row of surfer tiles + alternate.
+      // Position-aware: sparse-saved teams (with gaps) render at their
+      // stored team_position. Legacy compact saves fall back to array index.
+      const renderTeamRow = (team, tour) => {
+        const rosterSize = tour === "womens" ? 5 : 8;
+        if (!team) {
+          return `<p class="text-muted text-sm" style="margin-top:0.5rem">No team picked yet. <a href="team.html${tour === "womens" ? "?tour=womens" : ""}">Pick your team →</a></p>`;
         }
-
-        // Small strip
-        const surferHtml = team.surfers.map((s, i) => {
-          const data = surferMap[s.surferId] || {};
-          const sc = score?.surferScores?.[i];
-          const name = data.name || s.surferId.replace(/-/g, " ");
-          const photo = data.photoUrl
-            ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
-            : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${photo}<span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}</div>`;
-        }).join("");
-        const altHtml = team.alternate ? (() => {
+        const positional = padToSparseRoster(team.surfers, rosterSize);
+        const surferTiles = [];
+        for (let i = 0; i < rosterSize; i++) {
+          const s = positional[i];
+          if (s) {
+            const data = surferMap[s.surferId] || {};
+            const name = data.name || s.surferId.replace(/-/g, " ");
+            const photo = data.photoUrl
+              ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+              : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
+            surferTiles.push(`<div class="team-row__surfer">${photo}${nameLabelHtml(name)}</div>`);
+          } else {
+            surferTiles.push(`<div class="team-row__surfer"><div class="team-row__photo team-row__photo--empty" style="opacity:0.4"></div><span class="team-row__name" style="opacity:0">—</span></div>`);
+          }
+        }
+        let altTile;
+        if (team.alternate) {
           const d = surferMap[team.alternate.surferId] || {};
           const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
           const p = d.photoUrl
-            ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.75" alt="">`
-            : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.75">${altName[0]}</div>`;
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${p}<span style="font-size:0.62rem;color:var(--color-warm-brown)">ALT</span></div>`;
-        })() : "";
-        return `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.4rem">${surferHtml}${altHtml}</div>`;
+            ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+            : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
+          altTile = `<div class="team-row__surfer">${p}${nameLabelHtml(altName)}<span class="team-row__alt-label">ALT</span></div>`;
+        } else {
+          altTile = `<div class="team-row__surfer"><div class="team-row__photo team-row__photo--empty team-row__photo--alt" style="opacity:0.4"></div><span class="team-row__name" style="opacity:0">—</span><span class="team-row__alt-label">ALT</span></div>`;
+        }
+        return `<div class="team-row">${surferTiles.join("")}<div class="team-row__alt-divider" aria-hidden="true"></div>${altTile}</div>`;
       };
 
-      const renderEventCard = (event, team, score) => `
-        <div class="card mb-3">
-          <div class="card__header">
-            <span class="card__title" style="font-size:0.9rem">${event.name}</span>
-            <span class="text-sm" style="font-weight:600">
-              ${score ? `${score.totalPoints} pts` : event.status === "live" ? "Live" : statusBadge(event.status)}
-            </span>
-          </div>
-          ${renderStrip(team, score, false)}
-        </div>`;
-
-      const renderStandings = (label, standings) => `
-        <div class="card mb-3">
-          <div class="card__header">
-            <span class="card__title">Season ${SEASON} — ${label}</span>
-          </div>
-          <div class="grid grid--2 text-center mt-2">
-            <div>
-              <p class="text-xs text-muted">Best 9 Total</p>
-              <p style="font-size:1.4rem;font-weight:600">${standings.eventsPlayed > 0 ? standings.best9 : "—"}</p>
+      // Team card with header (label + Edit Team CTA) and the single-row team
+      const renderTeamCard = (label, event, team, tour) => {
+        const tourQuery = tour === "womens" ? "?tour=womens" : "";
+        const editLink = `<a href="team.html${tourQuery}" class="btn btn--outline btn--sm">Edit Team →</a>`;
+        const eventInfo = event
+          ? `<div class="text-sm text-muted" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem">
+              <span>${event.name}</span>
+              ${statusBadge(event.status)} ${tradingBadge(event.tradingOpen)}
+              ${(() => {
+                const dl = getDeadlineMs(event);
+                if (!dl) return "";
+                return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:0.15rem 0.45rem;font-size:0.7rem;font-variant-numeric:tabular-nums;white-space:nowrap" data-deadline="${dl}"><span class="countdown-text">—</span> until lock</span>`;
+              })()}
+            </div>`
+          : `<div class="text-sm text-muted" style="margin-top:0.25rem">No active event.</div>`;
+        return `
+          <div class="card mb-3 team-card">
+            <div class="card__header" style="align-items:flex-start">
+              <div style="min-width:0;flex:1">
+                <span class="card__title">${label}</span>
+                ${eventInfo}
+              </div>
+              ${editLink}
             </div>
-            <div>
-              <p class="text-xs text-muted">Events Played</p>
-              <p style="font-size:1.4rem;font-weight:600">${standings.eventsPlayed > 0 ? standings.eventsPlayed : "—"}</p>
-            </div>
-          </div>
-        </div>`;
+            ${renderTeamRow(team, tour)}
+          </div>`;
+      };
 
-      // ── Shared standings table builder ──
-      function renderStandingsTable(entries, userId, mode) {
-        const scoreKey = mode === "all" ? "allEventsTotal" : "bestNineTotal";
-        const scoreLabel = mode === "all" ? "All Events" : "Best 9";
-        const sorted = entries.slice().sort((a, b) => (b[scoreKey] || 0) - (a[scoreKey] || 0));
-        const userIdx = sorted.findIndex(e => e.userId === userId);
-        const userInTop3 = userIdx >= 0 && userIdx < 3;
-        const showRows = sorted.slice(0, userInTop3 ? 4 : 3);
-        const renderRow = (entry, i) => `
-          <tr class="${entry.userId === userId ? "highlight" : ""}">
-            <td>${i + 1}</td>
-            <td class="flex gap-1" style="align-items:center">
-              ${entry.avatarUrl ? `<img src="${entry.avatarUrl}" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="avatar-sm avatar-sm--empty">${(entry.displayName || "?")[0]}</div>`}
-              ${entry.teamName || entry.displayName || "—"}
-            </td>
-            <td class="text-right">${entry[scoreKey] || 0}</td>
-          </tr>`;
-        let rows = showRows.map((e, i) => renderRow(e, i)).join("");
-        if (!userInTop3 && userIdx >= 3) {
-          rows += `<tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>`;
-          rows += renderRow(sorted[userIdx], userIdx);
-        }
-        if (sorted.length === 0) {
-          rows = `
-            <tr><td>1</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-            <tr><td>2</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-            <tr><td>3</td><td class="text-muted">—</td><td class="text-right text-muted">—</td></tr>
-            <tr><td colspan="3" class="text-center text-muted" style="padding:0.1rem">···</td></tr>
-            <tr><td>—</td><td class="text-muted">You</td><td class="text-right text-muted">—</td></tr>`;
-        }
-        return `<table class="data-table">
-          <thead><tr><th>#</th><th>Team</th><th class="text-right">${scoreLabel}</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
-      }
-
-      // ── Countdown helpers ──
+      // ── Countdown helpers ─────────────────────────────
       function getDeadlineMs(ev) {
-        if (!ev.tradingCloseTime || !ev.tradingCloseTimezone || ev.tradingOpen === false) return null;
+        if (!ev || !ev.tradingCloseTime || !ev.tradingCloseTimezone || ev.tradingOpen === false) return null;
         const offset = parseInt(ev.tradingCloseTimezone, 10);
         if (isNaN(offset)) return null;
         const sign = offset >= 0 ? "+" : "-";
@@ -342,401 +196,181 @@
         return `${m}m ${sec}s`;
       }
 
-      // ── Main render function ──
+      // ── Rank progression chart (kept from prior dashboard) ─
+      const buildRankProgression = (leaderboard, completedEventIds, memberIds = null) => {
+        const entries = memberIds
+          ? leaderboard.filter(e => memberIds.includes(e.userId))
+          : leaderboard;
+        if (entries.length === 0 || completedEventIds.length === 0) return [];
+        const ranks = [];
+        for (let n = 1; n <= completedEventIds.length; n++) {
+          const evSubset = completedEventIds.slice(0, n);
+          const standings = entries.map(e => {
+            const scores = evSubset
+              .map(evId => (e.eventScores || {})[evId] || 0)
+              .filter(s => s > 0)
+              .sort((a, b) => b - a);
+            return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
+          }).sort((a, b) => b.total - a.total);
+          const rank = standings.findIndex(s => s.userId === user.uid) + 1;
+          ranks.push(rank > 0 ? rank : null);
+        }
+        return ranks;
+      };
+
+      const mensCompletedEvents = events
+        .filter(e => (e.tour || "mens") === "mens" && e.status === "completed")
+        .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
+        .map(e => e.id);
+      const womensCompletedEvents = events
+        .filter(e => (e.tour || "") === "womens" && e.status === "completed")
+        .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
+        .map(e => e.id);
+
+      const MENS_LINE_COLOR = "#7D8975";   // sage-dark
+      const WOMENS_LINE_COLOR = "#B0837A"; // muted dusty rose, matches sage-dark luminance
+
+      const renderRankChart = (mensRanks, womensRanks, totalPlayers, opts = {}) => {
+        const maxEvents = Math.max(mensRanks.length, womensRanks.length);
+        if (maxEvents === 0) return `<p class="text-muted text-sm" style="text-align:center;margin-top:0.75rem">Chart will appear after events are scored.</p>`;
+        const W = opts.W ?? 280;
+        const H = opts.H ?? 240;
+        const pad = opts.pad ?? { t: 8, r: 12, b: 30, l: 32 };
+        const tickFont = opts.tickFont ?? 7.5;
+        const axisFont = opts.axisFont ?? 9.5;
+        const lineW = opts.lineW ?? 2;
+        const dotR = opts.dotR ?? 3;
+        const xTickY = opts.xTickY ?? (H - 17);
+        const chartW = W - pad.l - pad.r;
+        const chartH = H - pad.t - pad.b;
+        const maxRank = Math.max(totalPlayers, 1);
+        const toPoint = (ranks, i) => {
+          const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
+          const y = pad.t + ((ranks[i] - 1) / (maxRank - 1)) * chartH;
+          return { x, y };
+        };
+        const makeLine = (ranks, color) => {
+          const valid = ranks.map((r, i) => r != null ? i : null).filter(i => i != null);
+          if (valid.length === 0) return "";
+          const points = valid.map(i => { const p = toPoint(ranks, i); return `${p.x},${p.y}`; });
+          const pathD = points.length === 1
+            ? ""
+            : `<polyline points="${points.join(" ")}" fill="none" stroke="${color}" stroke-width="${lineW}" />`;
+          const dots = valid.map(i => {
+            const p = toPoint(ranks, i);
+            return `<circle cx="${p.x}" cy="${p.y}" r="${dotR}" fill="${color}" />`;
+          }).join("");
+          return pathD + dots;
+        };
+        // 7 y-axis labels evenly spaced across the rank range, deduped + sorted
+        const yLabelCount = 7;
+        const yLabels = [...new Set(
+          Array.from({ length: yLabelCount }, (_, i) =>
+            Math.max(1, Math.round(1 + (maxRank - 1) * i / (yLabelCount - 1)))
+          )
+        )].sort((a, b) => a - b);
+        const yLabelHtml = yLabels.map(r => {
+          const y = pad.t + ((r - 1) / Math.max(maxRank - 1, 1)) * chartH;
+          return `<text x="${pad.l - 3}" y="${y + 2.5}" text-anchor="end" fill="var(--color-warm-gray)" font-size="${tickFont}">${r}</text>`;
+        }).join("");
+        const xLabelHtml = Array.from({ length: maxEvents }, (_, i) => {
+          const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
+          return `<text x="${x}" y="${xTickY}" text-anchor="middle" fill="var(--color-warm-gray)" font-size="${tickFont}">E${i + 1}</text>`;
+        }).join("");
+        const gridHtml = yLabels.map(r => {
+          const y = pad.t + ((r - 1) / Math.max(maxRank - 1, 1)) * chartH;
+          return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="var(--color-beige)" stroke-width="0.4" />`;
+        }).join("");
+        const yAxisLabelX = Math.max(5, pad.l - 24);
+        const yAxisLabelY = pad.t + chartH / 2;
+        const xAxisLabelY = H - 4;
+        return `
+          <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+            ${gridHtml}
+            ${yLabelHtml}
+            ${xLabelHtml}
+            <text x="${yAxisLabelX}" y="${yAxisLabelY}" text-anchor="middle" transform="rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})" fill="var(--color-warm-brown)" font-size="${axisFont}" font-weight="600">Rank</text>
+            <text x="${pad.l + chartW / 2}" y="${xAxisLabelY}" text-anchor="middle" fill="var(--color-warm-brown)" font-size="${axisFont}" font-weight="600">Event Number</text>
+            ${makeLine(mensRanks, MENS_LINE_COLOR)}
+            ${makeLine(womensRanks, WOMENS_LINE_COLOR)}
+          </svg>`;
+      };
+
+      // Build the legend HTML (shared between tall and wide variants)
+      const renderRankLegend = () => `
+        <div style="display:flex;gap:1.25rem;justify-content:center;margin-top:0.5rem;font-size:0.72rem">
+          <span style="color:${MENS_LINE_COLOR};display:inline-flex;align-items:center;gap:0.3rem"><span style="display:inline-block;width:14px;height:2px;background:${MENS_LINE_COLOR}"></span>Men's CT</span>
+          <span style="color:${WOMENS_LINE_COLOR};display:inline-flex;align-items:center;gap:0.3rem"><span style="display:inline-block;width:14px;height:2px;background:${WOMENS_LINE_COLOR}"></span>Women's CT</span>
+        </div>`;
+
+      // ── Render ────────────────────────────────────────
       function render() {
-        const tabs = `
-          <div class="tour-tabs" style="margin-bottom:0.75rem">
-            <button class="tour-tab dash-tab ${activeTab === "homepage" ? "tour-tab--active" : ""}" data-tab="homepage">Events</button>
-            <button class="tour-tab dash-tab ${activeTab === "standings" ? "tour-tab--active" : ""}" data-tab="standings">Standings</button>
-            <button class="tour-tab dash-tab ${activeTab === "rosters" ? "tour-tab--active" : ""}" data-tab="rosters">Rosters</button>
-          </div>`;
+        const coinBadge = `<span class="ads-coin-badge">🪙 ${adsCoins} ADScoin</span>`;
 
-        // ── Profile widget (top-right) ──
-        const avatarSm = avatarUrl
-          ? `<img src="${avatarUrl}" alt="" class="profile-widget__avatar" referrerpolicy="no-referrer">`
-          : `<div class="profile-widget__avatar--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
-        const avatarPreview = avatarUrl
-          ? `<img src="${avatarUrl}" alt="" class="avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-          : `<div class="avatar-preview avatar-preview--empty">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
-
-        const profileWidget = `
-          <div class="profile-widget">
-            ${avatarSm}
-            <div class="profile-widget__info">
-              <div class="profile-widget__name">${profile?.teamName || user.displayName || "—"}</div>
-              <div class="profile-widget__clubs">${clubLabel}</div>
-              <span class="ads-coin-badge profile-widget__coins">🪙 ${adsCoins} ADScoin</span>
-            </div>
-            <button class="btn btn--outline btn--sm" id="btn-edit-profile">Edit</button>
-          </div>`;
-
-        const editFormModal = `
-          <div id="profile-edit-form" style="display:none;margin-bottom:1rem">
-            <div class="card">
-              <div class="profile-edit">
-                <div class="profile-edit__avatar">${avatarPreview}</div>
-                <div class="profile-edit__fields">
-                  <div class="form-group mb-1">
-                    <label class="form-label">Team Name</label>
-                    <input type="text" class="search-input" id="team-name-input" placeholder="e.g. michael ciaramella" maxlength="30" value="${profile?.teamName || ""}">
-                  </div>
-                  <div class="form-group mb-1">
-                    <label class="form-label">Profile Photo</label>
-                    <div id="avatar-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
-                      <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
-                        Choose File
-                        <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
-                      </label>
-                      <span class="text-xs text-muted" id="avatar-file-name">or drag &amp; drop here</span>
-                    </div>
-                    <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="avatar-url-input" placeholder="https://i.imgur.com/..." value="${(profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : ""}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
-                  </div>
-                  <div style="display:flex;gap:0.5rem">
-                    <button class="btn btn--primary btn--sm" id="btn-save-profile">Save Profile</button>
-                    <button class="btn btn--outline btn--sm" id="btn-cancel-profile">Cancel</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>`;
-
-        let content = "";
-
-        // ── Rank progression chart builder ──
-        // Given a leaderboard (all players) and a list of completed event IDs in order,
-        // compute the user's rank after each event using cumulative best-9 scoring.
-        // optionally filter to only club members.
-        const buildRankProgression = (leaderboard, completedEventIds, memberIds = null) => {
-          const entries = memberIds
-            ? leaderboard.filter(e => memberIds.includes(e.userId))
-            : leaderboard;
-          if (entries.length === 0 || completedEventIds.length === 0) return [];
-
-          const ranks = [];
-          for (let n = 1; n <= completedEventIds.length; n++) {
-            const evSubset = completedEventIds.slice(0, n);
-            // compute cumulative best-9 for each player using only first n events
-            const standings = entries.map(e => {
-              const scores = evSubset
-                .map(evId => (e.eventScores || {})[evId] || 0)
-                .filter(s => s > 0)
-                .sort((a, b) => b - a);
-              return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
-            }).sort((a, b) => b.total - a.total);
-            const rank = standings.findIndex(s => s.userId === user.uid) + 1;
-            ranks.push(rank > 0 ? rank : null);
-          }
-          return ranks;
-        };
-
-        // Get completed event IDs in order for each tour
-        const mensCompletedEvents = events
-          .filter(e => (e.tour || "mens") === "mens" && e.status === "completed")
-          .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
-          .map(e => e.id);
-        const womensCompletedEvents = events
-          .filter(e => (e.tour || "") === "womens" && e.status === "completed")
-          .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
-          .map(e => e.id);
-
-        // Build SVG line chart (y-axis is rank, inverted so #1 is at top)
-        const renderRankChart = (mensRanks, womensRanks, totalPlayers) => {
-          const maxEvents = Math.max(mensRanks.length, womensRanks.length);
-          if (maxEvents === 0) return `<p class="text-muted text-sm" style="text-align:center;margin-top:0.75rem">Chart will appear after events are scored.</p>`;
-
-          const W = 280, H = 120, pad = { t: 10, r: 15, b: 25, l: 30 };
-          const chartW = W - pad.l - pad.r;
-          const chartH = H - pad.t - pad.b;
-          const maxRank = Math.max(totalPlayers, 1);
-
-          const toPoint = (ranks, i) => {
-            const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
-            const y = pad.t + ((ranks[i] - 1) / (maxRank - 1)) * chartH;
-            return { x, y };
-          };
-
-          const makeLine = (ranks, dashed) => {
-            const valid = ranks.map((r, i) => r != null ? i : null).filter(i => i != null);
-            if (valid.length === 0) return "";
-            const points = valid.map(i => { const p = toPoint(ranks, i); return `${p.x},${p.y}`; });
-            const pathD = points.length === 1
-              ? "" // single point, just show dot
-              : `<polyline points="${points.join(" ")}" fill="none" stroke="${dashed ? "var(--color-warm-gray)" : "var(--color-sage)"}" stroke-width="2" ${dashed ? 'stroke-dasharray="5,3"' : ""} />`;
-            const dots = valid.map(i => {
-              const p = toPoint(ranks, i);
-              return `<circle cx="${p.x}" cy="${p.y}" r="3" fill="${dashed ? "var(--color-warm-gray)" : "var(--color-sage)"}" />`;
-            }).join("");
-            return pathD + dots;
-          };
-
-          // Y-axis labels
-          const yLabels = [1, Math.ceil(maxRank / 2), maxRank];
-          const yLabelHtml = yLabels.map(r => {
-            const y = pad.t + ((r - 1) / (maxRank - 1)) * chartH;
-            return `<text x="${pad.l - 5}" y="${y + 4}" text-anchor="end" fill="var(--color-warm-gray)" font-size="10">#${r}</text>`;
-          }).join("");
-
-          // X-axis labels (event numbers)
-          const xLabelHtml = Array.from({ length: maxEvents }, (_, i) => {
-            const x = pad.l + (maxEvents === 1 ? chartW / 2 : (i / (maxEvents - 1)) * chartW);
-            return `<text x="${x}" y="${H - 5}" text-anchor="middle" fill="var(--color-warm-gray)" font-size="10">E${i + 1}</text>`;
-          }).join("");
-
-          // Grid lines
-          const gridHtml = yLabels.map(r => {
-            const y = pad.t + ((r - 1) / (maxRank - 1)) * chartH;
-            return `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="var(--color-beige)" stroke-width="0.5" />`;
-          }).join("");
-
-          return `
-            <div style="margin-top:0.75rem">
-              <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
-                ${gridHtml}
-                ${yLabelHtml}
-                ${xLabelHtml}
-                ${makeLine(mensRanks, false)}
-                ${makeLine(womensRanks, true)}
-              </svg>
-              <div style="display:flex;gap:1rem;justify-content:center;margin-top:0.25rem">
-                <span style="font-size:0.7rem;color:var(--color-sage)">— Men's CT</span>
-                <span style="font-size:0.7rem;color:var(--color-warm-gray)">- - Women's CT</span>
-              </div>
-            </div>`;
-        };
-
-        // Compute rank progressions
+        // Rank progression chart for League (Club chart now lives on /club).
+        // Render two variants — tall for the 2-col layout, wide (clubhouse-
+        // style flat aspect) for the post-snap single-col layout. CSS swaps
+        // visibility at the same breakpoint where dash-grid-2 stacks.
         const leagueMensRanks = buildRankProgression(mensLeaderboard, mensCompletedEvents);
         const leagueWomensRanks = buildRankProgression(womensLeaderboard, womensCompletedEvents);
-        const clubMensRanks = club ? buildRankProgression(mensLeaderboard, mensCompletedEvents, club.memberIds) : [];
-        const clubWomensRanks = club ? buildRankProgression(womensLeaderboard, womensCompletedEvents, club.memberIds) : [];
+        const totalPlayers = Math.max(mensLeaderboard.length, womensLeaderboard.length, 12);
+        const leagueChartTall = renderRankChart(leagueMensRanks, leagueWomensRanks, totalPlayers);
+        const leagueChartWide = renderRankChart(leagueMensRanks, leagueWomensRanks, totalPlayers, {
+          W: 280, H: 100,
+          pad: { t: 5, r: 8, b: 20, l: 24 },
+          tickFont: 4, axisFont: 5, lineW: 1, dotR: 1.5,
+          xTickY: 100 - 11
+        });
+        const leagueLegend = renderRankLegend();
 
-        const leagueChart = renderRankChart(
-          leagueMensRanks,
-          leagueWomensRanks,
-          Math.max(mensLeaderboard.length, womensLeaderboard.length, 12)
-        );
-        const clubChart = renderRankChart(
-          clubMensRanks,
-          clubWomensRanks,
-          club ? Math.max(club.memberIds.length, 6) : 6
-        );
-
-        // Standings HTML (shared by standings tab)
-        const standingsHtml = `
-          <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem">
-            <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:var(--radius-md);overflow:hidden;font-size:0.75rem">
-              <button class="scoring-toggle" data-mode="best9" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${scoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
-              <button class="scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
-            </div>
-          </div>
-          <div class="dash-grid-2 dash-grid-2--stretch">
-            <div class="card" style="padding:1rem 1.25rem">
-              <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
-                <span class="card__title">League Standings</span>
-                <a href="players.html" class="btn btn--outline btn--sm">Full Standings →</a>
-              </div>
-              <div class="tour-tabs" style="margin-bottom:0.5rem;border-bottom-width:1px">
-                <button class="tour-tab league-tour-tab ${leagueTour === "mens" ? "tour-tab--active" : ""}" data-league-tour="mens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Men's CT</button>
-                <button class="tour-tab league-tour-tab ${leagueTour === "womens" ? "tour-tab--active" : ""}" data-league-tour="womens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Women's CT</button>
-              </div>
-              ${renderStandingsTable(
-                leagueTour === "womens" ? womensLeaderboard : mensLeaderboard,
-                user.uid, scoringMode
-              )}
-            </div>
-            <div class="card" style="padding:1rem 1.25rem">
-              <div class="card__header" style="margin-bottom:0.5rem;padding-bottom:0.5rem">
-                ${allClubs.length > 1 ? `
-                  <span style="font-family:inherit;font-size:0.95rem;font-weight:600;color:var(--color-charcoal)">
-                    <select id="club-select" style="font-family:inherit;font-size:0.95rem;font-weight:600;border:none;background:none;color:var(--color-charcoal);cursor:pointer;padding:0;margin:0">
-                      ${allClubs.map((c, i) => `<option value="${i}" ${i === selectedClubIdx ? "selected" : ""}>${c.name}</option>`).join("")}
-                    </select> Standings
+        // Schedule list — single shared schedule (men's tour events represent the shared venues)
+        const scheduleEvents = events
+          .filter(e => (e.tour || "mens") === "mens")
+          .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
+        const scheduleHtml = scheduleEvents.length === 0
+          ? `<p class="text-muted">No events scheduled yet.</p>`
+          : `<div class="surfer-list">
+              ${scheduleEvents.map(e => `
+                <div class="surfer-row">
+                  <span class="surfer-row__rank">${e.eventNumber}</span>
+                  <span class="surfer-row__name">
+                    ${e.status !== "upcoming" ? `<a href="event.html?id=${e.id}" style="color:inherit;text-decoration:none">${e.name}</a>` : e.name}
                   </span>
-                ` : `<span class="card__title">${club ? club.name + " Standings" : "Club Standings"}</span>`}
-                <div style="display:flex;gap:0.4rem;align-items:center">
-                  ${allClubs.length > 1 && club ? `<button id="btn-default-club" class="btn btn--outline btn--sm" style="font-size:0.7rem;padding:0.15rem 0.4rem;${club.id === userDoc?.defaultClubId ? "opacity:0.4;cursor:default" : ""}">${club.id === userDoc?.defaultClubId ? "Default" : "Set Default"}</button>` : ""}
-                  ${club ? `<a href="club.html?id=${club.id}" class="btn btn--outline btn--sm" id="club-view-link">View Club →</a>` : `<a href="club.html" class="btn btn--outline btn--sm">Join a Club →</a>`}
+                  ${statusBadge(e.status)}
                 </div>
-              </div>
-              <div class="tour-tabs" style="margin-bottom:0.5rem;border-bottom-width:1px">
-                <button class="tour-tab club-tour-tab ${clubTour === "mens" ? "tour-tab--active" : ""}" data-club-tour="mens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Men's CT</button>
-                <button class="tour-tab club-tour-tab ${clubTour === "womens" ? "tour-tab--active" : ""}" data-club-tour="womens" style="padding:0.3rem 0.75rem;font-size:0.8rem">Women's CT</button>
-              </div>
-              ${renderStandingsTable(clubMembers, user.uid, scoringMode)}
-            </div>
-          </div>
-          <div class="dash-grid-2 mt-3">
-            <div class="card">
-              <div class="card__header"><span class="card__title">League Standings by Event</span></div>
-              ${leagueChart}
-            </div>
-            <div class="card">
-              <div class="card__header"><span class="card__title">Club Standings by Event</span></div>
-              ${clubChart}
-            </div>
-          </div>`;
-
-        if (activeTab === "homepage") {
-          content = `
-            <!-- Current Events + Schedule side by side -->
-            <div class="dash-grid-2">
-              <div class="card">
-                <div class="card__header"><span class="card__title">Current Events</span></div>
-                ${mensEvent || womensEvent ? `
-                  ${[mensEvent && { ev: mensEvent, team: mensTeam, label: "Men's CT", tour: "mens" }, womensEvent && { ev: womensEvent, team: womensTeam, label: "Women's CT", tour: "womens" }]
-                    .filter(Boolean)
-                    .map(({ ev, team, label, tour }, idx) => `
-                      ${idx > 0 ? `<div style="border-top:1px solid var(--color-beige);margin-top:0.75rem;padding-top:0.75rem"></div>` : ""}
-                      <div style="display:flex;gap:1rem;align-items:flex-start">
-                        <div style="flex:1;min-width:0">
-                          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;flex-wrap:wrap">
-                            <span class="text-sm" style="font-weight:600">${label}</span>
-                            ${tradingBadge(ev.tradingOpen)}
-                            ${(() => {
-                              const dl = getDeadlineMs(ev);
-                              if (!dl) return "";
-                              return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:0.15rem 0.45rem;font-size:0.7rem;font-variant-numeric:tabular-nums;white-space:nowrap" data-deadline="${dl}"><span class="countdown-text">—</span> until lock</span>`;
-                            })()}
-                          </div>
-                          <h3 style="margin-bottom:0.25rem">
-                            <a href="event.html?id=${ev.id}" style="color:inherit;text-decoration:none">${ev.name}</a>
-                          </h3>
-                          <p class="text-muted text-sm">${ev.location || ""}</p>
-                          <p class="text-sm mt-1">${formatDate(ev.startDate)} — ${formatDate(ev.endDate)}</p>
-                          <div class="mt-1" style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                            ${ev.tradingOpen !== false ? `<a href="team.html${tour === "womens" ? "?tour=womens" : ""}" class="btn btn--primary btn--sm">Manage Team</a>` : ""}
-                            <a href="event.html?id=${ev.id}" class="btn btn--outline btn--sm">View Scores</a>
-                          </div>
-                        </div>
-                        <div style="flex-shrink:0">
-                          ${team ? renderStrip(team, null, "mid", tour) : `<p class="text-muted text-sm">No team picked yet.</p>`}
-                        </div>
-                      </div>
-                    `).join("")}
-                ` : `<p class="text-muted">No upcoming events.</p>`}
-              </div>
-              <div class="card">
-                <div class="card__header">
-                  <span class="card__title">${SEASON} Schedule</span>
-                  <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden;font-size:0.75rem">
-                    <button class="sched-tour-tab" data-sched-tour="mens" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${scheduleTour === "mens" ? "background:var(--color-charcoal);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Men's</button>
-                    <button class="sched-tour-tab" data-sched-tour="womens" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scheduleTour === "womens" ? "background:var(--color-charcoal);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Women's</button>
-                  </div>
-                </div>
-                ${(() => {
-                  const tourEvents = events
-                    .filter((e) => (e.tour || "mens") === scheduleTour)
-                    .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
-                  if (!tourEvents.length) return `<p class="text-muted">No events scheduled yet.</p>`;
-                  return `<div class="surfer-list">
-                    ${tourEvents.map((e) => `
-                      <div class="surfer-row">
-                        <span class="surfer-row__rank">${e.eventNumber}</span>
-                        <span class="surfer-row__name">
-                          ${e.status !== "upcoming" ? `<a href="event.html?id=${e.id}" style="color:inherit;text-decoration:none">${e.name}</a>` : e.name}
-                        </span>
-                        ${statusBadge(e.status)}
-                      </div>
-                    `).join("")}
-                  </div>`;
-                })()}
-              </div>
+              `).join("")}
             </div>`;
-        } else if (activeTab === "standings") {
-          content = standingsHtml;
-        } else {
-          // Rosters tab
-          content = `
-            <div class="dash-grid-2">
-              <div>
-                <h2 class="mb-3">Men's CT</h2>
-                ${mensEvent ? `
-                  <div class="card mb-3">
-                    <div class="card__header">
-                      <span class="card__title">Current Roster</span>
-                      <span class="text-sm text-muted">${mensEvent.name}</span>
-                    </div>
-                    ${renderStrip(mensTeam, null, true, "mens")}
-                  </div>
-                ` : ""}
-                ${mensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
-              </div>
-              <div>
-                <h2 class="mb-3">Women's CT</h2>
-                ${womensEvent ? `
-                  <div class="card mb-3">
-                    <div class="card__header">
-                      <span class="card__title">Current Roster</span>
-                      <span class="text-sm text-muted">${womensEvent.name}</span>
-                    </div>
-                    ${renderStrip(womensTeam, null, true, "womens")}
-                  </div>
-                ` : ""}
-                ${womensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
-              </div>
-            </div>`;
-        }
 
         container.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
-            <h1 class="page-title" style="margin:0">Fantasy Surf League</h1>
-            ${profileWidget}
+          <div class="dash-header">
+            <div class="dash-title">
+              <h1 class="page-title" style="margin-bottom:0">Fantasy Surf League</h1>
+              <p class="dash-subtitle">Where surfer dreams become surfer fantasies</p>
+            </div>
+            ${coinBadge}
           </div>
-          ${tabs}
-          ${editFormModal}
-          ${content}
+
+          ${renderTeamCard("Men's CT", mensEvent, mensTeam, "mens")}
+          ${renderTeamCard("Women's CT", womensEvent, womensTeam, "womens")}
+
+          <div class="dash-grid-2 dash-grid-2--stretch mt-3">
+            <div class="card" style="display:flex;flex-direction:column">
+              <div class="card__header">
+                <span class="card__title">League Standings</span>
+                <a href="standings.html" class="btn btn--outline btn--sm">Standings →</a>
+              </div>
+              <div class="league-chart-wrapper" style="margin-top:0.75rem;flex:1;display:flex;flex-direction:column;justify-content:center">
+                <div class="league-chart-tall">${leagueChartTall}</div>
+                <div class="league-chart-wide">${leagueChartWide}</div>
+                ${leagueLegend}
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__header"><span class="card__title">${SEASON} Schedule</span></div>
+              ${scheduleHtml}
+            </div>
+          </div>
         `;
-
-        // ── Tab click handlers ──
-        container.querySelectorAll(".dash-tab").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            activeTab = btn.dataset.tab;
-            if (activeTab === "rosters") {
-              container.querySelector(".dash-tab[data-tab='rosters']").textContent = "Loading...";
-              await loadRosters();
-            }
-            render();
-          });
-        });
-
-        // ── Club dropdown handler ──
-        document.getElementById("club-select")?.addEventListener("change", (e) => {
-          selectClub(parseInt(e.target.value));
-          render();
-        });
-
-        // ── Scoring mode toggle ──
-        container.querySelectorAll(".scoring-toggle").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            scoringMode = btn.dataset.mode;
-            render();
-          });
-        });
-
-        // ── League tour tabs ──
-        container.querySelectorAll(".league-tour-tab").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            leagueTour = btn.dataset.leagueTour;
-            render();
-          });
-        });
-
-        // ── Club tour tabs ──
-        container.querySelectorAll(".club-tour-tab").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            clubTour = btn.dataset.clubTour;
-            clubMembers = clubTour === "womens" ? clubMembersWomens : clubMembersMens;
-            render();
-          });
-        });
-
-        // ── Schedule tour tabs ──
-        container.querySelectorAll(".sched-tour-tab").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            scheduleTour = btn.dataset.schedTour;
-            render();
-          });
-        });
 
         // ── Countdown tick ──
         clearInterval(window._countdownInterval);
@@ -754,81 +388,6 @@
           window._countdownInterval = setInterval(tick, 1000);
         }
 
-        // ── Set default club ──
-        document.getElementById("btn-default-club")?.addEventListener("click", async () => {
-          if (!club || club.id === userDoc?.defaultClubId) return;
-          const { updateUser } = await import("./js/db.js");
-          const { toast: t } = await import("./js/ui.js");
-          await updateUser(user.uid, { defaultClubId: club.id });
-          userDoc.defaultClubId = club.id;
-          t(`${club.name} set as default`, "success");
-          render();
-        });
-
-        // ── Profile edit handlers ──
-        {
-          document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
-            const form = document.getElementById("profile-edit-form");
-            form.style.display = form.style.display === "none" ? "block" : "none";
-          });
-          document.getElementById("btn-cancel-profile")?.addEventListener("click", () => {
-            document.getElementById("profile-edit-form").style.display = "none";
-          });
-
-          const applyFile = (file) => {
-            if (!file || !file.type.startsWith("image/")) return;
-            document.getElementById("avatar-file-name").textContent = file.name;
-            document.getElementById("avatar-url-input").value = "";
-            const preview = document.querySelector(".profile-edit__avatar img, .profile-edit__avatar div");
-            if (preview && preview.tagName === "IMG") preview.src = URL.createObjectURL(file);
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            document.getElementById("avatar-file-input").files = dt.files;
-          };
-
-          document.getElementById("avatar-file-input")?.addEventListener("change", (e) => applyFile(e.target.files[0]));
-
-          const dropZone = document.getElementById("avatar-drop-zone");
-          if (dropZone) {
-            dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.style.borderColor = "var(--color-primary)"; dropZone.style.background = "rgba(0,0,0,0.03)"; });
-            dropZone.addEventListener("dragleave", () => { dropZone.style.borderColor = ""; dropZone.style.background = ""; });
-            dropZone.addEventListener("drop", (e) => {
-              e.preventDefault();
-              dropZone.style.borderColor = "";
-              dropZone.style.background = "";
-              applyFile(e.dataTransfer.files[0]);
-            });
-          }
-
-          document.getElementById("btn-save-profile")?.addEventListener("click", async () => {
-            const { toast: t } = await import("./js/ui.js");
-            const { updateUser } = await import("./js/db.js");
-            const name = document.getElementById("team-name-input")?.value.trim();
-            if (!name) { t("Team name is required.", "error"); return; }
-
-            const file = document.getElementById("avatar-file-input")?.files[0];
-            const urlInput = document.getElementById("avatar-url-input")?.value.trim();
-            let finalUrl = urlInput || profile?.avatarUrl || "";
-
-            if (file) {
-              t("Uploading photo…", "info");
-              try {
-                const { storage } = await import("./js/firebase-config.js");
-                const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js");
-                const storageRef = ref(storage, `avatars/${user.uid}`);
-                await uploadBytes(storageRef, file);
-                finalUrl = await getDownloadURL(storageRef);
-              } catch (err) {
-                t("Upload failed: " + err.message, "error");
-                return;
-              }
-            }
-
-            await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl });
-            t("Profile saved!", "success");
-            setTimeout(() => location.reload(), 800);
-          });
-        }
       }
 
       render();
