@@ -231,7 +231,7 @@
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -249,23 +249,12 @@
     let tradingOpen = true;
     let priorRosters = []; // [{ event, team, score|null }] for this season, excluding currentEvent
 
-    // Helpers for sparse <-> compact roster conversion.
-    // Saved surfers may carry a `team_position` field (set on save) so that
-    // sparse positions (gaps) round-trip through Firebase. If absent, fall
-    // back to the order they appear in the saved array.
-    function padToSparse(saved, size) {
-      const out = new Array(size).fill(null);
-      (saved || []).forEach((s, i) => {
-        if (!s) return;
-        const pos = (typeof s.team_position === "number" && s.team_position >= 0 && s.team_position < size)
-          ? s.team_position
-          : i;
-        if (pos < size) out[pos] = s;
-      });
-      return out;
-    }
+    // Sparse <-> compact roster helpers. padToSparseRoster() is shared
+    // with the Dashboard and prior-rosters renderer (in ui.js) so all
+    // three views inflate saved teams identically.
+    const padToSparse = (saved, size) => padToSparseRoster(saved, size);
     // Compact + annotate each surfer with its sparse position so gaps
-    // survive a save/load round-trip.
+    // survive a save/load round trip through Firestore.
     function compactRosterWithPositions(sparse) {
       const out = [];
       (sparse || []).forEach((s, i) => {
@@ -274,15 +263,9 @@
       });
       return out;
     }
-    function compactRoster(sparse) {
-      return (sparse || []).filter(Boolean);
-    }
-    function firstEmptySlot(sparse) {
-      return sparse.findIndex((s) => s === null);
-    }
-    function findSlotByName(sparse, surferId) {
-      return sparse.findIndex((s) => s && s.surferId === surferId);
-    }
+    const compactRoster = (sparse) => (sparse || []).filter(Boolean);
+    const firstEmptySlot = (sparse) => sparse.findIndex((s) => s === null);
+    const findSlotByName = (sparse, surferId) => sparse.findIndex((s) => s && s.surferId === surferId);
 
     // ── Name-split helpers (mirror dashboard) ───────────
     const splitName = (fullName) => {
@@ -301,14 +284,16 @@
     };
 
     // Render a saved team as a single-row strip of surfer tiles + alternate.
-    // Reuses the dashboard's .team-row CSS for consistency.
+    // Reuses the dashboard's .team-row CSS for consistency. Position-aware
+    // so sparse-saved teams (with gaps) render at their stored positions.
     function renderRosterStrip(team, tour) {
       const rosterSize = tour === "womens" ? 5 : 8;
       if (!team) return `<p class="text-muted text-sm">No team submitted.</p>`;
+      const positional = padToSparse(team.surfers, rosterSize);
       const tiles = [];
       for (let i = 0; i < rosterSize; i++) {
-        if (i < team.surfers.length) {
-          const s = team.surfers[i];
+        const s = positional[i];
+        if (s) {
           const data = allSurfers[s.surferId] || {};
           const name = data.name || s.surferId.replace(/-/g, " ");
           const photo = data.photoUrl
@@ -1003,14 +988,6 @@
         });
       }
 
-      // Search
-      document.getElementById("surfer-search")?.addEventListener("input", (e) => {
-        filterAvailable(container);
-      });
-      document.getElementById("bracket-filter")?.addEventListener("change", () => {
-        filterAvailable(container);
-      });
-
       // Revert
       document.getElementById("btn-revert")?.addEventListener("click", async () => {
         if (!currentEvent) return;
@@ -1110,18 +1087,6 @@
       });
     }
 
-    function filterAvailable(container) {
-      const search = (document.getElementById("surfer-search")?.value || "").toLowerCase();
-      const bracket = document.getElementById("bracket-filter")?.value || "";
-      const rows = container.querySelectorAll("#available-list .surfer-row");
-      rows.forEach((row) => {
-        const name = row.querySelector(".surfer-row__name")?.textContent.toLowerCase() || "";
-        const rb = row.dataset.bracket || "";
-        const matchSearch = !search || name.includes(search);
-        const matchBracket = !bracket || rb === bracket;
-        row.style.display = (matchSearch && matchBracket) ? "" : "none";
-      });
-    }
   </script>
 </body>
 </html>

@@ -411,7 +411,7 @@
       document.querySelectorAll(".club-scoring-toggle").forEach((btn) => {
         btn.addEventListener("click", async () => {
           clubScoringMode = btn.dataset.mode;
-          await renderClubView(container, user, club, allUserClubs);
+          await renderClubView(container, user, userDoc, club, allUserClubs);
         });
       });
 

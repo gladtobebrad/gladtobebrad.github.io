@@ -35,7 +35,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getSurfers } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -108,16 +108,18 @@
       };
 
       // Render a team as a single horizontal row of surfer tiles + alternate.
-      // CSS class .team-row collapses to wrap at narrow viewports.
+      // Position-aware: sparse-saved teams (with gaps) render at their
+      // stored team_position. Legacy compact saves fall back to array index.
       const renderTeamRow = (team, tour) => {
         const rosterSize = tour === "womens" ? 5 : 8;
         if (!team) {
           return `<p class="text-muted text-sm" style="margin-top:0.5rem">No team picked yet. <a href="team.html${tour === "womens" ? "?tour=womens" : ""}">Pick your team →</a></p>`;
         }
+        const positional = padToSparseRoster(team.surfers, rosterSize);
         const surferTiles = [];
         for (let i = 0; i < rosterSize; i++) {
-          if (i < team.surfers.length) {
-            const s = team.surfers[i];
+          const s = positional[i];
+          if (s) {
             const data = surferMap[s.surferId] || {};
             const name = data.name || s.surferId.replace(/-/g, " ");
             const photo = data.photoUrl

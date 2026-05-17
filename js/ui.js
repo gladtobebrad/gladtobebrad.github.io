@@ -10,6 +10,35 @@ const NAV_ITEMS = [
   { title: "About", href: "about.html" },
 ];
 
+// ── Sparse Roster Helper ─────────────────────────────
+
+/**
+ * Inflate a saved (possibly compact) surfers array into a fixed-size
+ * sparse array of length `size`, with `null` in any empty slot. Each
+ * saved surfer may carry a `team_position` field that controls its
+ * sparse index; if absent, the surfer falls back to the order it
+ * appears in the saved array (legacy compact-storage behaviour).
+ *
+ * Used by the editable Your Roster strip, the Dashboard's read-only
+ * team strip, and the prior-rosters strip on My Team so they all
+ * render saved teams identically — gaps preserved when present.
+ *
+ * @param {Array} saved   array of { surferId, purchasePrice, [team_position] }
+ * @param {number} size   target sparse length (rosterSize)
+ * @returns {Array}       sparse array of length `size`
+ */
+export function padToSparseRoster(saved, size) {
+  const out = new Array(size).fill(null);
+  (saved || []).forEach((s, i) => {
+    if (!s) return;
+    const pos = (typeof s.team_position === "number" && s.team_position >= 0 && s.team_position < size)
+      ? s.team_position
+      : i;
+    if (pos < size && out[pos] === null) out[pos] = s;
+  });
+  return out;
+}
+
 // ── Countdown Banner Helpers ─────────────────────────
 
 /**

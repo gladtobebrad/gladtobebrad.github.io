@@ -657,19 +657,6 @@ img { max-width: 100%; }
   margin-right: auto;
 }
 
-/* ── Locked Banner ─────────────────────────────────── */
-
-.locked-banner {
-  background: #fde8e4;
-  color: #c0392b;
-  text-align: center;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
-}
-
 /* ── Dashboard Sections ───────────────────────────── */
 
 .section-header {
