@@ -34,7 +34,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getSurfers } from "./js/db.js";
+    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -63,6 +63,16 @@
           getLeaderboard(SEASON, "womens"),
           getEvents(SEASON)
         ]);
+        // The getEvents() / getCurrentEventForTour() pair is sessionStorage-cached,
+        // so tradingOpen / status flips made via admin won't show until the cache
+        // expires. Re-fetch the picked events fresh so the badges + countdown
+        // reflect the live Firestore state.
+        const [mensFresh, womensFresh] = await Promise.all([
+          mensEvent ? getEventFresh(mensEvent.id) : null,
+          womensEvent ? getEventFresh(womensEvent.id) : null,
+        ]);
+        if (mensFresh) mensEvent = { ...mensEvent, ...mensFresh };
+        if (womensFresh) womensEvent = { ...womensEvent, ...womensFresh };
       } catch (err) {
         container.innerHTML = `
           <h1 class="page-title">Fantasy Surf League</h1>
