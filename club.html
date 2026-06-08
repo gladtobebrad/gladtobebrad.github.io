@@ -396,8 +396,9 @@
                           <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;width:1.5rem;text-align:center">#</th>
                           <th style="position:sticky;left:2rem;z-index:2;background:var(--color-warm-white)">Player</th>
                           ${tourEvents.map((e) => `
-                            <th class="text-right sortable-col" data-event-id="${e.id}" style="font-size:0.7rem;line-height:1.1;width:3.5rem;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
-                              ${locationForEvent(e.name)} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                            <th class="text-center sortable-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
+                              <div>${locationForEvent(e.name)}</div>
+                              <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
                           <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">${clubScoringMode === "all" ? "All Events" : "Best 9"}</th>
@@ -419,7 +420,7 @@
                               const display = live
                                 ? (pts != null ? `<em title="Projected (live)">~${pts}</em>` : "·")
                                 : (hasResults ? (pts ?? "—") : "·");
-                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${pts != null && (hasResults || live) ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
+                              return `<td class="text-center" data-event-pts="${e.id}" data-pts="${pts != null && (hasResults || live) ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
                                 ${display}
                               </td>`;
                             }).join("")}

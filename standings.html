@@ -112,8 +112,9 @@
                   <th>Player</th>
                   <th class="text-right sortable-col" data-col="score" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">${scoringMode === "all" ? "All Events" : "Best 9"} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
                   ${tourEvents.map(e => `
-                    <th class="text-right sortable-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.7rem;line-height:1.1;width:3.5rem;vertical-align:bottom">
-                      ${locationForEvent(e.name)} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                    <th class="text-center sortable-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom">
+                      <div>${locationForEvent(e.name)}</div>
+                      <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                     </th>
                   `).join("")}
                 </tr></thead>
@@ -137,10 +138,10 @@
                       ${tourEvents.map(e => {
                         const pts = p.eventScores[e.id];
                         const live = inProgressIds.has(e.id);
-                        if (pts == null) return `<td class="text-right">—</td>`;
+                        if (pts == null) return `<td class="text-center">—</td>`;
                         return live
-                          ? `<td class="text-right" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
-                          : `<td class="text-right">${pts}</td>`;
+                          ? `<td class="text-center" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
+                          : `<td class="text-center">${pts}</td>`;
                       }).join("")}
                     </tr>
                   `).join("")}
