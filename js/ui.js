@@ -349,6 +349,73 @@ export function formatDate(val) {
   });
 }
 
+// ── Short event names (surf venue) ───────────────────────
+// Maps full WSL event names ("Lexus Pipe Pro") to the short venue label
+// ("Pipeline") used for compact column headers. Shared by data.html,
+// surfers.html, standings.html, and club.html.
+const LOCATION_MAP = {
+  "Lexus Pipe Pro":                          "Pipeline",
+  "Billabong Pro Pipeline":                  "Pipeline",
+  "Hurley Pro Sunset Beach":                 "Sunset Beach",
+  "Surf Abu Dhabi Pro":                      "Abu Dhabi",
+  "MEO Rip Curl Pro Portugal":               "Portugal",
+  "MEO Portugal Pro":                        "Portugal",
+  "Surf City El Salvador Pro":               "El Salvador",
+  "Rip Curl Pro Bells Beach":                "Bells Beach",
+  "Bonsoy Gold Coast Pro":                   "Gold Coast",
+  "Western Australia Margaret River Pro":    "Margaret River",
+  "Margaret River Pro":                      "Margaret River",
+  "Lexus Trestles Pro":                      "Trestles",
+  "VIVO Rio Pro":                            "Rio",
+  "Oi Rio Pro":                              "Rio",
+  "Corona Open J-Bay":                       "J-Bay",
+  "Corona Cero Open J-Bay":                  "J-Bay",
+  "SHISEIDO Tahiti Pro":                     "Tahiti",
+  "Outerknown Tahiti Pro":                   "Tahiti",
+  "Lexus Tahiti Pro":                        "Tahiti",
+  "Tahiti Pro":                              "Tahiti",
+  "Corona Fiji Pro":                         "Fiji",
+  "Fiji Pro":                                "Fiji",
+  "Corona Cero New Zealand Pro":             "New Zealand",
+  "Lexus Pipe Masters":                      "Pipeline",
+  "Lexus WSL Finals":                        "WSL Finals",
+  "Rip Curl WSL Finals":                     "WSL Finals",
+  "Lexus WSL Finals Fiji":                   "WSL Finals",
+  "Surf Ranch Pro":                          "Surf Ranch",
+  "Quiksilver/ROXY Pro G-Land":              "G-Land",
+};
+
+const LOCATION_PATTERNS = [
+  { re: /\bpipe/i, loc: "Pipeline" },
+  { re: /\bsunset\b/i, loc: "Sunset Beach" },
+  { re: /\babu\s+dhabi\b/i, loc: "Abu Dhabi" },
+  { re: /\bportugal\b/i, loc: "Portugal" },
+  { re: /\bel\s+salvador\b/i, loc: "El Salvador" },
+  { re: /\bbells\b/i, loc: "Bells Beach" },
+  { re: /\bgold\s+coast\b/i, loc: "Gold Coast" },
+  { re: /\bmargaret\s+river\b/i, loc: "Margaret River" },
+  { re: /\btrestles\b/i, loc: "Trestles" },
+  { re: /\brio\b/i, loc: "Rio" },
+  { re: /\bj-?bay\b/i, loc: "J-Bay" },
+  { re: /\btahiti\b/i, loc: "Tahiti" },
+  { re: /\bfiji\b/i, loc: "Fiji" },
+  { re: /\bfinals\b/i, loc: "WSL Finals" },
+  { re: /\bsurf\s+ranch\b/i, loc: "Surf Ranch" },
+  { re: /\bg-?land\b/i, loc: "G-Land" },
+  { re: /\bnew\s*zealand\b/i, loc: "New Zealand" },
+];
+
+/** Short venue label for a full WSL event name (e.g. "Lexus Pipe Pro" → "Pipeline"). */
+export function locationForEvent(eventName) {
+  if (!eventName) return eventName;
+  const exact = LOCATION_MAP[eventName];
+  if (exact) return exact;
+  for (const { re, loc } of LOCATION_PATTERNS) {
+    if (re.test(eventName)) return loc;
+  }
+  return eventName;
+}
+
 /** Event status badge HTML */
 export function statusBadge(status) {
   const labels = {

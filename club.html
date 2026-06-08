@@ -26,7 +26,7 @@
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent } from "./js/ui.js";
 
     const SEASON = 2026;
     let clubScoringMode = "best9";
@@ -396,8 +396,8 @@
                           <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;width:1.5rem;text-align:center">#</th>
                           <th style="position:sticky;left:2rem;z-index:2;background:var(--color-warm-white)">Player</th>
                           ${tourEvents.map((e) => `
-                            <th class="text-right sortable-col" data-event-id="${e.id}" style="white-space:nowrap;font-size:0.7rem;cursor:pointer;user-select:none" title="Sort by ${e.name}">
-                              ${e.name.split(" ").slice(-2).join(" ")} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                            <th class="text-right sortable-col" data-event-id="${e.id}" style="font-size:0.7rem;line-height:1.1;width:3.5rem;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
+                              ${locationForEvent(e.name)} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
                           <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">${clubScoringMode === "all" ? "All Events" : "Best 9"}</th>

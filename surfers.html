@@ -114,7 +114,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getEvents, getSurfers } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent } from "./js/ui.js";
 
     const SEASON = 2026;
     let activeSubPage = "location";  // "location" (Results) | "popularity"
@@ -131,79 +131,18 @@
     let eventSortCol = "avg";
     let eventSortAsc = true;
 
-    // ── Location name mapping (from data.html) ───────────
-    const LOCATION_MAP = {
-      "Lexus Pipe Pro":                          "Pipeline",
-      "Billabong Pro Pipeline":                  "Pipeline",
-      "Hurley Pro Sunset Beach":                 "Sunset Beach",
-      "Surf Abu Dhabi Pro":                      "Abu Dhabi",
-      "MEO Rip Curl Pro Portugal":               "Portugal",
-      "MEO Portugal Pro":                        "Portugal",
-      "Surf City El Salvador Pro":               "El Salvador",
-      "Rip Curl Pro Bells Beach":                "Bells Beach",
-      "Bonsoy Gold Coast Pro":                   "Gold Coast",
-      "Western Australia Margaret River Pro":    "Margaret River",
-      "Margaret River Pro":                      "Margaret River",
-      "Lexus Trestles Pro":                      "Trestles",
-      "VIVO Rio Pro":                            "Rio de Janeiro",
-      "Oi Rio Pro":                              "Rio de Janeiro",
-      "Corona Open J-Bay":                       "J-Bay",
-      "Corona Cero Open J-Bay":                  "J-Bay",
-      "SHISEIDO Tahiti Pro":                     "Tahiti",
-      "Outerknown Tahiti Pro":                   "Tahiti",
-      "Lexus Tahiti Pro":                        "Tahiti",
-      "Tahiti Pro":                              "Tahiti",
-      "Corona Fiji Pro":                         "Fiji",
-      "Fiji Pro":                                "Fiji",
-      "Corona Cero New Zealand Pro":             "New Zealand",
-      "Lexus Pipe Masters":                      "Pipeline",
-      "Lexus WSL Finals":                        "WSL Finals",
-      "Rip Curl WSL Finals":                     "WSL Finals",
-      "Lexus WSL Finals Fiji":                   "WSL Finals",
-      "Surf Ranch Pro":                          "Surf Ranch",
-      "Quiksilver/ROXY Pro G-Land":              "G-Land",
-    };
-
-    const LOCATION_PATTERNS = [
-      { re: /\bpipe/i, loc: "Pipeline" },
-      { re: /\bsunset\b/i, loc: "Sunset Beach" },
-      { re: /\babu\s+dhabi\b/i, loc: "Abu Dhabi" },
-      { re: /\bportugal\b/i, loc: "Portugal" },
-      { re: /\bel\s+salvador\b/i, loc: "El Salvador" },
-      { re: /\bbells\b/i, loc: "Bells Beach" },
-      { re: /\bgold\s+coast\b/i, loc: "Gold Coast" },
-      { re: /\bmargaret\s+river\b/i, loc: "Margaret River" },
-      { re: /\btrestles\b/i, loc: "Trestles" },
-      { re: /\brio\b/i, loc: "Rio de Janeiro" },
-      { re: /\bj-?bay\b/i, loc: "J-Bay" },
-      { re: /\btahiti\b/i, loc: "Tahiti" },
-      { re: /\bfiji\b/i, loc: "Fiji" },
-      { re: /\bfinals\b/i, loc: "WSL Finals" },
-      { re: /\bsurf\s+ranch\b/i, loc: "Surf Ranch" },
-      { re: /\bg-?land\b/i, loc: "G-Land" },
-      { re: /\bnew\s*zealand\b/i, loc: "New Zealand" },
-    ];
-
-    function locationForEvent(eventName) {
-      if (!eventName) return eventName;
-      const exact = LOCATION_MAP[eventName];
-      if (exact) return exact;
-      for (const { re, loc } of LOCATION_PATTERNS) {
-        if (re.test(eventName)) return loc;
-      }
-      return eventName;
-    }
-
+    // ── Location name mapping ───────────
+    // Short venue label helper (locationForEvent) is shared in ui.js.
     const LOCATION_ORDER = [
       "Pipeline", "Sunset Beach", "Abu Dhabi", "Portugal",
       "El Salvador", "Bells Beach", "Gold Coast", "Margaret River",
-      "G-Land", "Surf Ranch", "Trestles", "Rio de Janeiro",
+      "G-Land", "Surf Ranch", "Trestles", "Rio",
       "J-Bay", "Tahiti", "Fiji", "New Zealand", "WSL Finals",
     ];
 
     const CURRENT_SEASON_LOCATIONS = [
       "Bells Beach", "Margaret River", "Gold Coast", "New Zealand",
-      "El Salvador", "Rio de Janeiro", "Tahiti", "Fiji",
+      "El Salvador", "Rio", "Tahiti", "Fiji",
       "Trestles", "Abu Dhabi", "Portugal", "Pipeline",
     ];
 
