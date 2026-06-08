@@ -242,7 +242,6 @@
       const projectedIds = new Set(
         eventColumns.filter((e) => isInProgress(e) && e.resultsEntered).map((e) => e.id)
       );
-      const anyLive = projectedIds.size > 0;
 
       // ── Rank progression chart helpers (mirror dashboard) ──
       const mensCompletedIds = events
@@ -370,7 +369,6 @@
         <!-- Event-by-Event Scores -->
         <div class="card mb-3">
           <div class="card__header"><span class="card__title">Season Leaderboard</span></div>
-          ${anyLive ? `<p class="text-xs text-muted" style="margin:0 0 0.75rem"><em>~</em> values are <strong>projected</strong> while an event is live — a guaranteed minimum, so final scores can only rise.</p>` : ""}
           <div class="club-controls">
             <div class="tour-tabs" style="margin-bottom:0;border-bottom-width:1px">
               <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
@@ -393,26 +391,30 @@
                     <table class="data-table" style="border-collapse:separate;border-spacing:0">
                       <thead>
                         <tr>
-                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;width:1.5rem;text-align:center">#</th>
-                          <th style="position:sticky;left:2rem;z-index:2;background:var(--color-warm-white)">Player</th>
+                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:36px;padding-left:0.5rem;padding-right:0.5rem;white-space:nowrap;text-align:center">#</th>
+                          <th style="position:sticky;left:36px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
+                          <th class="text-center sortable-col" data-col="total" style="position:sticky;left:176px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)" title="Sort by ${clubScoringMode === "all" ? "All Events" : "Best 9"} total">
+                            <div>${clubScoringMode === "all" ? "All Events" : "Best 9"}</div>
+                            <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                          </th>
                           ${tourEvents.map((e) => `
                             <th class="text-center sortable-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
                               <div>${locationForEvent(e.name)}</div>
                               <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
-                          <th class="text-right" style="position:sticky;right:0;z-index:2;background:var(--color-warm-white);white-space:nowrap;font-size:0.75rem">${clubScoringMode === "all" ? "All Events" : "Best 9"}</th>
                         </tr>
                       </thead>
                       <tbody>
                         ${entries.map((entry, i) => `
                           <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
-                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);text-align:center;color:var(--color-warm-brown);font-size:0.8rem;width:1.5rem">${i + 1}</td>
-                            <td style="position:sticky;left:2rem;z-index:1;background:var(--color-warm-white);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:36px;padding-left:0.5rem;padding-right:0.5rem;text-align:center;color:var(--color-warm-brown);font-size:0.8rem">${i + 1}</td>
+                            <td style="position:sticky;left:36px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                               <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
                                 ${entry.teamName || entry.displayName || "—"}
                               </a>
                             </td>
+                            <td class="text-center" data-total="${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}" style="position:sticky;left:176px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-weight:600;border-right:2px solid var(--color-beige)">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
                             ${tourEvents.map((e) => {
                               const live = projectedIds.has(e.id);
                               const pts = eventScores[entry.userId]?.[e.id];
@@ -424,7 +426,6 @@
                                 ${display}
                               </td>`;
                             }).join("")}
-                            <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
                           </tr>
                         `).join("")}
                       </tbody>
@@ -475,16 +476,21 @@
         });
       });
 
-      // Click-to-sort event-by-event columns
-      const sortState = {}; // tableIndex → { eventId, dir }
+      // Click-to-sort the total column and each event-by-event column
+      const sortState = {}; // tableKey → { key, dir }
+      const cellValue = (row, isTotal, eventId) => isTotal
+        ? parseInt(row.querySelector("[data-total]")?.dataset.total ?? -1, 10)
+        : parseInt(row.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
       document.querySelectorAll(".sortable-col").forEach((th) => {
         th.addEventListener("click", () => {
+          const isTotal = th.dataset.col === "total";
           const eventId = th.dataset.eventId;
+          const key = isTotal ? "total" : eventId;
           const tbody = th.closest("table").querySelector("tbody");
           const tableKey = th.closest("table").dataset.tourKey || th.closest("table");
           const prev = sortState[tableKey] || {};
-          const dir = (prev.eventId === eventId && prev.dir === "desc") ? "asc" : "desc";
-          sortState[tableKey] = { eventId, dir };
+          const dir = (prev.key === key && prev.dir === "desc") ? "asc" : "desc";
+          sortState[tableKey] = { key, dir };
 
           // Update arrow indicators
           th.closest("thead").querySelectorAll(".sort-arrow").forEach((a) => { a.textContent = "▲▼"; a.style.opacity = "0.4"; });
@@ -493,8 +499,8 @@
 
           const rows = [...tbody.querySelectorAll("tr")];
           rows.sort((a, b) => {
-            const aVal = parseInt(a.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
-            const bVal = parseInt(b.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
+            const aVal = cellValue(a, isTotal, eventId);
+            const bVal = cellValue(b, isTotal, eventId);
             return dir === "desc" ? bVal - aVal : aVal - bVal;
           });
           rows.forEach((r) => tbody.appendChild(r));

@@ -49,12 +49,13 @@
           getEvents(SEASON)
         ]);
 
-        // Completed events per tour, sorted by eventNumber
+        // All season events per tour, sorted by eventNumber (upcoming events
+        // show as empty columns, matching the clubhouse event-by-event table)
         const mensEvents = events
-          .filter(e => (e.tour || "mens") === "mens" && (e.status === "completed" || e.resultsEntered))
+          .filter(e => (e.tour || "mens") === "mens")
           .sort((a, b) => a.eventNumber - b.eventNumber);
         const womensEvents = events
-          .filter(e => (e.tour || "") === "womens" && (e.status === "completed" || e.resultsEntered))
+          .filter(e => (e.tour || "") === "womens")
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
         // If no leaderboard data yet, fall back to player directory (pre-season)
@@ -105,12 +106,15 @@
         function standingsTable(players, tourEvents, tableId) {
           if (!players.length) return `<p class="text-muted">No players yet.</p>`;
           return `
-            <div style="overflow-x:auto">
-              <table class="data-table" id="${tableId}">
+            <div style="overflow-x:auto;position:relative">
+              <table class="data-table" id="${tableId}" style="border-collapse:separate;border-spacing:0">
                 <thead><tr>
-                  <th class="sortable-col" data-col="rank" data-dir="asc" style="cursor:pointer;user-select:none"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
-                  <th>Player</th>
-                  <th class="text-right sortable-col" data-col="score" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">${scoringMode === "all" ? "All Events" : "Best 9"} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span></th>
+                  <th class="sortable-col" data-col="rank" data-dir="asc" style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;cursor:pointer;user-select:none;text-align:center"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
+                  <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
+                  <th class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:232px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
+                    <div>${scoringMode === "all" ? "All Events" : "Best 9"}</div>
+                    <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
+                  </th>
                   ${tourEvents.map(e => `
                     <th class="text-center sortable-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom">
                       <div>${locationForEvent(e.name)}</div>
@@ -124,24 +128,30 @@
                       data-rank="${p.rank}" data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
                       data-search="${(p.teamName + " " + p.displayName).toLowerCase()}"
                       ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
-                      <td><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
-                      <td class="flex gap-1" style="align-items:center">
-                        ${p.avatarUrl
-                          ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-                          : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
-                        <div>
-                          <strong>${p.teamName}</strong>
-                          ${p.teamName !== p.displayName ? `<span class="text-xs text-muted" style="margin-left:0.5rem">${p.displayName}</span>` : ""}
+                      <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
+                      <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">
+                        <div class="flex gap-1" style="align-items:center;min-width:0">
+                          ${p.avatarUrl
+                            ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                            : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
+                          <div style="min-width:0;overflow:hidden">
+                            <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.teamName}</strong>
+                            ${p.teamName !== p.displayName ? `<div class="text-xs text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.displayName}</div>` : ""}
+                          </div>
                         </div>
                       </td>
-                      <td class="text-right"><strong>${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}</strong></td>
+                      <td class="text-center" style="position:sticky;left:232px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;border-right:2px solid var(--color-beige)"><strong>${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}</strong></td>
                       ${tourEvents.map(e => {
                         const pts = p.eventScores[e.id];
                         const live = inProgressIds.has(e.id);
-                        if (pts == null) return `<td class="text-center">—</td>`;
-                        return live
-                          ? `<td class="text-center" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
-                          : `<td class="text-center">${pts}</td>`;
+                        const hasResults = e.status === "completed" || e.resultsEntered;
+                        if (live) {
+                          return pts != null
+                            ? `<td class="text-center" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
+                            : `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
+                        }
+                        if (!hasResults) return `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
+                        return `<td class="text-center">${pts ?? "—"}</td>`;
                       }).join("")}
                     </tr>
                   `).join("")}
@@ -156,7 +166,6 @@
 
         container.innerHTML = `
           <h1 class="page-title">Standings</h1>
-          ${inProgressIds.size > 0 ? `<p class="text-sm text-muted" style="margin:-0.5rem 0 1rem"><em>~</em> values are <strong>projected</strong> while an event is live — each team's guaranteed minimum, so final scores can only rise.</p>` : ""}
           <div class="standings-controls" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
             <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden">
               <button id="toggle-mens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:var(--color-charcoal);color:#fff">Men's CT</button>
