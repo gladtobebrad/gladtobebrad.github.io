@@ -36,7 +36,7 @@ All JS is loaded as ES modules imported directly from HTML pages. The modules fo
 | `firebase-config.js` | Initializes Firebase app; exports `app`, `auth`, `db`, `storage` |
 | `auth.js` | Auth state management, Google + email sign-in, `onAuth()` callback system, `requireAuth()` / `requireAdmin()` guards |
 | `db.js` | All Firestore CRUD — one function per operation, organized by collection |
-| `scoring.js` | Pure scoring logic — point tables, `scoreTeam()`, `calculateSeasonStandings()` |
+| `scoring.js` | Pure scoring logic — point tables, `scoreTeam()` (final), `projectTeam()` (in-progress floor estimate), `isInProgress()`, `calculateSeasonStandings()` |
 | `team.js` | Pure team validation + helpers — `validateTeam()`, `calculateRemaining()`, `getTeamRules()` |
 | `ui.js` | Shared UI primitives — `renderHeader()`/`renderFooter()`, `toast()`, `confirmModal()`, `showLoading()`/`showAuthGate()`, `formatSalary()`/`formatSalaryFull()`/`formatDate()`, `statusBadge()`/`tradingBadge()`, countdown helpers (`resolveCountdownState`, `startCountdownTimer`), live-status helpers (`fetchLiveStatusCached`, `renderLiveStatusBanner`) |
 | `wsl-scrape.js` | WSL website scraping — fetches schedule, picks active venue, scrapes heat-level results per gender, and `fetchLiveEventStatus()` for the live-status banner. Permissive CORS lets this run entirely from the browser |
@@ -70,6 +70,7 @@ The leaderboard is derived data. The single canonical write path is `recalcLeade
 3. **Single atomic `writeBatch` per tour.** Combines sets-for-current-users + deletes-of-orphan-users in one commit; a failure mid-flight leaves that tour's leaderboard unchanged.
 4. **Per-tour try/catch.** A women's recalc failure cannot corrupt the men's leaderboard.
 5. **User team rosters (`teams/`) are read-only here.** Recalc never modifies a roster a user saved.
+6. **In-progress events store a projected score.** Recalc uses `projectTeam()` instead of `scoreTeam()` for events where `isInProgress(ev)` is true, so live standings show each team's upside (a guaranteed floor that only rises) rather than the inverted locked-in total. Once the event completes, the next recalc overwrites it with the final `scoreTeam()` total. This is the only place projections are computed — the standings/clubhouse/event pages just read the leaderboard and style live columns as estimates.
 
 There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch` export from `db.js` — those primitives are folded into the recalc helper so a partial-write pattern can't accidentally be reintroduced.
 

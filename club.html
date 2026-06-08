@@ -25,6 +25,7 @@
     import { initAuth, onAuth } from "./js/auth.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
+    import { isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, toast } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -204,16 +205,9 @@
           return entries;
         };
 
-        // ── Event-by-event scoring ──
-        // Read directly from leaderboard entries — no team/results re-fetch needed
-        const eventScores = {};
-        for (const uid of club.memberIds) eventScores[uid] = {};
-        [...mensLeaderboard, ...womensLeaderboard]
-          .filter((e) => memberSet.has(e.userId) && e.eventScores)
-          .forEach((e) => {
-            Object.assign(eventScores[e.userId], e.eventScores);
-          });
-
+        // Member entries carry their own per-event scores (already projected
+        // for any in-progress event, since the admin recalc stores projections);
+        // the flat lookup used by the leaderboard table is derived from them below.
         _clubDataCache = {
           clubId: club.id,
           lbVersion: currentLbVersion,
@@ -221,11 +215,10 @@
           memberDocs,
           mensMemberEntries: buildMemberEntries(mensLeaderboard),
           womensMemberEntries: buildMemberEntries(womensLeaderboard),
-          eventScores,
         };
       }
 
-      const { events, mensMemberEntries, womensMemberEntries, eventScores } = _clubDataCache;
+      const { events, mensMemberEntries, womensMemberEntries } = _clubDataCache;
       const clubIds = getUserClubIds(userDoc);
       const canJoinMore = clubIds.length < 3;
 
@@ -236,6 +229,19 @@
           ? a.eventNumber - b.eventNumber
           : (a.tour || "mens").localeCompare(b.tour || "mens")
       );
+
+      // Flat {userId:{eventId:pts}} lookup for the table, derived from the
+      // member entries' own eventScores (projected values already baked in by
+      // the admin recalc for live events). projectedIds marks which event
+      // columns are live so they render as estimates, not final numbers.
+      const eventScores = {};
+      for (const e of [...mensMemberEntries, ...womensMemberEntries]) {
+        eventScores[e.userId] = e.eventScores || {};
+      }
+      const projectedIds = new Set(
+        eventColumns.filter((e) => isInProgress(e) && e.resultsEntered).map((e) => e.id)
+      );
+      const anyLive = projectedIds.size > 0;
 
       // ── Rank progression chart helpers (mirror dashboard) ──
       const mensCompletedIds = events
@@ -363,6 +369,7 @@
         <!-- Event-by-Event Scores -->
         <div class="card mb-3">
           <div class="card__header"><span class="card__title">Season Leaderboard</span></div>
+          ${anyLive ? `<p class="text-xs text-muted" style="margin:0 0 0.75rem"><em>~</em> values are <strong>projected</strong> while an event is live — a guaranteed minimum, so final scores can only rise.</p>` : ""}
           <div class="club-controls">
             <div class="tour-tabs" style="margin-bottom:0;border-bottom-width:1px">
               <button class="tour-tab ebe-tour-tab tour-tab--active" data-ebe-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
@@ -405,10 +412,14 @@
                               </a>
                             </td>
                             ${tourEvents.map((e) => {
+                              const live = projectedIds.has(e.id);
                               const pts = eventScores[entry.userId]?.[e.id];
                               const hasResults = e.status === "completed" || e.resultsEntered;
-                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${hasResults && pts != null ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
-                                ${hasResults ? (pts ?? "—") : e.status === "live" ? "🔴" : "·"}
+                              const display = live
+                                ? (pts != null ? `<em title="Projected (live)">~${pts}</em>` : "·")
+                                : (hasResults ? (pts ?? "—") : "·");
+                              return `<td class="text-right" data-event-pts="${e.id}" data-pts="${pts != null && (hasResults || live) ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
+                                ${display}
                               </td>`;
                             }).join("")}
                             <td class="text-right" style="position:sticky;right:0;z-index:1;background:var(--color-warm-white);font-weight:600">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>

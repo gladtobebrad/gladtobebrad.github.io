@@ -24,7 +24,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam } from "./js/db.js";
-    import { scoreTeam } from "./js/scoring.js";
+    import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -111,11 +111,20 @@
             const team = await getTeam(userId, event.id);
             if (!team) { rosters.push({ event, team: null, score: null }); continue; }
             let score = null;
+            let projected = false;
             if (event.status === "completed") {
               const results = await getResults(event.id);
               score = scoreTeam(team, results, event.tour || "mens");
+            } else if (isInProgress(event)) {
+              const results = await getResults(event.id);
+              // Project only once a surfer is eliminated (anchors the field size),
+              // matching the rest of the site's in-progress behaviour.
+              if (results.some((r) => !r.withdrawn && Number.isFinite(r.finish))) {
+                score = projectTeam(team, results, event.tour || "mens");
+                projected = true;
+              }
             }
-            rosters.push({ event, team, score });
+            rosters.push({ event, team, score, projected });
           }
           return rosters;
         };
@@ -242,12 +251,12 @@
         };
 
         // Helper: render a single past/upcoming event card (compact)
-        const renderEventCard = (event, team, score) => `
+        const renderEventCard = (event, team, score, projected = false) => `
           <div class="card mb-3">
             <div class="card__header">
               <span class="card__title" style="font-size:0.9rem">${event.name}</span>
-              <span class="text-sm" style="font-weight:600">
-                ${score ? `${score.totalPoints} pts` : event.status === "live" ? "🔴 Live" : statusBadge(event.status)}
+              <span class="text-sm" style="font-weight:600"${projected ? ` title="Projected (live) — guaranteed minimum, final can only rise"` : ""}>
+                ${score ? `${projected ? "~" : ""}${score.totalPoints} pts` : statusBadge(event.status)}
               </span>
             </div>
             ${renderStrip(team, score, false)}
@@ -305,7 +314,7 @@
                     : renderStrip(mensCurrentTeam, null, true, "mens")}
                 </div>
               ` : ""}
-              ${mensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
+              ${mensRosters.map(({ event, team, score, projected }) => renderEventCard(event, team, score, projected)).join("")}
             </div>
 
             <!-- RHS: Women's CT -->
@@ -323,7 +332,7 @@
                     : renderStrip(womensCurrentTeam, null, true, "womens")}
                 </div>
               ` : ""}
-              ${womensRosters.map(({ event, team, score }) => renderEventCard(event, team, score)).join("")}
+              ${womensRosters.map(({ event, team, score, projected }) => renderEventCard(event, team, score, projected)).join("")}
             </div>
 
           </div>

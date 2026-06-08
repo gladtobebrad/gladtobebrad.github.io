@@ -103,6 +103,132 @@ export function scoreTeam(team, results, tour = "mens") {
 }
 
 /**
+ * Floor (guaranteed-minimum) points for a surfer still competing in an
+ * in-progress event. The `aliveCount` surfers still in will occupy places
+ * 1..aliveCount; since the points table is non-increasing, the worst a
+ * still-alive surfer can finish is place `aliveCount`, so getPoints(aliveCount)
+ * is its guaranteed minimum. Using the floor (rather than the mean) guarantees
+ * a team's projected total never exceeds its final total — a projected score
+ * can only rise as the event unfolds, never fall.
+ * @param {number} aliveCount - surfers still competing in the whole event
+ * @param {"mens"|"womens"} tour
+ * @returns {number} floor points (0 if aliveCount < 1)
+ */
+export function floorPointsForAlive(aliveCount, tour = "mens") {
+  if (!aliveCount || aliveCount < 1) return 0;
+  return getPoints(aliveCount, tour);
+}
+
+/**
+ * Number of surfers still alive in an in-progress event, derived purely from
+ * the results recorded so far. Eliminated surfers always occupy the bottom
+ * contiguous block of finishing places, so the smallest place assigned to any
+ * eliminated surfer equals (aliveCount + 1). If a definitive `fieldSize` is
+ * known, alive = fieldSize − (eliminated or withdrawn) is used instead.
+ * @param {Object[]} results - result docs for the event
+ * @param {number|null} fieldSize - total competitors, if known
+ * @returns {number|null} alive count, or null when it can't be derived
+ */
+export function aliveCountFromResults(results, fieldSize = null) {
+  if (fieldSize != null) {
+    const out = results.filter((r) => r.withdrawn || Number.isFinite(r.finish)).length;
+    return Math.max(0, fieldSize - out);
+  }
+  const finishes = results
+    .filter((r) => !r.withdrawn && Number.isFinite(r.finish))
+    .map((r) => r.finish);
+  if (!finishes.length) return null;
+  return Math.min(...finishes) - 1;
+}
+
+/**
+ * Project a team's score for an IN-PROGRESS event. Surfers already eliminated
+ * contribute their locked-in points; surfers still competing contribute their
+ * floor — the guaranteed-minimum points of their worst still-possible finish
+ * (see floorPointsForAlive). Using the floor means the projected total is a
+ * true lower bound: it can only rise as the event unfolds, never overshoot the
+ * final. This exists because scoreTeam() credits 0 to still-alive surfers, which inverts
+ * the leaderboard mid-event (teams of early losers temporarily lead). Mirrors
+ * scoreTeam's alternate-for-withdrawn substitution. Persisted into the
+ * leaderboard for in-progress events by the admin recalc (gated on
+ * isInProgress); once the event completes, recalc reverts to scoreTeam.
+ * @param {Object} team - team doc with .surfers[] and .alternate
+ * @param {Object[]} results - result docs for the event so far
+ * @param {"mens"|"womens"} tour
+ * @param {number|null} fieldSize - total competitors, if known
+ * @returns {{ totalPoints: number, projectedPoints: number, lockedPoints: number, aliveCount: number, surferScores: Object[], alternateUsed: boolean, alternateFor: string|null }}
+ */
+export function projectTeam(team, results, tour = "mens", fieldSize = null) {
+  const empty = { totalPoints: 0, projectedPoints: 0, lockedPoints: 0, aliveCount: 0, surferScores: [], alternateUsed: false, alternateFor: null };
+  if (!team?.surfers?.length) return empty;
+
+  const resultMap = {};
+  results.forEach((r) => { resultMap[r.surferId] = r; });
+
+  const aliveInEvent = aliveCountFromResults(results, fieldSize);
+  // getPoints already returns whole numbers, so the floor needs no rounding.
+  const floorAlive = aliveInEvent ? floorPointsForAlive(aliveInEvent, tour) : 0;
+
+  // Scoring contribution + flags for one surferId.
+  const evalSurfer = (surferId) => {
+    const r = resultMap[surferId];
+    if (r && r.withdrawn) return { surferId, finish: null, points: 0, withdrawn: true };
+    if (r && Number.isFinite(r.finish)) {
+      return { surferId, finish: r.finish, points: r.points || getPoints(r.finish, tour), locked: true };
+    }
+    // No final result yet → still competing → guaranteed-minimum (floor) upside.
+    return { surferId, finish: null, points: floorAlive, projected: true };
+  };
+
+  const surferScores = team.surfers.map((s) => evalSurfer(s.surferId));
+
+  // Alternate swaps in for the first WITHDRAWN surfer (mirrors scoreTeam),
+  // contributing its own locked-or-projected value.
+  let alternateUsed = false;
+  let alternateFor = null;
+  if (team.alternate?.surferId) {
+    const missedIdx = surferScores.findIndex((s) => s.withdrawn);
+    if (missedIdx !== -1) {
+      const altEval = evalSurfer(team.alternate.surferId);
+      if (!altEval.withdrawn) {
+        alternateUsed = true;
+        alternateFor = surferScores[missedIdx].surferId;
+        surferScores[missedIdx] = { ...altEval, isAlternate: true, replacedSurferId: alternateFor };
+      }
+    }
+  }
+
+  const projectedPoints = surferScores.reduce((sum, s) => sum + s.points, 0);
+  const lockedPoints = surferScores.reduce((sum, s) => sum + (s.locked ? s.points : 0), 0);
+
+  return {
+    totalPoints: projectedPoints,
+    projectedPoints,
+    lockedPoints,
+    aliveCount: surferScores.filter((s) => s.projected).length,
+    surferScores,
+    alternateUsed,
+    alternateFor,
+  };
+}
+
+/**
+ * Whether an event is in progress — i.e. scoring should use projectTeam rather
+ * than scoreTeam. status "live" is the canonical signal; a results-bearing
+ * event with unfinished rounds also counts; a completed event never does.
+ * @param {Object} event
+ * @returns {boolean}
+ */
+export function isInProgress(event) {
+  if (!event || event.status === "completed") return false;
+  if (event.status === "live") return true;
+  if (!event.resultsEntered) return false;
+  const done = event.roundsCompleted ?? 0;
+  const total = event.totalRounds ?? null;
+  return total == null ? false : done < total;
+}
+
+/**
  * Calculate season standings using best-9-of-N rule
  * @param {Object[]} entries - array of { userId, displayName, teamName, eventScores: { eventId: pts } }
  * @returns {Object[]} sorted standings

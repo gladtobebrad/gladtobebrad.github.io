@@ -24,7 +24,7 @@
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
     import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
-    import { scoreTeam, getPoints } from "./js/scoring.js";
+    import { scoreTeam, projectTeam, isInProgress, getPoints } from "./js/scoring.js";
     import { renderHeader, renderFooter, showLoading, formatDate, statusBadge } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -64,8 +64,19 @@
 
         results.sort((a, b) => (a.finish || 999) - (b.finish || 999));
 
+        // While the event is live, surfers still competing have no result yet,
+        // so scoreTeam would credit them 0 and the score reads upside-down.
+        // Show a projected score (locked-in points + each still-alive surfer's
+        // guaranteed-minimum floor) instead — but only once at least one surfer
+        // has been eliminated to anchor the field size; before that there's
+        // nothing to project from.
+        const hasElimination = results.some((r) => !r.withdrawn && Number.isFinite(r.finish));
+        const inProgress = isInProgress(event) && hasElimination;
+
         // Score only the current user's team
-        const myScore = userTeam ? scoreTeam(userTeam, results, tour) : null;
+        const myScore = userTeam
+          ? (inProgress ? projectTeam(userTeam, results, tour, event.fieldSize ?? null) : scoreTeam(userTeam, results, tour))
+          : null;
 
         // Highlight user's surfers in results table
         const userSurferIds = new Set();
@@ -74,7 +85,10 @@
           if (userTeam.alternate) userSurferIds.add(userTeam.alternate.surferId);
         }
 
-        // Derive rank from cached leaderboard eventScores (free — already in localStorage)
+        // Derive rank from the cached leaderboard eventScores (free — already in
+        // localStorage). For a live event those stored scores are the projected
+        // (floor) totals, computed the same way as myScore, so this ranks
+        // projection-vs-projection consistently.
         let myRank = null, totalPlayers = null;
         try {
           const leaderboard = await getLeaderboard(SEASON, tour);
@@ -124,12 +138,12 @@
             <!-- Your Score -->
             <div>
               <div class="card">
-                <div class="card__header"><span class="card__title">Your Score</span></div>
+                <div class="card__header"><span class="card__title">${inProgress ? "Projected Score" : "Your Score"}</span>${inProgress ? `<span class="text-xs text-muted">live</span>` : ""}</div>
                 ${!userTeam ? `<p class="text-muted text-sm">No team submitted for this event.</p>` : !myScore ? `<p class="text-muted text-sm">No results yet.</p>` : `
                   ${myRank != null ? `
                     <div style="text-align:center;padding:0.75rem 0 1rem">
-                      <div style="font-size:2rem;font-weight:700;color:var(--color-charcoal)">${myScore.totalPoints}</div>
-                      <div class="text-sm text-muted">pts</div>
+                      <div style="font-size:2rem;font-weight:700;color:var(--color-charcoal)">${inProgress ? "~" : ""}${myScore.totalPoints}</div>
+                      <div class="text-sm text-muted">${inProgress ? "projected pts" : "pts"}</div>
                       <div style="margin-top:0.4rem;font-size:0.85rem;color:var(--color-warm-brown)">
                         ${myRank}${myRank === 1 ? "st" : myRank === 2 ? "nd" : myRank === 3 ? "rd" : "th"} of ${totalPlayers}
                       </div>
@@ -144,16 +158,18 @@
                           ${s.name || ss.surferId.replace(/-/g, " ")}
                           ${ss.isAlternate ? `<span class="text-xs text-muted"> ALT</span>` : ""}
                           ${ss.didNotCompete ? `<span class="text-xs text-muted"> DNP</span>` : ""}
+                          ${ss.projected ? `<span class="text-xs text-muted" title="Still competing — guaranteed-minimum (floor) points"> · still in</span>` : ""}
                         </span>
-                        <span class="surfer-row__value${ss.didNotCompete ? " text-muted" : ""}">${ss.points} pts</span>
+                        <span class="surfer-row__value${ss.didNotCompete ? " text-muted" : ""}">${ss.projected ? "~" : ""}${ss.points} pts</span>
                       </div>`;
                     }).join("")}
                   </div>
                   <div style="border-top:1px solid var(--color-beige);margin-top:0.5rem;padding-top:0.5rem;display:flex;justify-content:space-between;align-items:center">
-                    <span style="font-weight:600">Total</span>
-                    <span style="font-weight:700">${myScore.totalPoints} pts${myScore.alternateUsed ? " *" : ""}</span>
+                    <span style="font-weight:600">${inProgress ? "Projected Total" : "Total"}</span>
+                    <span style="font-weight:700">${inProgress ? "~" : ""}${myScore.totalPoints} pts${myScore.alternateUsed ? " *" : ""}</span>
                   </div>
                   ${myScore.alternateUsed ? `<p class="text-xs text-muted mt-1">* alternate used</p>` : ""}
+                  ${inProgress ? `<p class="text-xs text-muted mt-1">Live floor: locked-in points for eliminated surfers plus the guaranteed minimum for those still competing. Your final score can only climb from here.</p>` : ""}
                   </div>
                   <div class="mt-2">
                     <a href="standings.html" class="btn btn--outline btn--sm" style="width:100%;text-align:center">Full Standings →</a>

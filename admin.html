@@ -33,7 +33,7 @@
       getAllClubs, deleteClub,
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
-    import { scoreTeam, getPoints, getMaxFinishPosition, calculateSeasonStandings } from "./js/scoring.js";
+    import { scoreTeam, projectTeam, isInProgress, getPoints, getMaxFinishPosition, calculateSeasonStandings } from "./js/scoring.js";
     import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
@@ -665,11 +665,17 @@
       for (let i = 0; i < tourEvents.length; i++) {
         const ev = tourEvents[i];
         const [results, teams] = fetched[i];
+        // For an in-progress event, store the projected (floor) score so live
+        // standings reflect upside rather than the inverted locked-in total;
+        // completed events use the final scoreTeam total. projectTeam falls
+        // back to scoreTeam behaviour once every surfer has a result, so this
+        // is safe even at the moment an event flips to completed.
+        const live = isInProgress(ev);
         for (const team of teams) {
           if (!userScores[team.userId]) continue; // ghost team for an unregistered user — skip
-          const score = scoreTeam(team, results, tour);
-          // scoreTeam returns 0 for empty rosters; that's intentional and
-          // preserves prior gracefully-handled behavior.
+          const score = live ? projectTeam(team, results, tour) : scoreTeam(team, results, tour);
+          // Both return 0 for empty rosters; that's intentional and preserves
+          // prior gracefully-handled behavior.
           userScores[team.userId].eventScores[ev.id] = score.totalPoints;
         }
       }

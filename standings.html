@@ -24,6 +24,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getLeaderboard, getEvents, getPlayerDirectory } from "./js/db.js";
+    import { isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -62,6 +63,14 @@
         if (!mensLb.length && !womensLb.length) {
           allUsers = await getPlayerDirectory();
         }
+
+        // The leaderboard already stores projected scores for in-progress
+        // events (the admin recalc uses projectTeam for live events); we only
+        // need to know which event columns are live so they can be styled as
+        // projected estimates rather than final numbers.
+        const inProgressIds = new Set(
+          events.filter(e => isInProgress(e) && e.resultsEntered).map(e => e.id)
+        );
 
         function buildStandings(lb) {
           if (lb.length) {
@@ -127,7 +136,11 @@
                       <td class="text-right"><strong>${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}</strong></td>
                       ${tourEvents.map(e => {
                         const pts = p.eventScores[e.id];
-                        return `<td class="text-right">${pts != null ? pts : "—"}</td>`;
+                        const live = inProgressIds.has(e.id);
+                        if (pts == null) return `<td class="text-right">—</td>`;
+                        return live
+                          ? `<td class="text-right" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
+                          : `<td class="text-right">${pts}</td>`;
                       }).join("")}
                     </tr>
                   `).join("")}
@@ -142,6 +155,7 @@
 
         container.innerHTML = `
           <h1 class="page-title">Standings</h1>
+          ${inProgressIds.size > 0 ? `<p class="text-sm text-muted" style="margin:-0.5rem 0 1rem"><em>~</em> values are <strong>projected</strong> while an event is live — each team's guaranteed minimum, so final scores can only rise.</p>` : ""}
           <div class="standings-controls" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
             <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden">
               <button id="toggle-mens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:var(--color-charcoal);color:#fff">Men's CT</button>
