@@ -435,6 +435,34 @@ img { max-width: 100%; }
   text-align: center;
 }
 
+/* Frozen-column tables (standings + clubhouse event-by-event).
+   table-layout:fixed keeps the pinned (#/Player/total) columns at their exact
+   declared widths instead of stretching to fill 100%, so the sticky left-offsets
+   line up no matter how many event columns the season has. A trailing auto-width
+   spacer column (.scroll-spacer) absorbs any slack so the table still fills the
+   card when there are few events, and collapses to a horizontal scroll once the
+   event columns overflow. */
+.scroll-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.scroll-table th,
+.scroll-table td {
+  box-sizing: border-box;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.scroll-table .evt-col {
+  width: 64px;
+}
+.scroll-table .scroll-spacer {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+}
+
 /* ── Salary Cap Bar ───────────────────────────────── */
 
 .salary-bar {

@@ -107,7 +107,7 @@
           if (!players.length) return `<p class="text-muted">No players yet.</p>`;
           return `
             <div style="overflow-x:auto;position:relative">
-              <table class="data-table" id="${tableId}" style="border-collapse:separate;border-spacing:0">
+              <table class="data-table scroll-table" id="${tableId}">
                 <thead><tr>
                   <th class="sortable-col" data-col="rank" data-dir="asc" style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;cursor:pointer;user-select:none;text-align:center"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
                   <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
@@ -116,11 +116,12 @@
                     <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                   </th>
                   ${tourEvents.map(e => `
-                    <th class="text-center sortable-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom">
+                    <th class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
                       <div>${locationForEvent(e.name)}</div>
                       <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                     </th>
                   `).join("")}
+                  <th class="scroll-spacer" aria-hidden="true"></th>
                 </tr></thead>
                 <tbody>
                   ${players.map(p => `
@@ -153,6 +154,7 @@
                         if (!hasResults) return `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
                         return `<td class="text-center">${pts ?? "—"}</td>`;
                       }).join("")}
+                      <td class="scroll-spacer"></td>
                     </tr>
                   `).join("")}
                 </tbody>

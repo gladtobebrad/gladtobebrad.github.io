@@ -388,7 +388,7 @@
               <div class="ebe-panel" data-ebe-panel="${tour}" style="${tour === "womens" ? "display:none" : ""}">
                 ${tourEvents.length > 0 ? `
                   <div style="overflow-x:auto;position:relative">
-                    <table class="data-table" style="border-collapse:separate;border-spacing:0">
+                    <table class="data-table scroll-table">
                       <thead>
                         <tr>
                           <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:36px;padding-left:0.5rem;padding-right:0.5rem;white-space:nowrap;text-align:center">#</th>
@@ -398,11 +398,12 @@
                             <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                           </th>
                           ${tourEvents.map((e) => `
-                            <th class="text-center sortable-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;width:3rem;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
+                            <th class="text-center sortable-col evt-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
                               <div>${locationForEvent(e.name)}</div>
                               <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
+                          <th class="scroll-spacer" aria-hidden="true"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -426,6 +427,7 @@
                                 ${display}
                               </td>`;
                             }).join("")}
+                            <td class="scroll-spacer"></td>
                           </tr>
                         `).join("")}
                       </tbody>
