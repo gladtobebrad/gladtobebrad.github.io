@@ -32,6 +32,10 @@
 
     // Cache fetched data so scoring-mode toggles don't re-fetch
     let _clubDataCache = null;
+    // Stash the auth'd user so visibility/bfcache handlers can re-render.
+    let _activeUser = null;
+    // Guard against concurrent re-renders triggered by overlapping events.
+    let _refreshing = false;
 
     initAuth();
     renderHeader();
@@ -39,9 +43,41 @@
 
     onAuth(async (user, profile) => {
       const main = document.getElementById("app-main");
-      if (!user) { showAuthGate(main); return; }
+      if (!user) { _activeUser = null; showAuthGate(main); return; }
+      _activeUser = user;
       showLoading(main);
       await renderClubPage(main, user);
+    });
+
+    // If the leaderboard version on the server has moved past what this tab
+    // last rendered with (e.g. admin recalculated in another tab while this
+    // one was hidden, or this page was restored from bfcache), refresh.
+    // Without this, the cached _clubDataCache + cached `events` would keep
+    // showing pre-recalc scores until the user manually reloads.
+    async function refreshIfStale() {
+      if (_refreshing || !_activeUser) return;
+      const cachedVersion = _clubDataCache?.lbVersion;
+      if (cachedVersion == null) return;
+      _refreshing = true;
+      try {
+        const currentVersion = await fetchLeaderboardVersion();
+        if (currentVersion !== cachedVersion) {
+          _clubDataCache = null;
+          const main = document.getElementById("app-main");
+          if (main) await renderClubPage(main, _activeUser);
+        }
+      } catch {} finally {
+        _refreshing = false;
+      }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshIfStale();
+    });
+    // pageshow fires with persisted=true when the page is restored from the
+    // back/forward cache (full JS state preserved, no re-execution otherwise).
+    window.addEventListener("pageshow", (e) => {
+      if (e.persisted) refreshIfStale();
     });
 
     async function renderClubPage(container, user) {

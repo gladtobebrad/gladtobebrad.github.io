@@ -221,25 +221,26 @@ export async function carryForwardTeams(eventId, season = 2026) {
 
 // ── Leaderboard ──────────────────────────────────────
 
-// In-memory version cache — one Firestore read per session to check freshness
-let _lbVersion = null;
-
+// Always read the version doc fresh. An in-memory cache here looked harmless
+// but caused stale reads in long-lived tabs: a tab loaded before an admin
+// recalc would keep returning the old version forever (touchLeaderboardVersion
+// only nulls the variable in the tab that calls it), so its localStorage
+// version-check would always pass and serve stale data. The meta/leaderboard
+// doc is one tiny read; the per-render cost (1–2 reads per leaderboard fetch)
+// is negligible and worth the consistency.
 export async function fetchLeaderboardVersion() {
-  if (_lbVersion !== null) return _lbVersion;
   try {
     const snap = await getDoc(doc(db, "meta", "leaderboard"));
-    _lbVersion = snap.exists() ? (snap.data().version || 0) : 0;
+    return snap.exists() ? (snap.data().version || 0) : 0;
   } catch {
-    _lbVersion = 0;
+    return 0;
   }
-  return _lbVersion;
 }
 
 // Call once after recalculating standings — bumps version so all clients re-fetch
 export async function touchLeaderboardVersion() {
   const version = Date.now();
   await setDoc(doc(db, "meta", "leaderboard"), { version });
-  _lbVersion = null; // force all clients to re-fetch version after next recalc
   try {
     Object.keys(localStorage).filter(k => k.startsWith("lb_")).forEach(k => localStorage.removeItem(k));
     Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k));
@@ -248,8 +249,9 @@ export async function touchLeaderboardVersion() {
 
 export async function getLeaderboard(season = 2026, tour = null) {
   const cacheKey = `lb_${season}_${tour}`;
+  let serverVersion = 0;
   try {
-    const serverVersion = await fetchLeaderboardVersion();
+    serverVersion = await fetchLeaderboardVersion();
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const { data, version } = JSON.parse(cached);
@@ -262,7 +264,7 @@ export async function getLeaderboard(season = 2026, tour = null) {
   const snap = await getDocs(query(collection(db, "leaderboard"), ...constraints));
   const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-  try { localStorage.setItem(cacheKey, JSON.stringify({ data, version: _lbVersion || 0 })); } catch {}
+  try { localStorage.setItem(cacheKey, JSON.stringify({ data, version: serverVersion })); } catch {}
   return data;
 }
 
