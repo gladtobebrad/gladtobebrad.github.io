@@ -232,11 +232,12 @@
 
       // Flat {userId:{eventId:pts}} lookup for the table, derived from the
       // member entries' own eventScores (projected values already baked in by
-      // the admin recalc for live events). projectedIds marks which event
-      // columns are live so they render as estimates, not final numbers.
+      // the admin recalc for live events). A user has an entry in BOTH tours,
+      // so MERGE their eventScores — overwriting would drop one tour's columns.
+      // Event IDs are unique per tour, so the merge can't collide.
       const eventScores = {};
       for (const e of [...mensMemberEntries, ...womensMemberEntries]) {
-        eventScores[e.userId] = e.eventScores || {};
+        eventScores[e.userId] = { ...(eventScores[e.userId] || {}), ...(e.eventScores || {}) };
       }
       const projectedIds = new Set(
         eventColumns.filter((e) => isInProgress(e) && e.resultsEntered).map((e) => e.id)
