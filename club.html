@@ -391,9 +391,9 @@
                     <table class="data-table scroll-table">
                       <thead>
                         <tr>
-                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:36px;padding-left:0.5rem;padding-right:0.5rem;white-space:nowrap;text-align:center">#</th>
-                          <th style="position:sticky;left:36px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
-                          <th class="text-center sortable-col" data-col="total" style="position:sticky;left:176px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)" title="Sort by ${clubScoringMode === "all" ? "All Events" : "Best 9"} total">
+                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
+                          <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
+                          <th class="text-center sortable-col" data-col="total" style="position:sticky;left:196px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)" title="Sort by ${clubScoringMode === "all" ? "All Events" : "Best 9"} total">
                             <div>${clubScoringMode === "all" ? "All Events" : "Best 9"}</div>
                             <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                           </th>
@@ -409,13 +409,13 @@
                       <tbody>
                         ${entries.map((entry, i) => `
                           <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
-                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:36px;padding-left:0.5rem;padding-right:0.5rem;text-align:center;color:var(--color-warm-brown);font-size:0.8rem">${i + 1}</td>
-                            <td style="position:sticky;left:36px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center;color:var(--color-warm-brown);font-size:0.8rem">${i + 1}</td>
+                            <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                               <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
                                 ${entry.teamName || entry.displayName || "—"}
                               </a>
                             </td>
-                            <td class="text-center" data-total="${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}" style="position:sticky;left:176px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-weight:600;border-right:2px solid var(--color-beige)">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
+                            <td class="text-center" data-total="${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}" style="position:sticky;left:196px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-weight:600;border-right:2px solid var(--color-beige)">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
                             ${tourEvents.map((e) => {
                               const live = projectedIds.has(e.id);
                               const pts = eventScores[entry.userId]?.[e.id];

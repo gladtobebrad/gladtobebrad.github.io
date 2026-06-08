@@ -109,7 +109,7 @@
             <div style="overflow-x:auto;position:relative">
               <table class="data-table scroll-table" id="${tableId}">
                 <thead><tr>
-                  <th class="sortable-col" data-col="rank" data-dir="asc" style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;cursor:pointer;user-select:none;text-align:center"># <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span></th>
+                  <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
                   <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
                   <th class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:232px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
                     <div>${scoringMode === "all" ? "All Events" : "Best 9"}</div>
@@ -126,7 +126,7 @@
                 <tbody>
                   ${players.map(p => `
                     <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'"
-                      data-rank="${p.rank}" data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
+                      data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
                       data-search="${(p.teamName + " " + p.displayName).toLowerCase()}"
                       ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
                       <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
@@ -213,9 +213,9 @@
                 av = parseFloat(a.dataset[`evt-${evtId}`] ?? a.getAttribute(`data-evt-${evtId}`) ?? -1);
                 bv = parseFloat(b.dataset[`evt-${evtId}`] ?? b.getAttribute(`data-evt-${evtId}`) ?? -1);
               } else {
-                const attrMap = { rank: "rank", score: "score" };
-                av = parseFloat(a.dataset[attrMap[col]] ?? 0);
-                bv = parseFloat(b.dataset[attrMap[col]] ?? 0);
+                // score column ("Best 9" / "All Events")
+                av = parseFloat(a.dataset.score ?? 0);
+                bv = parseFloat(b.dataset.score ?? 0);
               }
               return dir === "asc" ? av - bv : bv - av;
             });
