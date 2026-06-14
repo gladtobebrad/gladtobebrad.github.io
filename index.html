@@ -34,7 +34,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers } from "./js/db.js";
+    import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster } from "./js/ui.js";
 
     const SEASON = 2026;
@@ -85,10 +85,23 @@
       }
 
       // Get user's teams for both tours
-      const [mensTeam, womensTeam] = await Promise.all([
+      let [mensTeam, womensTeam] = await Promise.all([
         mensEvent ? getTeam(user.uid, mensEvent.id) : null,
         womensEvent ? getTeam(user.uid, womensEvent.id) : null,
       ]);
+
+      // Gap-state fallback: between events (prev event locked, next event not
+      // yet opened for trading), display the user's most recent locked roster
+      // as a placeholder. Display only — no Firestore write. Once admin opens
+      // trading and carries forward, getTeam returns the real doc and this
+      // path stops firing.
+      const isGap = (ev) => ev && ev.status === "upcoming" && ev.tradingOpen === false;
+      const [mensFallback, womensFallback] = await Promise.all([
+        !mensTeam && isGap(mensEvent) ? getPreviousTeam(user.uid, mensEvent.id, "mens", SEASON) : null,
+        !womensTeam && isGap(womensEvent) ? getPreviousTeam(user.uid, womensEvent.id, "womens", SEASON) : null,
+      ]);
+      if (mensFallback) mensTeam = mensFallback;
+      if (womensFallback) womensTeam = womensFallback;
 
       // Surfer name/photo lookup
       const surferMap = {};

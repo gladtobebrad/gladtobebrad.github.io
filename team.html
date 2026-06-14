@@ -480,6 +480,20 @@
         if (existingTeam) {
           roster = padToSparse(existingTeam.surfers, rules.rosterSize);
           alternate = existingTeam.alternate ? { ...existingTeam.alternate } : null;
+        } else if (currentEvent.status === "upcoming" && currentEvent.tradingOpen === false) {
+          // Gap-state fallback: between events (prev locked, next not yet
+          // opened), seed the editor from the user's most recent locked
+          // roster so the page never shows blank. Display only — no Firestore
+          // write. Trading is locked here so Save is disabled anyway; once
+          // admin opens trading + runs carry-forward, the real doc takes over.
+          const tour = currentEvent.tour || "mens";
+          const prev = await getPreviousTeam(user.uid, currentEvent.id, tour, SEASON);
+          if (prev?.surfers?.length) {
+            roster = padToSparse(prev.surfers, rules.rosterSize);
+            alternate = prev.alternate ? { ...prev.alternate } : null;
+          } else {
+            roster = padToSparse([], rules.rosterSize);
+          }
         } else {
           roster = padToSparse([], rules.rosterSize);
         }

@@ -23,7 +23,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam } from "./js/db.js";
+    import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge } from "./js/ui.js";
 
@@ -93,10 +93,23 @@
           getCurrentEventForTour("womens", SEASON)
         ]);
         const isOwn = currentUser?.uid === userId;
-        const mensCurrentTeam = mensEvent && (isOwn || mensEvent.tradingOpen === false)
+        let mensCurrentTeam = mensEvent && (isOwn || mensEvent.tradingOpen === false)
           ? await getTeam(userId, mensEvent.id) : null;
-        const womensCurrentTeam = womensEvent && (isOwn || womensEvent.tradingOpen === false)
+        let womensCurrentTeam = womensEvent && (isOwn || womensEvent.tradingOpen === false)
           ? await getTeam(userId, womensEvent.id) : null;
+
+        // Gap-state fallback (own profile only): display the user's previous
+        // locked roster when the next event hasn't opened trading yet so the
+        // current-roster card never shows "No team submitted" between events.
+        // Display only — no Firestore write. Scoped to isOwn so we never
+        // preview someone else's pre-commit roster.
+        const isGap = (ev) => ev && ev.status === "upcoming" && ev.tradingOpen === false;
+        if (isOwn && !mensCurrentTeam && isGap(mensEvent)) {
+          mensCurrentTeam = await getPreviousTeam(userId, mensEvent.id, "mens", SEASON);
+        }
+        if (isOwn && !womensCurrentTeam && isGap(womensEvent)) {
+          womensCurrentTeam = await getPreviousTeam(userId, womensEvent.id, "womens", SEASON);
+        }
         const mensLocked = !mensEvent || mensEvent.tradingOpen === false;
         const womensLocked = !womensEvent || womensEvent.tradingOpen === false;
 
