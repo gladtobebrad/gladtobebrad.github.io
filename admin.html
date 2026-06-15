@@ -1821,8 +1821,16 @@
                 </tr>`;
               }).join("");
 
+            const applyBtnHtml = modified.length > 0 ? `
+              <button class="btn btn--primary" id="btn-apply-repricing" style="background:var(--color-error);border-color:var(--color-error)">
+                Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}
+              </button>` : "";
+
             previewOut.innerHTML = `
-              <h4 style="margin:0 0 0.3rem">${label} — ${modified.length} of ${withResult.length} surfers change value</h4>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
+                <h4 style="margin:0">${label} — ${modified.length} of ${withResult.length} surfers change value</h4>
+                ${applyBtnHtml}
+              </div>
               ${noResult.length ? `<p class="text-sm text-muted" style="margin:0 0 0.5rem">${noResult.length} surfer(s) not in this event — value unchanged, rank updated if others shift.</p>` : ""}
               <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:340px;overflow-y:auto">
                 <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
@@ -1839,13 +1847,7 @@
                   <tbody>${rows || `<tr><td colspan="8" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No results found for this event.</td></tr>`}</tbody>
                 </table>
               </div>
-              ${modified.length > 0 ? `
-                <div class="form-actions mt-3">
-                  <button class="btn btn--primary" id="btn-apply-repricing" style="background:var(--color-error);border-color:var(--color-error)">
-                    Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}
-                  </button>
-                </div>
-              ` : `<p class="text-sm text-muted mt-2">No changes to apply — all surfers are within ±2 places of their value rank.</p>`}
+              ${!modified.length ? `<p class="text-sm text-muted mt-2">No changes to apply — all surfers are within ±2 places of their value rank.</p>` : ""}
             `;
 
             previewBtn.disabled = false;
