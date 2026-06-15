@@ -363,9 +363,11 @@
             <p class="text-sm text-muted mb-2">Auto-detects the event currently underway (or the most recently completed) on the WSL website, scrapes heat results for both men's and women's draws, computes finish positions, and pre-fills the manual-entry form below. Within-round ties are broken by heat total (exact ties picked at random — flagged for review). Only fully-completed rounds are filled in.</p>
             <div class="form-actions">
               <button class="btn btn--primary" id="btn-fetch-results">Fetch &amp; Update Results from WSL</button>
+              <button class="btn btn--outline" id="btn-update-values">Update Value Projection</button>
             </div>
             <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.78rem;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
             <div id="wsl-fetch-output" class="mt-3"></div>
+            <div id="value-update-section" class="mt-3" style="display:none"></div>
           </div>
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Enter Results Manually</span></div>
@@ -390,7 +392,7 @@
               </select>
             </div>
             <div class="form-actions">
-              <button class="btn btn--outline" id="btn-clear-results" style="color:var(--color-error);border-color:var(--color-error)">Clear All Results for Event</button>
+              <button class="btn btn--outline" id="btn-clear-results" style="color:#c0392b;border-color:#c0392b">Clear All Results for Event</button>
             </div>
           </div>
         </div>
@@ -1691,6 +1693,201 @@
           toast("Error clearing results: " + err.message, "error");
         }
       });
+
+      // ── UPDATE VALUE PROJECTION ──
+      (function () {
+        const valueUpdateBtn = document.getElementById("btn-update-values");
+        const valueUpdateSection = document.getElementById("value-update-section");
+
+        function priceBracketForValue(v) {
+          if (v >= 8000000) return "elite";
+          if (v >= 5000000) return "high";
+          if (v >= 3000000) return "mid";
+          if (v >= 1000000) return "low";
+          return "budget";
+        }
+
+        function deltaScaleAmount(absD) {
+          if (absD <= 2) return 0;
+          if (absD <= 6) return 250000;
+          if (absD <= 12) return 500000;
+          if (absD <= 20) return 750000;
+          return 1000000;
+        }
+
+        async function computeRepricing(eventId, tour) {
+          // Sort all active tour surfers by current value → valueRank 1..N
+          const tourSurfers = surfers
+            .filter(s => (s.tour || "mens") === tour)
+            .sort((a, b) => (b.value || 0) - (a.value || 0))
+            .map((s, i) => ({ ...s, valueRank: i + 1 }));
+
+          const results = await getResults(eventId);
+          const finishMap = {};
+          results.forEach(r => { if (Number.isFinite(r.finish) && !r.withdrawn) finishMap[r.surferId] = r.finish; });
+
+          const changes = tourSurfers.map(s => {
+            const finish = finishMap[s.id];
+            if (finish == null) return { ...s, finish: null, delta: null, change: 0, newValue: s.value || 0 };
+            const delta = s.valueRank - finish;
+            const change = delta > 0 ? deltaScaleAmount(Math.abs(delta)) : delta < 0 ? -deltaScaleAmount(Math.abs(delta)) : 0;
+            const newValue = Math.max(250000, (s.value || 0) + change);
+            return { ...s, finish, delta, change, newValue };
+          });
+
+          // Re-rank all tour surfers by new value so ranks stay consistent
+          [...changes].sort((a, b) => b.newValue - a.newValue).forEach((s, i) => { s.newRank = i + 1; });
+
+          return changes;
+        }
+
+        valueUpdateBtn?.addEventListener("click", () => {
+          if (!valueUpdateSection) return;
+          if (valueUpdateSection.style.display !== "none") {
+            valueUpdateSection.style.display = "none";
+            return;
+          }
+
+          const repricingEvents = events.filter(e => e.resultsEntered);
+          if (!repricingEvents.length) {
+            toast("No events with results to reprice from.", "info");
+            return;
+          }
+
+          valueUpdateSection.innerHTML = `
+            <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
+              <strong style="color:#a37500">⚠ Update Value Projection</strong>
+              <p class="text-sm" style="margin:0.25rem 0 0;color:#7a5500">
+                Reprices surfers using <code>delta = value rank − finish</code>. Surfers who outperformed their price go up;
+                underperformers go down. Changes are ±$0–$1M in $250K increments. Rank and price bracket are also recalculated.
+                Run this after each completed event, before the next trading window opens.
+              </p>
+            </div>
+            <div class="form-group" style="max-width:420px">
+              <label class="form-label">Event to reprice from</label>
+              <select class="form-select" id="reprice-event-select">
+                <option value="">Choose an event...</option>
+                ${repricingEvents.map(e => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`).join("")}
+              </select>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn--outline" id="btn-preview-repricing">Preview Changes</button>
+            </div>
+            <div id="reprice-preview-output" class="mt-3"></div>
+          `;
+          valueUpdateSection.style.display = "block";
+
+          document.getElementById("btn-preview-repricing")?.addEventListener("click", async () => {
+            const eventId = document.getElementById("reprice-event-select")?.value;
+            if (!eventId) { toast("Select an event first.", "info"); return; }
+            const event = events.find(e => e.id === eventId);
+            if (!event) return;
+            const tour = event.tour || "mens";
+            const label = tour === "mens" ? "Men's" : "Women's";
+            const previewBtn = document.getElementById("btn-preview-repricing");
+            const previewOut = document.getElementById("reprice-preview-output");
+            previewBtn.disabled = true;
+            previewBtn.textContent = "Computing…";
+            let changes;
+            try {
+              changes = await computeRepricing(eventId, tour);
+            } catch (err) {
+              toast("Error computing changes: " + err.message, "error");
+              previewBtn.disabled = false;
+              previewBtn.textContent = "Preview Changes";
+              return;
+            }
+
+            const withResult = changes.filter(s => s.finish != null);
+            const noResult = changes.filter(s => s.finish == null);
+            const modified = withResult.filter(s => s.change !== 0);
+
+            const rows = withResult
+              .sort((a, b) => a.finish - b.finish)
+              .map(s => {
+                const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
+                const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
+                const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
+                const rankChanged = s.newRank !== s.valueRank;
+                return `<tr>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${s.finish}</td>
+                  <td style="padding:0.2rem 0.4rem">${escapeHtml(s.name || s.id)}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right">${formatSalary(s.value)}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">#${s.valueRank}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr}">${s.delta != null ? (s.delta > 0 ? "+" : "") + s.delta : "—"}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.change !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.change !== 0 ? "600" : "400"}">${formatSalary(s.newValue)}</td>
+                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr}">${rankChanged ? "#" + s.newRank : "—"}</td>
+                </tr>`;
+              }).join("");
+
+            const applyBtnHtml = modified.length > 0 ? `
+              <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
+                Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}
+              </button>` : "";
+
+            previewOut.innerHTML = `
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
+                <h4 style="margin:0">${label} — ${modified.length} of ${withResult.length} surfers change value</h4>
+                ${applyBtnHtml}
+              </div>
+              ${noResult.length ? `<p class="text-sm text-muted" style="margin:0 0 0.5rem">${noResult.length} surfer(s) not in this event — value unchanged, rank updated if others shift.</p>` : ""}
+              <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:340px;overflow-y:auto">
+                <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
+                  <thead><tr style="background:#f7f5f0;position:sticky;top:0">
+                    <th style="padding:0.3rem 0.4rem;text-align:right">Finish</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">Val. Rank</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">Delta</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">Change</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">New $</th>
+                    <th style="padding:0.3rem 0.4rem;text-align:right">New Rank</th>
+                  </tr></thead>
+                  <tbody>${rows || `<tr><td colspan="8" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No results found for this event.</td></tr>`}</tbody>
+                </table>
+              </div>
+              ${!modified.length ? `<p class="text-sm text-muted mt-2">No changes to apply — all surfers are within ±2 places of their value rank.</p>` : ""}
+            `;
+
+            previewBtn.disabled = false;
+            previewBtn.textContent = "Preview Changes";
+
+            document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
+              const confirmed = await confirmModal({
+                title: "Apply Surfer Value Changes?",
+                bodyHtml: `<p>This will permanently update values and ranks for <strong>${changes.length}</strong> ${label} surfers in Firestore.</p><p style="margin-top:0.5rem"><strong>${modified.length}</strong> surfer${modified.length !== 1 ? "s" : ""} will change price; the rest will have their rank recalculated based on the new ordering.</p><p style="margin-top:0.5rem" class="text-sm text-muted">This cannot be undone. Make sure the preview looks correct.</p>`,
+                confirmLabel: "Apply Changes",
+                cancelLabel: "Cancel",
+                confirmTone: "danger",
+              });
+              if (!confirmed) return;
+              const applyBtn = document.getElementById("btn-apply-repricing");
+              applyBtn.disabled = true;
+              applyBtn.textContent = "Applying…";
+              try {
+                const batch = writeBatch(db);
+                for (const s of changes) {
+                  batch.update(doc(db, "surfers", s.id), {
+                    value: s.newValue,
+                    rank: s.newRank,
+                    priceBracket: priceBracketForValue(s.newValue),
+                  });
+                }
+                await batch.commit();
+                surfers = await getAllSurfers();
+                toast(`${label} surfer values updated! ${modified.length} price change${modified.length !== 1 ? "s" : ""} applied.`, "success");
+                valueUpdateSection.style.display = "none";
+                renderAdmin(container);
+              } catch (err) {
+                toast("Error applying values: " + err.message, "error");
+                applyBtn.disabled = false;
+                applyBtn.textContent = `Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}`;
+              }
+            });
+          });
+        });
+      })();
 
       // ── REFRESH PLAYER DIRECTORY + RESET ALL TEAMS ──
       document.getElementById("btn-reset-teams")?.addEventListener("click", async () => {
