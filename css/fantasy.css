@@ -50,6 +50,11 @@
      (a midpoint between --color-cream and --color-beige). Empty roster slots
      stay warm-white to read as open drop targets. */
   --athlete-tile-fill: #F0EBE4;
+
+  /* Shared outline for athlete tiles — darker than the fill so each tile's
+     edge reads against the card, making them "pop" as movable tiles. Both
+     tile types reference this token so the outline stays in lockstep. */
+  --athlete-tile-border: var(--color-warm-gray);
 }
 
 html {
@@ -1461,7 +1466,7 @@ img { max-width: 100%; }
   /* (position: relative is inherited from the base .team-row__surfer rule) */
   /* Shared fill with the pool tile; empty slots below stay warm-white. */
   background: var(--athlete-tile-fill);
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--athlete-tile-border);
   border-radius: var(--radius-md);
   min-height: 162px;
   padding-bottom: 0.25rem;
