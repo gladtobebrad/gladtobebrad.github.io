@@ -247,7 +247,10 @@
             <div class="card">
               <div class="card__header">
                 <span class="card__title">Surfers</span>
-                <button class="btn btn--sm btn--primary" id="btn-add-surfer">+ Add Surfer</button>
+                <div style="display:flex;gap:0.5rem">
+                  <button class="btn btn--sm btn--outline" id="btn-update-values">Update Values</button>
+                  <button class="btn btn--sm btn--primary" id="btn-add-surfer">+ Add Surfer</button>
+                </div>
               </div>
               <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
                 <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
@@ -354,6 +357,17 @@
               </form>
             </div>
           </div>
+
+          <!-- Update Values Modal -->
+          <div class="modal-overlay" id="value-update-modal" style="display:none">
+            <div class="modal" style="max-width:780px">
+              <div class="modal__header">
+                <span class="modal__title">Update Values</span>
+                <button class="modal__close" id="value-update-modal-close">&times;</button>
+              </div>
+              <div id="value-update-section"></div>
+            </div>
+          </div>
         </div>
 
         <!-- RESULTS TAB -->
@@ -363,11 +377,9 @@
             <p class="text-sm text-muted mb-2">Auto-detects the event currently underway (or the most recently completed) on the WSL website, scrapes heat results for both men's and women's draws, computes finish positions, and pre-fills the manual-entry form below. Within-round ties are broken by heat total (exact ties picked at random — flagged for review). Only fully-completed rounds are filled in.</p>
             <div class="form-actions">
               <button class="btn btn--primary" id="btn-fetch-results">Fetch &amp; Update Results from WSL</button>
-              <button class="btn btn--outline" id="btn-update-values">Update Value Projection</button>
             </div>
             <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.78rem;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
             <div id="wsl-fetch-output" class="mt-3"></div>
-            <div id="value-update-section" class="mt-3" style="display:none"></div>
           </div>
           <div class="card mb-3">
             <div class="card__header"><span class="card__title">Enter Results Manually</span></div>
@@ -1694,10 +1706,14 @@
         }
       });
 
-      // ── UPDATE VALUE PROJECTION ──
+      // ── UPDATE VALUES (post-event repricing) ──
       (function () {
         const valueUpdateBtn = document.getElementById("btn-update-values");
         const valueUpdateSection = document.getElementById("value-update-section");
+        const valueUpdateModal = document.getElementById("value-update-modal");
+        const closeValueModal = () => { if (valueUpdateModal) valueUpdateModal.style.display = "none"; };
+        valueUpdateModal?.querySelector("#value-update-modal-close")?.addEventListener("click", closeValueModal);
+        valueUpdateModal?.addEventListener("click", (e) => { if (e.target === valueUpdateModal) closeValueModal(); });
 
         function priceBracketForValue(v) {
           if (v >= 8000000) return "elite";
@@ -1742,11 +1758,7 @@
         }
 
         valueUpdateBtn?.addEventListener("click", () => {
-          if (!valueUpdateSection) return;
-          if (valueUpdateSection.style.display !== "none") {
-            valueUpdateSection.style.display = "none";
-            return;
-          }
+          if (!valueUpdateSection || !valueUpdateModal) return;
 
           const repricingEvents = events.filter(e => e.resultsEntered);
           if (!repricingEvents.length) {
@@ -1756,8 +1768,7 @@
 
           valueUpdateSection.innerHTML = `
             <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
-              <strong style="color:#a37500">⚠ Update Value Projection</strong>
-              <p class="text-sm" style="margin:0.25rem 0 0;color:#7a5500">
+              <p class="text-sm" style="margin:0;color:#7a5500">
                 Reprices surfers using <code>delta = value rank − finish</code>. Surfers who outperformed their price go up;
                 underperformers go down. Changes are ±$0–$1M in $250K increments. Rank and price bracket are also recalculated.
                 Run this after each completed event, before the next trading window opens.
@@ -1775,7 +1786,7 @@
             </div>
             <div id="reprice-preview-output" class="mt-3"></div>
           `;
-          valueUpdateSection.style.display = "block";
+          valueUpdateModal.style.display = "flex";
 
           document.getElementById("btn-preview-repricing")?.addEventListener("click", async () => {
             const eventId = document.getElementById("reprice-event-select")?.value;
@@ -1877,7 +1888,7 @@
                 await batch.commit();
                 surfers = await getAllSurfers();
                 toast(`${label} surfer values updated! ${modified.length} price change${modified.length !== 1 ? "s" : ""} applied.`, "success");
-                valueUpdateSection.style.display = "none";
+                closeValueModal();
                 renderAdmin(container);
               } catch (err) {
                 toast("Error applying values: " + err.message, "error");
