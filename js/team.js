@@ -1,5 +1,5 @@
 /**
- * Team management logic — salary cap validation, team size checks, bracket rules
+ * Team management logic — salary cap validation, team size checks, alternate rules
  */
 
 const TEAM_RULES = {
@@ -7,12 +7,17 @@ const TEAM_RULES = {
   womens: { rosterSize: 5, salaryCap: 35_000_000 }
 };
 
+// Alternate price ceiling — same for both tours. The alternate is excluded from
+// the salary cap, so this keeps it a genuine budget bench pick (it can't be used
+// to stash a star cap-free). Single source of truth; team.html imports it too.
+export const ALT_CAP = 4_000_000;
+
 /**
  * Validate a team roster
  * @param {Object[]} surfers - array of { surferId, purchasePrice }
  * @param {Object|null} alternate - { surferId, purchasePrice } or null
  * @param {"mens"|"womens"} tour
- * @param {Object} surferData - map of surferId → surfer doc (for bracket checks)
+ * @param {Object} surferData - map of surferId → surfer doc (for alternate price checks)
  * @returns {{ valid: boolean, errors: string[] }}
  */
 export function validateTeam(surfers, alternate, tour, surferData = {}) {
@@ -42,13 +47,11 @@ export function validateTeam(surfers, alternate, tour, surferData = {}) {
     errors.push(`Over salary cap by $${over.toLocaleString()}. Drop a surfer or trade down.`);
   }
 
-  // Alternate threshold: $4M for men's, $8M for women's
-  const altCap = tour === "womens" ? 5_000_000 : 4_000_000;
+  // Alternate price ceiling (ALT_CAP — same for both tours).
   if (alternate?.surferId) {
     const altData = surferData[alternate.surferId];
-    if (altData && (altData.value || 0) >= altCap) {
-      const capLabel = tour === "womens" ? "$8M" : "$4M";
-      errors.push(`Alternate must be under ${capLabel}. ${altData.name || alternate.surferId} costs ${altData.value ? "$" + (altData.value / 1_000_000).toFixed(2) + "M" : "unknown"}.`);
+    if (altData && (altData.value || 0) >= ALT_CAP) {
+      errors.push(`Alternate must be under $${ALT_CAP / 1_000_000}M. ${altData.name || alternate.surferId} costs ${altData.value ? "$" + (altData.value / 1_000_000).toFixed(2) + "M" : "unknown"}.`);
     }
   }
 

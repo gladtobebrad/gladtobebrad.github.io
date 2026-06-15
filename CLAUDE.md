@@ -76,8 +76,8 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 
 ### Key Business Rules (in `scoring.js` / `team.js`)
 - Men's roster: 8 surfers + 1 alternate, $50M salary cap
-- Women's roster: 5 surfers + 1 alternate, $30M salary cap
-- Alternate must be from the "budget" bracket (< $1M)
+- Women's roster: 5 surfers + 1 alternate, $35M salary cap
+- Alternate must cost under $4M (`ALT_CAP` in `team.js`, both tours) and is excluded from the salary cap
 - Alternate auto-substitutes for the first non-competing surfer
 - Season standings use best-9-of-N events; tiebreaker is all-events total
 - Current season constant: `SEASON = 2026` (defined in each HTML page)
@@ -87,7 +87,7 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 `admin.html` is a full admin panel gated by `requireAdmin()` (re-fetches `isAdmin` from Firestore on every load). Tabs:
 
 - **Events** — list/create/edit/delete events; inline status select; trading-open toggle (multi-step confirm: lock + opt-in carry-forward + opt-in popularity snapshot); also hosts the **Site Banners** card (live-status + countdown previews + Shown/Hidden toggles, live takes priority).
-- **Surfers** — list/create/edit/delete surfers, segmented Men's/Women's sub-tabs, inline bracket + status selects.
+- **Surfers** — list/create/edit/delete surfers, segmented Men's/Women's sub-tabs, inline status select, and **Update Values** (anchor-based repricing — see below).
 - **Results** — *Fetch & Update Results from WSL* (auto-scrape current venue, parse heats, compute finish positions, preview, then save with themed overwrite-confirm) and manual results entry. Both save paths trigger `promptUpdateLeaderboard()`.
 - **Players** — registered users + Refresh Player Directory + Reset All Teams (destructive).
 - **Clubs** — list/delete clubs.
@@ -103,22 +103,13 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 
 ## Surfer Repricing (post-event)
 
-Run after every completed CT event, before the next trading window opens. Update values in the Surfers tab of admin.html.
+Run after every completed CT event, before the next trading window opens, via the **Update Values** button on the Surfers tab (reprices whichever sub-tab — men's/women's — is active). Pure logic lives in `js/pricing.js`; the orchestration/preview is the handler in `admin.html`.
 
-**Algorithm:** `delta = value_rank − finish_rank`
-- `value_rank` = surfer's rank by current price (1 = most expensive)
-- `finish_rank` = actual finish position in the event (1 = winner)
-- Positive delta → outperformed → price UP. Negative → underperformed → price DOWN.
+**Model — anchor + wiggle (NOT delta-from-previous-price).** Prices are a *target function* of live season rank, re-derived from scratch each cycle, so they can't drift or accumulate bias:
 
-**Adjustment scale:**
-| \|delta\| | Change |
-|-----------|--------|
-| 0–2 | $0 |
-| 3–6 | ±$250K |
-| 7–12 | ±$500K |
-| 13–20 | ±$750K |
-| 21+ | ±$1.0M |
+1. **Anchor to season rank.** `fetchSeasonRankings(tour)` (in `wsl-scrape.js`) scrapes the official WSL rankings page (`/athletes/tour/{mct|wct}`) for fresh ranks. Each surfer's anchor comes from a nonlinear curve `value(rank) = MIN_VALUE + (peak − MIN_VALUE)·decay^(rank−1)` — elite ranks worth far more than mid-pack.
+2. **Pool-managed.** `decay` is *solved* (binary search in `buildCurve`) so the curve sums to `targetPool = cap·N/starters·poolFactor`; at `poolFactor 1.0` an average full squad costs exactly the cap. The pool total is pinned by design, not emergent.
+3. **Recency wiggle.** Each surfer is nudged ±up-to-$750K (`MAX_WIGGLE`) by `rank − finish` in the **most recent saved event** — pulled from Firestore results, not scraped.
+4. **Name-matched.** Scraped athletes map to local surfers via `nameToKey` (`wsl-resolve.js`); unmatched surfers keep their value untouched and are flagged in the preview.
 
-- All values must be multiples of $250K
-- Algorithm is ~zero-sum (total pool changes < 1%)
-- If a surfer crosses the $1M bracket boundary, update their `priceBracket` field too
+Tunables live in `PRICING` (per-tour `peak ≤ $12.5M`, `poolFactor`, `starters`, `cap`) in `pricing.js`. `MIN_VALUE = $1.5M` is the hard floor and the wildcard price; all values are multiples of $250K. The preview surfaces a tenability readout (top-N cost vs cap, affordable-stars, pool vs target) before Apply, which writes `value` + `rank` for matched surfers in one batch. There is no `priceBracket` field — it was removed as it had no gameplay effect.

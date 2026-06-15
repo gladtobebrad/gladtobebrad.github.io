@@ -249,7 +249,7 @@
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
-    import { validateTeam, calculateRemaining, getTeamRules } from "./js/team.js";
+    import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
     import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster } from "./js/ui.js";
 
@@ -540,8 +540,8 @@
       const spent = rules.salaryCap - remaining;
       const pct = Math.min((spent / rules.salaryCap) * 100, 100);
       const overCap = remaining < 0;
-      const altCap = (currentEvent.tour || "mens") === "womens" ? 5_000_000 : 4_000_000;
-      const altCapLabel = (currentEvent.tour || "mens") === "womens" ? "$5M" : "$4M";
+      const altCap = ALT_CAP;
+      const altCapLabel = `$${ALT_CAP / 1_000_000}M`;
       const tour = currentEvent.tour || "mens";
 
       // Surfers on roster (by id) — only the filled slots
@@ -626,7 +626,7 @@
       wireTourTabs(container, user);
     }
 
-    function renderAvailable(surfers, onRoster, altSurferId, remaining, altCap = 4_000_000) {
+    function renderAvailable(surfers, onRoster, altSurferId, remaining, altCap = ALT_CAP) {
       if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
       return surfers.map((s) => {
         const isAlt = s.id === altSurferId;
@@ -656,8 +656,8 @@
         const isAltEligible = !isSelected && s.value < altCap;
         const canDrag = tradingOpen && !isSelected && (!isUnaffordable || isAltEligible);
         return `
-          <div class="surfer-row available-card${rowClass}" data-bracket="${s.priceBracket || ""}"
-            ${canDrag ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}" data-surfer-bracket="${s.priceBracket || ""}"` : ""}
+          <div class="surfer-row available-card${rowClass}"
+            ${canDrag ? `draggable="true" data-surfer-id="${s.id}" data-surfer-value="${s.value}"` : ""}
             ${cardAction} ${tradingOpen && !isUnaffordable ? 'style="cursor:pointer' + (isInjured ? ';position:relative;overflow:hidden"' : '"') : (isInjured ? 'style="position:relative;overflow:hidden"' : "")}
             ${isInjured ? 'data-injured="true"' : ""}>
             ${isInjured ? `<div style="position:absolute;inset:0;background:rgba(180,40,40,0.18);z-index:4;pointer-events:none"></div>
@@ -874,8 +874,7 @@
           row.addEventListener("dragstart", (e) => {
             e.dataTransfer.setData("application/json", JSON.stringify({
               id: row.dataset.surferId,
-              value: parseInt(row.dataset.surferValue, 10),
-              bracket: row.dataset.surferBracket
+              value: parseInt(row.dataset.surferValue, 10)
             }));
             e.dataTransfer.effectAllowed = "copy";
             row.classList.add("surfer-row--dragging");

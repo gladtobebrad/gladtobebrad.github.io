@@ -39,7 +39,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, priceBracketForValue, tenabilityReport } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, tenabilityReport } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -263,7 +263,7 @@
               </div>
               <div>
                 <table class="data-table">
-                  <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Bracket</th><th>Status</th><th></th></tr></thead>
+                  <thead><tr><th>Rank</th><th>Name</th><th>Country</th><th>Value</th><th>Status</th><th></th></tr></thead>
                   <tbody>
                     ${surfers.filter(s => (s.tour || "mens") === activeSurferTour).map((s) => `
                       ${(() => { const currentStatus = s.status || (s.active === false ? "inactive" : "active"); return `
@@ -272,15 +272,6 @@
                         <td>${s.name}</td>
                         <td>${s.country || ""}</td>
                         <td>${formatSalary(s.value)}</td>
-                        <td>
-                          <select class="inline-select inline-select--bracket" data-bracket-surfer="${s.id}" data-current="${s.priceBracket || ""}">
-                            <option value="elite"${s.priceBracket === "elite" ? " selected" : ""}>Elite</option>
-                            <option value="high"${s.priceBracket === "high" ? " selected" : ""}>High</option>
-                            <option value="mid"${s.priceBracket === "mid" ? " selected" : ""}>Mid</option>
-                            <option value="low"${s.priceBracket === "low" ? " selected" : ""}>Low</option>
-                            <option value="budget"${s.priceBracket === "budget" ? " selected" : ""}>Budget</option>
-                          </select>
-                        </td>
                         <td>
                           <select class="inline-select inline-select--surfer-status" data-status-surfer="${s.id}" data-current="${currentStatus}">
                             <option value="active"${currentStatus === "active" ? " selected" : ""}>Active</option>
@@ -1211,11 +1202,6 @@
         };
         // For new surfers, set defaults for fields managed via inline selects
         if (!editId) {
-          data.priceBracket = value >= 8000000 ? "elite"
-            : value >= 5000000 ? "high"
-            : value >= 3000000 ? "mid"
-            : value >= 1000000 ? "low"
-            : "budget";
           data.status = "active";
           data.active = true;
         }
@@ -1249,23 +1235,6 @@
           toast("Surfer deleted.", "info");
           surfers = await getAllSurfers();
           renderAdmin(container);
-        });
-      });
-
-      // ── INLINE SURFER BRACKET SELECT ──
-      container.querySelectorAll("[data-bracket-surfer]").forEach((sel) => {
-        sel.addEventListener("change", async () => {
-          const surferId = sel.dataset.bracketSurfer;
-          const prev = sel.dataset.current;
-          try {
-            await saveSurfer(surferId, { priceBracket: sel.value });
-            toast(`Bracket updated to "${sel.value}".`, "success");
-            surfers = await getAllSurfers();
-            renderAdmin(container);
-          } catch (err) {
-            toast("Error: " + err.message, "error");
-            sel.value = prev;
-          }
         });
       });
 
@@ -1892,7 +1861,6 @@
                 batch.update(doc(db, "surfers", s.id), {
                   value: s.newValue,
                   rank: s.newRank,
-                  priceBracket: priceBracketForValue(s.newValue),
                 });
               }
               await batch.commit();

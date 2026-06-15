@@ -119,20 +119,6 @@ export function eventWiggle(rank, finish) {
 }
 
 /**
- * Price → bracket label. Thresholds are absolute (unchanged from prior logic).
- * NB: with MIN_VALUE = $1.5M the "budget" tier (< $1M) is unreachable by design.
- * @param {number} v
- * @returns {"elite"|"high"|"mid"|"low"|"budget"}
- */
-export function priceBracketForValue(v) {
-  if (v >= 8_000_000) return "elite";
-  if (v >= 5_000_000) return "high";
-  if (v >= 3_000_000) return "mid";
-  if (v >= 1_000_000) return "low";
-  return "budget";
-}
-
-/**
  * Cap-tenability snapshot for a set of proposed prices. Answers "is the pool
  * still buildable but not floodable?" and "did we hit the target pool total?"
  * @param {number[]} values - proposed prices for every surfer on the tour

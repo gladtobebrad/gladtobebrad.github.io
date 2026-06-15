@@ -1620,7 +1620,6 @@ img { max-width: 100%; }
 .inline-select:focus { outline: none; border-color: var(--color-sage); }
 
 .inline-select--status option,
-.inline-select--bracket option,
 .inline-select--surfer-status option {
   text-transform: none;
   font-weight: 400;
@@ -1652,28 +1651,6 @@ img { max-width: 100%; }
 .inline-select--surfer-status[data-current="inactive"] {
   background-color: var(--color-beige);
   color: var(--color-charcoal);
-}
-
-/* Bracket colours — elite/budget endpoints, neutral middle */
-.inline-select--bracket[data-current="elite"] {
-  background-color: #dff5e3;
-  color: #217a3c;
-}
-.inline-select--bracket[data-current="high"] {
-  background-color: var(--color-cream);
-  color: var(--color-warm-brown);
-}
-.inline-select--bracket[data-current="mid"] {
-  background-color: var(--color-beige);
-  color: var(--color-charcoal);
-}
-.inline-select--bracket[data-current="low"] {
-  background-color: var(--color-beige);
-  color: var(--color-charcoal);
-}
-.inline-select--bracket[data-current="budget"] {
-  background-color: #fde2e2;
-  color: #a02c2c;
 }
 
 /* ── Trading Toggle Switch ─────────────────────────── */
