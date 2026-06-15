@@ -12,16 +12,21 @@
 // notably strong/weak result in the most recent event. The anchor always
 // dominates, so form colours a price without un-anchoring it from standing.
 //
-// Curve: value(rank) = MIN_VALUE + (peak − MIN_VALUE) · decay^(rank−1).
-// An exponential taper toward MIN_VALUE: the #1→#2 gap is largest and each
-// subsequent gap shrinks by `decay`, so "elite" is worth far more than "very
-// good", which is only marginally more than "mid-pack" — mirroring how WSL
-// event scoring rewards the very top steeply. MIN_VALUE is the asymptote AND
-// the hard floor (so the clamp only ever bites when a downward wiggle would
-// push a cheap surfer below it).
+// Curve: an exponential taper from `peak` (rank 1) down to RANKED_FLOOR (the
+// field's last rank) — BOTH ends pinned — with `decay` setting the curvature:
+//   value(rank) = RANKED_FLOOR + (peak − RANKED_FLOOR) ·
+//     (decay^(rank−1) − decay^(maxRank−1)) / (1 − decay^(maxRank−1))
+// The #1→#2 gap is the largest and each subsequent gap shrinks, so "elite" is
+// worth far more than "very good" (only marginally more than "mid-pack") —
+// mirroring how WSL event scoring rewards the very top steeply. Pinning both
+// ends means the lowest-ranked surfer lands EXACTLY on RANKED_FLOOR ($3M), not
+// merely near it; wildcards sit below at WILDCARD_VALUE ($1.5M), nothing between.
 
 export const VALUE_STEP = 250_000;       // every price is a multiple of this
-export const MIN_VALUE = 1_500_000;      // hard floor — also the wildcard price
+export const WILDCARD_VALUE = 1_500_000; // wildcard price — the only value below
+                                         // RANKED_FLOOR (nothing sits in between)
+export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer; the
+                                         // curve's asymptote and clamp floor
 export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
                                          // rank on a heater (anchor + wiggle)
 export const MAX_WIGGLE = 500_000;       // cap on the recency nudge (both ways)
@@ -43,9 +48,10 @@ export const PRICING = {
 
 const roundToStep = (v, step = VALUE_STEP) => Math.round(v / step) * step;
 
-/** Round to the price step and enforce the hard floor and ceiling. */
+/** Round to the price step and clamp to the ranked range [RANKED_FLOOR, MAX_VALUE].
+ *  Wildcards sit at WILDCARD_VALUE, below this range, and are never repriced. */
 export function clampValue(v) {
-  return Math.min(MAX_VALUE, Math.max(MIN_VALUE, roundToStep(v)));
+  return Math.min(MAX_VALUE, Math.max(RANKED_FLOOR, roundToStep(v)));
 }
 
 /**
@@ -65,48 +71,59 @@ export function cappedValue(oldValue, target) {
   return clampValue(oldValue + step);
 }
 
-// Unrounded pool total for a set of ranks: Σ_i [min + (peak−min)·decay^(rank_i−1)].
-// Summed over the ACTUAL ranks being priced (which may be sparse), not 1..N, so
-// the pool target reflects exactly the surfers we reprice — non-CT/unmatched
-// surfers never enter and so can't inflate the curve.
-function poolSum(decay, peak, min, ranks) {
-  const premium = peak - min;
+// Weight for `rank` on the two-point-pinned curve: 1 at rank 1, 0 at maxRank, so
+// value = floor + (peak − floor) · weight gives peak at the top and exactly the
+// floor at the field's last rank.
+function curveWeight(decay, rank, maxRank) {
+  if (maxRank <= 1) return rank <= 1 ? 1 : 0;
+  const tail = Math.pow(decay, maxRank - 1);
+  const denom = 1 - tail;
+  if (denom === 0) return 0;
+  return (Math.pow(decay, rank - 1) - tail) / denom;
+}
+
+// Unrounded pool total over the ACTUAL ranks being priced (which may be sparse),
+// not 1..N — so the target reflects exactly the surfers we reprice; non-CT /
+// unmatched surfers never enter the curve.
+function poolSum(decay, peak, floor, ranks, maxRank) {
+  const span = peak - floor;
   let total = 0;
-  for (const r of ranks) total += min + premium * Math.pow(decay, r - 1);
+  for (const r of ranks) total += floor + span * curveWeight(decay, r, maxRank);
   return total;
 }
 
 // Solve for the decay that makes the curve sum to `target` over `ranks`. poolSum
 // is monotonically non-decreasing in decay, so we binary-search (0,1). If the
 // target is outside the achievable range it's clamped to the nearest feasible curve.
-function solveDecayForPool(target, peak, min, ranks, iters = 60) {
+function solveDecayForPool(target, peak, floor, ranks, maxRank, iters = 60) {
   let lo = 0.0001, hi = 0.9999;
-  if (target <= poolSum(lo, peak, min, ranks)) return lo;
-  if (target >= poolSum(hi, peak, min, ranks)) return hi;
+  if (target <= poolSum(lo, peak, floor, ranks, maxRank)) return lo;
+  if (target >= poolSum(hi, peak, floor, ranks, maxRank)) return hi;
   for (let i = 0; i < iters; i++) {
     const mid = (lo + hi) / 2;
-    if (poolSum(mid, peak, min, ranks) < target) lo = mid; else hi = mid;
+    if (poolSum(mid, peak, floor, ranks, maxRank) < target) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
 }
 
 /**
- * Build the anchor curve for a tour from the ranks actually being priced, with
- * `decay` solved so the pool total lands on the tour's target. Call once per
- * repricing, then feed the returned curve to anchorValueForRank. Assumes a
- * roughly full tour: for a tiny field (≤2 ranks) the target falls below the
- * curve's own minimum, so `decay` clamps and the shape degenerates — irrelevant
- * in practice since repricing only runs against a populated CT ranking.
+ * Build the anchor curve for a tour from the ranks actually being priced. The
+ * curve is pinned at `peak` (rank 1) and RANKED_FLOOR (the field's last rank);
+ * the free `decay` is solved so the anchors sum to the tour's target pool. Call
+ * once per repricing, then feed the returned curve to anchorValueForRank. For a
+ * degenerate field (≤1 rank) the curve collapses to `peak` — irrelevant in
+ * practice since repricing only runs against a populated CT ranking.
  * @param {"mens"|"womens"} tour
  * @param {number[]} ranks - season ranks of the surfers being priced (may be sparse)
- * @returns {{peak:number, min:number, decay:number, n:number, tour:string, targetPool:number}}
+ * @returns {{peak:number, floor:number, maxRank:number, decay:number, n:number, tour:string, targetPool:number}}
  */
 export function buildCurve(tour, ranks) {
   const p = PRICING[tour] || PRICING.mens;
   const n = ranks.length;
+  const maxRank = n ? Math.max(...ranks) : 1;
   const targetPool = (p.cap * n / p.starters) * p.poolFactor;
-  const decay = solveDecayForPool(targetPool, p.peak, MIN_VALUE, ranks);
-  return { peak: p.peak, min: MIN_VALUE, decay, n, tour, targetPool };
+  const decay = solveDecayForPool(targetPool, p.peak, RANKED_FLOOR, ranks, maxRank);
+  return { peak: p.peak, floor: RANKED_FLOOR, maxRank, decay, n, tour, targetPool };
 }
 
 /**
@@ -117,8 +134,8 @@ export function buildCurve(tour, ranks) {
  */
 export function anchorValueForRank(rank, curve) {
   if (!Number.isFinite(rank) || rank < 1 || !curve) return null;
-  const raw = curve.min + (curve.peak - curve.min) * Math.pow(curve.decay, rank - 1);
-  return clampValue(raw);
+  const w = curveWeight(curve.decay, rank, curve.maxRank);
+  return clampValue(curve.floor + (curve.peak - curve.floor) * w);
 }
 
 // Bounded recency nudge, keyed off how far the latest event finish beat (or

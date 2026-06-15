@@ -39,7 +39,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport, MAX_WIGGLE, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -1209,6 +1209,10 @@
           toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
           return;
         }
+        if (data.value !== WILDCARD_VALUE && data.value < RANKED_FLOOR) {
+          toast(`Surfers are priced at $${WILDCARD_VALUE / 1_000_000}M (wildcard) or $${RANKED_FLOOR / 1_000_000}M+ — nothing in between.`, "error");
+          return;
+        }
         try {
           await saveSurfer(id, data);
           toast("Surfer saved!", "success");
@@ -1808,7 +1812,7 @@
           valueUpdateSection.innerHTML = `
             <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
               <p class="text-sm" style="margin:0;color:#7a5500">
-                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve, then nudged up to ±${formatSalary(750000)} for a notably
+                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve, then nudged up to ±${formatSalary(MAX_WIGGLE)} for a notably
                 strong or weak result in the most recent event${recentEvent ? ` (<strong>${escapeHtml(recentEvent.name)}</strong>)` : ""}.
                 ${recentEvent ? "" : `<em>No event with results found for this tour — anchor only.</em>`}
                 Each cycle a price glides toward its anchor by at most ${formatSalary(2000000)}, so big corrections land over a few events. Multiples of $250K.
