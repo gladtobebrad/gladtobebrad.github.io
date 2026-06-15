@@ -1745,7 +1745,12 @@
             const newRank = ranking.rank;
             const anchor = anchorValueForRank(newRank, curve);
             const finish = finishMap[s.id] ?? null;
-            const wiggle = finish != null ? eventWiggle(newRank, finish) : 0;
+            // Wiggle measures over/under-performance vs where the surfer stood
+            // BEFORE this event. s.rank is last cycle's stored (pre-event) rank;
+            // the fresh post-event newRank would be circular (already absorbed
+            // this event). Fall back to newRank when there's no prior rank.
+            const preEventRank = (Number.isFinite(s.rank) && s.rank > 0) ? s.rank : newRank;
+            const wiggle = finish != null ? eventWiggle(preEventRank, finish) : 0;
             // Anchor+wiggle is the eventual target; cap how far we move this cycle.
             const newValue = cappedValue(s.value, clampValue(anchor + wiggle));
             return { ...s, matched: true, newRank, anchor, finish, wiggle, newValue, change: newValue - (s.value || 0) };
@@ -1856,7 +1861,7 @@
           document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
             const confirmed = await confirmModal({
               title: `Apply ${label} Value Changes?`,
-              bodyHtml: `<p>This updates value, season rank and bracket for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. This cannot be undone.</p>`,
+              bodyHtml: `<p>This updates value and season rank for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. This cannot be undone.</p>`,
               confirmLabel: "Apply Changes",
               cancelLabel: "Cancel",
               confirmTone: "danger",

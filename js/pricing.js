@@ -29,7 +29,7 @@ export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer; th
                                          // curve's asymptote and clamp floor
 export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
                                          // rank on a heater (anchor + wiggle)
-export const MAX_WIGGLE = 500_000;       // cap on the recency nudge (both ways)
+export const MAX_WIGGLE = 750_000;       // cap on the recency nudge (both ways)
 export const MAX_CHANGE = 2_000_000;     // hard cap on price movement per cycle
 
 // Per-tour anchor context. `peak` is the rank-#1 ANCHOR price (tuned so the top
@@ -139,25 +139,28 @@ export function anchorValueForRank(rank, curve) {
 }
 
 // Bounded recency nudge, keyed off how far the latest event finish beat (or
-// missed) the surfer's current season rank. Buckets mirror the old repricing
-// scale so the feel is familiar; capped at MAX_WIGGLE.
+// missed) where the surfer stood BEFORE the event. Tight dead-zone (a 1-spot
+// beat is noise) and a steep early ramp, capped at MAX_WIGGLE.
 const WIGGLE_BUCKETS = [
-  { within: 2, amount: 0 },
-  { within: 6, amount: 250_000 },
-  { within: 12, amount: 500_000 },
+  { within: 1, amount: 0 },
+  { within: 3, amount: 250_000 },
+  { within: 7, amount: 500_000 },
   { within: Infinity, amount: MAX_WIGGLE },
 ];
 
 /**
- * Recency wiggle for one surfer. delta = rank − finish (positive = finished
- * better than their season rank in the latest event → price up).
- * @param {number} rank
+ * Recency wiggle for one surfer. delta = baselineRank − finish, where
+ * baselineRank is the surfer's PRE-event standing — NOT the post-event season
+ * rank, which already absorbed this event (using it would be circular and the
+ * residual would be ~0). Positive delta = finished better than they came in →
+ * price up.
+ * @param {number} baselineRank - pre-event rank (or a sensible proxy)
  * @param {number} finish
  * @returns {number} signed dollar nudge (0 if either input is missing)
  */
-export function eventWiggle(rank, finish) {
-  if (!Number.isFinite(rank) || !Number.isFinite(finish)) return 0;
-  const delta = rank - finish;
+export function eventWiggle(baselineRank, finish) {
+  if (!Number.isFinite(baselineRank) || !Number.isFinite(finish)) return 0;
+  const delta = baselineRank - finish;
   const mag = WIGGLE_BUCKETS.find((b) => Math.abs(delta) <= b.within).amount;
   return delta > 0 ? mag : delta < 0 ? -mag : 0;
 }
