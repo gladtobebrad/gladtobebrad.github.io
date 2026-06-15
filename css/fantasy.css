@@ -22,6 +22,9 @@
   --color-terracotta: #C97A60;
   --color-warm-brown: #8B7E74;
   --color-warm-gray: #C9C5BE;
+  --color-dark: var(--color-charcoal);
+  --color-error: #c0392b;
+  --color-off-white: #f8f7f4;
 
   --font-heading: 'Lora', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
