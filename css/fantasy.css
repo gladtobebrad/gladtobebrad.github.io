@@ -38,6 +38,18 @@
      This means app-main's content area is exactly 920px, matching the
      team panes' natural width, so everything aligns to the same column. */
   --max-width: 984px;
+
+  /* Shared focal point for athlete-tile photos (Available pool + Your
+     Roster). Pulls the square crop slightly down from the very top so
+     faces sit centered instead of clipping at the chin. Both tile types
+     read this token so their framing can never drift apart — tune here. */
+  --athlete-photo-focus: center 22%;
+
+  /* Shared fill for filled athlete tiles (Available pool + Your Roster) so a
+     surfer reads identically in either place. A touch darker than warm-white
+     (a midpoint between --color-cream and --color-beige). Empty roster slots
+     stay warm-white to read as open drop targets. */
+  --athlete-tile-fill: #F0EBE4;
 }
 
 html {
@@ -1293,6 +1305,7 @@ img { max-width: 100%; }
   width: 100%;
 }
 .team-row__surfer {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1306,7 +1319,7 @@ img { max-width: 100%; }
   height: 90px;
   border-radius: 10px;
   object-fit: cover;
-  object-position: top center;
+  object-position: var(--athlete-photo-focus);
   border: 1px solid var(--color-beige);
   background: var(--color-cream);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -1330,13 +1343,17 @@ img { max-width: 100%; }
   flex-direction: column;
   align-items: center;
   width: 100%;
-  line-height: 1.15;
+  /* Reserve two lines (first + last) always, even for single-word names,
+     so the price below sits at the same height on every tile. 1.53rem ≈ two
+     0.72rem lines at line-height 1.06. */
+  min-height: 1.53rem;
+  line-height: 1.06;
   color: var(--color-warm-black);
-  gap: 0.1rem;
+  gap: 0;
 }
 .team-row__firstname,
 .team-row__lastname {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1349,19 +1366,30 @@ img { max-width: 100%; }
    margin-top is intentionally small so stance tucks tight under name,
    mirroring the spacing inside .available-card__body. */
 .team-row__stance {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 400;
   color: var(--color-warm-brown);
   line-height: 1.1;
-  margin-top: 0.05rem;
+  margin-top: 0.1rem;
 }
+/* ALT marker: a semi-transparent badge pinned to the photo's top-left
+   corner (mirroring the × drop button at top-right), instead of a text
+   line below the price. Out of flow, so the alternate tile is exactly the
+   same height as every other roster tile. */
 .team-row__alt-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
   font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--color-warm-gray);
   text-transform: uppercase;
-  margin-top: 0.1rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
 }
 .team-row__alt-divider {
   flex: 0 0 1px;
@@ -1372,24 +1400,21 @@ img { max-width: 100%; }
 }
 
 
-/* Price + delta annotations (used in the editable Your Roster strip on
-   team.html). Sit below the name label inside .team-row__surfer. */
+/* Price annotation (editable Your Roster strip on team.html). Sits below
+   the name. When a surfer's market value has moved since purchase, the
+   price is tinted and prefixed with an arrow (▲ up / ▼ down) rather than
+   carrying a separate delta row — this keeps the roster tile exactly the
+   same height as an Available-pool tile, preserving the illusion that a
+   tile is simply relocated on drop. The precise figure can be read off
+   the same surfer's full price in the pool. */
 .team-row__price {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--color-charcoal);
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
-.team-row__delta {
-  font-size: 0.66rem;
-  font-weight: 600;
-  padding: 0 0.3rem;
-  border-radius: 3px;
-  white-space: nowrap;
-  margin-top: 0.2rem;
-}
-.team-row__delta--up { color: #2e7d32; background: rgba(46, 125, 50, 0.1); }
-.team-row__delta--down { color: #c0392b; background: rgba(192, 57, 43, 0.1); }
+.team-row__price--up { color: #2e7d32; }
+.team-row__price--down { color: #c0392b; }
 
 /* Small × button overlay on each editable roster tile. */
 .team-row__drop-btn {
@@ -1417,24 +1442,29 @@ img { max-width: 100%; }
 /* Editable variant: tiles get the same card-style background + border as
    the .available-card so the visual treatment is consistent between
    "your roster" and "available surfers". All tiles share a fixed
-   min-height matching the tallest possible athlete box (photo + first +
-   last + stance + price + delta) PLUS a small bottom buffer, so empty
-   placeholders, filled tiles with/without delta, and the dashed drop
-   indicator all occupy the same rectangle and the delta row never sits
-   flush against the tile's bottom edge.
+   min-height matching the tallest athlete box (photo + first + last +
+   stance + price + delta), so empty placeholders, filled tiles
+   with/without delta, and the dashed drop indicator all occupy the same
+   rectangle. Sized to hug the content tightly — the old value carried a
+   generous bottom buffer that left dead space and made the tiles read as
+   awkwardly tall.
    No overflow:hidden — the ::before pseudo for drag-feedback needs to
-   render outside the tile bounds. */
+   render outside the tile bounds.
+   min-height is measured to the tallest content (photo + first + last +
+   stance + price) with a little breathing room around the text. It's capped
+   so the whole roster strip + the 4-row Available pool both stay visible at
+   once on a ~1113px laptop viewport — taller tiles (e.g. a true 50-50 photo
+   split) push the pool below the fold. It matches the Available-pool tile's
+   min-height exactly; the value signal rides on the price line, so no tile is
+   ever taller. */
 .team-row--editable .team-row__surfer {
-  position: relative;
-  /* A touch darker than warm-white (a midpoint between --color-cream
-     and --color-beige) so filled tiles read as distinct from the
-     warm-white empty placeholders below, without going as dark as the
-     beige border. */
-  background: #F0EBE4;
+  /* (position: relative is inherited from the base .team-row__surfer rule) */
+  /* Shared fill with the pool tile; empty slots below stay warm-white. */
+  background: var(--athlete-tile-fill);
   border: 1px solid var(--color-beige);
   border-radius: var(--radius-md);
-  min-height: 190px;
-  padding-bottom: 0.35rem;
+  min-height: 162px;
+  padding-bottom: 0.25rem;
   /* Disable the default flex-gap so each row's spacing is controlled
      explicitly via margin-top — gives us tight available-pane-style
      spacing between name → stance → price, with deliberate gaps below
@@ -1447,7 +1477,7 @@ img { max-width: 100%; }
   background: var(--color-warm-white);
 }
 .team-row--editable .team-row__name {
-  margin-top: 0.3rem;
+  margin-top: 0.4rem;
 }
 .team-row--editable .team-row__surfer[draggable] { cursor: grab; }
 .team-row--editable .team-row__surfer[draggable]:active { cursor: grabbing; }
@@ -1485,10 +1515,10 @@ img { max-width: 100%; }
 }
 
 /* Hard switch to 4×2 wrap layout once the single row can no longer fit.
-   Men's row needs ~870px content width; with 24px card padding × 2 +
-   32px app-main padding × 2 = 112px overhead, single row no longer
-   fits below ~982px viewport. Set 1000px for safety margin (incl. the
-   ALT tile + divider). */
+   Applies to the read-only dashboard strips (renderRosterStrip / index.html)
+   which are still flex .team-row. The editable Your Roster on team.html now
+   uses .athlete-grid (shared with the Available pool) for its responsive
+   columns, so these flex rules are inert there. */
 @media (max-width: 1000px) {
   .team-row {
     flex-wrap: wrap;
