@@ -25,8 +25,9 @@
 export const VALUE_STEP = 250_000;       // every price is a multiple of this
 export const WILDCARD_VALUE = 1_500_000; // wildcard price — the only value below
                                          // RANKED_FLOOR (nothing sits in between)
-export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer; the
-                                         // curve's asymptote and clamp floor
+export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer: the
+                                         // curve's pinned bottom endpoint (the
+                                         // last rank lands here) and clamp floor
 export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
                                          // rank on a heater (anchor + wiggle)
 export const MAX_WIGGLE = 750_000;       // cap on the recency nudge (both ways)
@@ -43,7 +44,7 @@ export const MAX_CHANGE = 2_000_000;     // hard cap on price movement per cycle
 // TEAM_RULES in team.js.
 export const PRICING = {
   mens:   { peak: 11_000_000, starters: 8, cap: 50_000_000, poolFactor: 1.0 },
-  womens: { peak: 11_000_000, starters: 5, cap: 35_000_000, poolFactor: 1.0 },
+  womens: { peak: 11_000_000, starters: 5, cap: 35_000_000, poolFactor: 0.9 }, // <1.0 required: cap/starters ($7M) = the curve's mid-average, so 1.0 flattens the taper
 };
 
 const roundToStep = (v, step = VALUE_STEP) => Math.round(v / step) * step;
@@ -68,6 +69,9 @@ export function clampValue(v) {
 export function cappedValue(oldValue, target) {
   if (!oldValue) return clampValue(target);
   const step = Math.max(-MAX_CHANGE, Math.min(MAX_CHANGE, target - oldValue));
+  // clampValue's floor takes priority over the cap: a stored value below the
+  // legal floor (invalid data) is lifted into range even if that one move
+  // exceeds MAX_CHANGE — a one-time correction, never an in-band result.
   return clampValue(oldValue + step);
 }
 
@@ -115,7 +119,7 @@ function solveDecayForPool(target, peak, floor, ranks, maxRank, iters = 60) {
  * practice since repricing only runs against a populated CT ranking.
  * @param {"mens"|"womens"} tour
  * @param {number[]} ranks - season ranks of the surfers being priced (may be sparse)
- * @returns {{peak:number, floor:number, maxRank:number, decay:number, n:number, tour:string, targetPool:number}}
+ * @returns {{peak:number, floor:number, maxRank:number, decay:number, n:number, tour:string, targetPool:number, degenerate:boolean}}
  */
 export function buildCurve(tour, ranks) {
   const p = PRICING[tour] || PRICING.mens;
@@ -123,7 +127,11 @@ export function buildCurve(tour, ranks) {
   const maxRank = n ? Math.max(...ranks) : 1;
   const targetPool = (p.cap * n / p.starters) * p.poolFactor;
   const decay = solveDecayForPool(targetPool, p.peak, RANKED_FLOOR, ranks, maxRank);
-  return { peak: p.peak, floor: RANKED_FLOOR, maxRank, decay, n, tour, targetPool };
+  // decay pinned at a solver bound ⇒ the target pool is unreachable for this
+  // peak/floor/N, so the curve has gone (near-)linear and the taper is lost.
+  // Surfaced as a preview warning so a bad peak/poolFactor can't silently regress.
+  const degenerate = n > 1 && (decay <= 0.001 || decay >= 0.999);
+  return { peak: p.peak, floor: RANKED_FLOOR, maxRank, decay, n, tour, targetPool, degenerate };
 }
 
 /**

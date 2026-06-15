@@ -39,7 +39,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport, MAX_WIGGLE, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport, MAX_WIGGLE, MAX_VALUE, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -1213,6 +1213,10 @@
           toast(`Surfers are priced at $${WILDCARD_VALUE / 1_000_000}M (wildcard) or $${RANKED_FLOOR / 1_000_000}M+ — nothing in between.`, "error");
           return;
         }
+        if (data.value > MAX_VALUE) {
+          toast(`Value can't exceed the $${MAX_VALUE / 1_000_000}M ceiling.`, "error");
+          return;
+        }
         try {
           await saveSurfer(id, data);
           toast("Surfer saved!", "success");
@@ -1732,6 +1736,19 @@
           const curve = buildCurve(tour, resolved.filter((r) => r.ranking).map((r) => r.ranking.rank));
 
           const warnings = [];
+          if (curve.degenerate) {
+            warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust PRICING.${tour} in pricing.js.`);
+          }
+          // Two of OUR surfers sharing a name-key both resolve to the same WSL
+          // rank+price and double-count in the curve — flag for cleanup.
+          const localKeys = new Map();
+          for (const r of resolved) if (r.key && r.ranking) {
+            if (!localKeys.has(r.key)) localKeys.set(r.key, []);
+            localKeys.get(r.key).push(r.s.name);
+          }
+          for (const [, names] of localKeys) {
+            if (names.length > 1) warnings.push(`Multiple local surfers share a name key (${names.join(", ")}) — they got the same WSL rank/price; verify they aren't duplicates.`);
+          }
           const unmatched = [];
           const changes = resolved.map(({ s, key, ranking }) => {
             if (!ranking) {
@@ -1782,9 +1799,10 @@
         function renderRepricePreview(tour, label, { changes, warnings, unmatched, recentEvent }) {
           const matched = changes.filter((c) => c.matched);
           const modified = matched.filter((c) => c.change !== 0);
-          // Tenability over the whole tour (matched at new price, unmatched at
-          // current) so the readout reflects the real post-apply pool.
-          const ten = tenabilityReport(changes.map((c) => (c.matched ? c.newValue : (c.value || 0))), tour);
+          // Tenability over the MATCHED surfers (the set the curve manages), so
+          // its internal targetPool matches buildCurve's N and "pool vs target"
+          // is an honest read of pool management.
+          const ten = tenabilityReport(matched.map((c) => c.newValue), tour);
           const pct = ten.cap ? Math.round((ten.topStartersSum / ten.cap) * 100) : 0;
           const poolPct = ten.targetPool ? Math.round((ten.poolTotal / ten.targetPool) * 100) : 0;
           const tooEasy = ten.affordableStars >= ten.starters;
