@@ -37,8 +37,9 @@
     import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
-    import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender } from "./js/wsl-scrape.js";
-    import { buildSurferIndex, resolveSurfer, computeFinishPositions } from "./js/wsl-resolve.js";
+    import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
+    import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
+    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, priceBracketForValue, tenabilityReport } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -1715,189 +1716,197 @@
         valueUpdateModal?.querySelector("#value-update-modal-close")?.addEventListener("click", closeValueModal);
         valueUpdateModal?.addEventListener("click", (e) => { if (e.target === valueUpdateModal) closeValueModal(); });
 
-        function priceBracketForValue(v) {
-          if (v >= 8000000) return "elite";
-          if (v >= 5000000) return "high";
-          if (v >= 3000000) return "mid";
-          if (v >= 1000000) return "low";
-          return "budget";
+        // Most recent event with results for a tour — its finishes feed the
+        // recency wiggle. Pulled from Firestore-backed state already on the page
+        // (the event ranks live in the Results tab); no scrape needed for these.
+        function latestResultsEvent(tour) {
+          return events
+            .filter((e) => (e.tour || "mens") === tour && e.resultsEntered)
+            .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0))[0] || null;
         }
 
-        function deltaScaleAmount(absD) {
-          if (absD <= 2) return 0;
-          if (absD <= 6) return 250000;
-          if (absD <= 12) return 500000;
-          if (absD <= 20) return 750000;
-          return 1000000;
-        }
+        // Full repricing for one tour: fresh season ranks scraped from WSL + the
+        // most recent event's finishes → pool-managed anchor + bounded wiggle for
+        // every surfer. Surfers we can't match to a ranking keep their value.
+        async function computeRepricing(tour, log = () => {}) {
+          const rankings = await fetchSeasonRankings(tour, SEASON, log);
+          const rankByKey = new Map();
+          const ambiguous = new Set();
+          for (const r of rankings) {
+            const key = nameToKey(r.name);
+            if (!key) continue;
+            if (rankByKey.has(key)) { ambiguous.add(key); continue; }
+            rankByKey.set(key, r);
+          }
 
-        async function computeRepricing(eventId, tour) {
-          // Sort all active tour surfers by current value → valueRank 1..N
-          const tourSurfers = surfers
-            .filter(s => (s.tour || "mens") === tour)
-            .sort((a, b) => (b.value || 0) - (a.value || 0))
-            .map((s, i) => ({ ...s, valueRank: i + 1 }));
-
-          const results = await getResults(eventId);
+          const recentEvent = latestResultsEvent(tour);
           const finishMap = {};
-          results.forEach(r => { if (Number.isFinite(r.finish) && !r.withdrawn) finishMap[r.surferId] = r.finish; });
+          if (recentEvent) {
+            const results = await getResults(recentEvent.id);
+            results.forEach((r) => {
+              if (Number.isFinite(r.finish) && !r.withdrawn) finishMap[r.surferId] = r.finish;
+            });
+          }
 
-          const changes = tourSurfers.map(s => {
-            const finish = finishMap[s.id];
-            if (finish == null) return { ...s, finish: null, delta: null, change: 0, newValue: s.value || 0 };
-            const delta = s.valueRank - finish;
-            const change = delta > 0 ? deltaScaleAmount(Math.abs(delta)) : delta < 0 ? -deltaScaleAmount(Math.abs(delta)) : 0;
-            const newValue = Math.max(250000, (s.value || 0) + change);
-            return { ...s, finish, delta, change, newValue };
+          const tourSurfers = surfers.filter((s) => (s.tour || "mens") === tour);
+          const curve = buildCurve(tour, tourSurfers.length);
+          const warnings = [];
+          const unmatched = [];
+          const changes = tourSurfers.map((s) => {
+            const key = nameToKey(s.name);
+            const ranking = key ? rankByKey.get(key) : null;
+            if (!ranking) {
+              unmatched.push(s);
+              return { ...s, matched: false, newRank: s.rank ?? null, anchor: null,
+                       finish: finishMap[s.id] ?? null, wiggle: 0, newValue: s.value || 0, change: 0 };
+            }
+            if (ambiguous.has(key)) {
+              warnings.push(`Ambiguous ranking match for "${s.name}" — two athletes share that initial + surname; verify.`);
+            }
+            const newRank = ranking.rank;
+            const anchor = anchorValueForRank(newRank, curve);
+            const finish = finishMap[s.id] ?? null;
+            const wiggle = finish != null ? eventWiggle(newRank, finish) : 0;
+            const newValue = clampValue(anchor + wiggle);
+            return { ...s, matched: true, newRank, anchor, finish, wiggle, newValue, change: newValue - (s.value || 0) };
           });
 
-          // Re-rank all tour surfers by new value so ranks stay consistent
-          [...changes].sort((a, b) => b.newValue - a.newValue).forEach((s, i) => { s.newRank = i + 1; });
-
-          return changes;
+          return { changes, warnings, unmatched, recentEvent };
         }
 
-        valueUpdateBtn?.addEventListener("click", () => {
+        valueUpdateBtn?.addEventListener("click", async () => {
           if (!valueUpdateSection || !valueUpdateModal) return;
+          const tour = activeSurferTour;
+          const label = tour === "womens" ? "Women's" : "Men's";
+          const modalTitle = valueUpdateModal.querySelector(".modal__title");
+          if (modalTitle) modalTitle.textContent = `Update ${label} Values`;
 
-          const repricingEvents = events.filter(e => e.resultsEntered);
-          if (!repricingEvents.length) {
-            toast("No events with results to reprice from.", "info");
+          valueUpdateSection.innerHTML = `<p class="text-muted" style="margin:0">Fetching live ${label.toLowerCase()} rankings from WSL…</p>`;
+          valueUpdateModal.style.display = "flex";
+
+          let result;
+          try {
+            result = await computeRepricing(tour);
+          } catch (err) {
+            valueUpdateSection.innerHTML = `<p style="margin:0;color:#c0392b">Couldn't reprice: ${escapeHtml(err.message)}</p>`;
             return;
           }
+          renderRepricePreview(tour, label, result);
+        });
+
+        function renderRepricePreview(tour, label, { changes, warnings, unmatched, recentEvent }) {
+          const matched = changes.filter((c) => c.matched);
+          const modified = matched.filter((c) => c.change !== 0);
+          // Tenability over the whole tour (matched at new price, unmatched at
+          // current) so the readout reflects the real post-apply pool.
+          const ten = tenabilityReport(changes.map((c) => (c.matched ? c.newValue : (c.value || 0))), tour);
+          const pct = ten.cap ? Math.round((ten.topStartersSum / ten.cap) * 100) : 0;
+          const poolPct = ten.targetPool ? Math.round((ten.poolTotal / ten.targetPool) * 100) : 0;
+          const tooEasy = ten.affordableStars >= ten.starters;
+
+          const rows = matched
+            .sort((a, b) => a.newRank - b.newRank)
+            .map((s) => {
+              const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
+              const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
+              const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
+              const wigClr = s.wiggle > 0 ? "color:#1a7f37" : s.wiggle < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
+              const wigStr = s.wiggle ? `${s.wiggle > 0 ? "+" : "−"}${formatSalary(Math.abs(s.wiggle))}` : "—";
+              return `<tr>
+                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">#${s.newRank}</td>
+                <td style="padding:0.2rem 0.4rem">${escapeHtml(s.name || s.id)}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right">${formatSalary(s.value || 0)}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${formatSalary(s.anchor)}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${s.finish != null ? s.finish : "—"}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;${wigClr}">${wigStr}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.change !== 0 ? "600" : "400"}">${formatSalary(s.newValue)}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.change !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
+              </tr>`;
+            }).join("");
+
+          const applyBtnHtml = matched.length ? `
+            <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
+              Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}
+            </button>` : "";
 
           valueUpdateSection.innerHTML = `
             <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
               <p class="text-sm" style="margin:0;color:#7a5500">
-                Reprices surfers using <code>delta = value rank − finish</code>. Surfers who outperformed their price go up;
-                underperformers go down. Changes are ±$0–$1M in $250K increments. Rank and price bracket are also recalculated.
-                Run this after each completed event, before the next trading window opens.
+                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve
+                (elite ranks worth far more than mid-pack), then nudged up to ±${formatSalary(750000)} for a notably
+                strong or weak result in ${recentEvent ? `<strong>${escapeHtml(recentEvent.name)}</strong>` : "the most recent event"}.
+                ${recentEvent ? "" : `<em>No event with results found for this tour — anchor only.</em>`}
+                Season rank is scraped fresh; the event result comes from your saved results. Multiples of $250K; bracket recalculated.
               </p>
             </div>
-            <div class="form-group" style="max-width:420px">
-              <label class="form-label">Event to reprice from</label>
-              <select class="form-select" id="reprice-event-select">
-                <option value="">Choose an event...</option>
-                ${repricingEvents.map(e => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`).join("")}
-              </select>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.6rem">
+              <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
+                <div class="text-sm text-muted">Top ${ten.starters} cost vs cap</div>
+                <div style="font-weight:600">${formatSalary(ten.topStartersSum)} / ${formatSalary(ten.cap)} <span class="text-sm" style="color:var(--color-warm-gray)">(${pct}%)</span></div>
+                <div class="text-sm" style="color:${tooEasy ? "#c0392b" : "#1a7f37"}">${tooEasy ? "⚠ a superteam fits under the cap" : `affordable stars: top ${ten.affordableStars} of ${ten.starters}`}</div>
+              </div>
+              <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
+                <div class="text-sm text-muted">Pool total vs target</div>
+                <div style="font-weight:600">${formatSalary(ten.poolTotal)} / ${formatSalary(ten.targetPool)} <span class="text-sm" style="color:var(--color-warm-gray)">(${poolPct}%)</span></div>
+                <div class="text-sm" style="color:var(--color-warm-gray)">${matched.length} matched${unmatched.length ? `, ${unmatched.length} unmatched` : ""}</div>
+              </div>
             </div>
-            <div class="form-actions">
-              <button class="btn btn--outline" id="btn-preview-repricing">Preview Changes</button>
+            ${warnings.length ? `<ul class="text-sm" style="margin:0 0 0.5rem;padding-left:1.1rem;color:#a37500">${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>` : ""}
+            ${unmatched.length ? `<p class="text-sm text-muted" style="margin:0 0 0.5rem">Unmatched (value unchanged): ${unmatched.map((u) => escapeHtml(u.name)).join(", ")}. Check name spelling or add them to our roster.</p>` : ""}
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
+              <h4 style="margin:0">${modified.length} of ${matched.length} surfers change price</h4>
+              ${applyBtnHtml}
             </div>
-            <div id="reprice-preview-output" class="mt-3"></div>
+            <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:360px;overflow-y:auto">
+              <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
+                <thead><tr style="background:#f7f5f0;position:sticky;top:0">
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Anchor $</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Last Finish</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Wiggle</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">New $</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Δ</th>
+                </tr></thead>
+                <tbody>${rows || `<tr><td colspan="8" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No matched surfers.</td></tr>`}</tbody>
+              </table>
+            </div>
           `;
-          valueUpdateModal.style.display = "flex";
 
-          document.getElementById("btn-preview-repricing")?.addEventListener("click", async () => {
-            const eventId = document.getElementById("reprice-event-select")?.value;
-            if (!eventId) { toast("Select an event first.", "info"); return; }
-            const event = events.find(e => e.id === eventId);
-            if (!event) return;
-            const tour = event.tour || "mens";
-            const label = tour === "mens" ? "Men's" : "Women's";
-            const previewBtn = document.getElementById("btn-preview-repricing");
-            const previewOut = document.getElementById("reprice-preview-output");
-            previewBtn.disabled = true;
-            previewBtn.textContent = "Computing…";
-            let changes;
-            try {
-              changes = await computeRepricing(eventId, tour);
-            } catch (err) {
-              toast("Error computing changes: " + err.message, "error");
-              previewBtn.disabled = false;
-              previewBtn.textContent = "Preview Changes";
-              return;
-            }
-
-            const withResult = changes.filter(s => s.finish != null);
-            const noResult = changes.filter(s => s.finish == null);
-            const modified = withResult.filter(s => s.change !== 0);
-
-            const rows = withResult
-              .sort((a, b) => a.finish - b.finish)
-              .map(s => {
-                const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
-                const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
-                const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
-                const rankChanged = s.newRank !== s.valueRank;
-                return `<tr>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${s.finish}</td>
-                  <td style="padding:0.2rem 0.4rem">${escapeHtml(s.name || s.id)}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right">${formatSalary(s.value)}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">#${s.valueRank}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr}">${s.delta != null ? (s.delta > 0 ? "+" : "") + s.delta : "—"}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.change !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.change !== 0 ? "600" : "400"}">${formatSalary(s.newValue)}</td>
-                  <td style="padding:0.2rem 0.4rem;text-align:right;${clr}">${rankChanged ? "#" + s.newRank : "—"}</td>
-                </tr>`;
-              }).join("");
-
-            const applyBtnHtml = modified.length > 0 ? `
-              <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
-                Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}
-              </button>` : "";
-
-            previewOut.innerHTML = `
-              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
-                <h4 style="margin:0">${label} — ${modified.length} of ${withResult.length} surfers change value</h4>
-                ${applyBtnHtml}
-              </div>
-              ${noResult.length ? `<p class="text-sm text-muted" style="margin:0 0 0.5rem">${noResult.length} surfer(s) not in this event — value unchanged, rank updated if others shift.</p>` : ""}
-              <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:340px;overflow-y:auto">
-                <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
-                  <thead><tr style="background:#f7f5f0;position:sticky;top:0">
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Finish</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Val. Rank</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Delta</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Change</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">New $</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">New Rank</th>
-                  </tr></thead>
-                  <tbody>${rows || `<tr><td colspan="8" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No results found for this event.</td></tr>`}</tbody>
-                </table>
-              </div>
-              ${!modified.length ? `<p class="text-sm text-muted mt-2">No changes to apply — all surfers are within ±2 places of their value rank.</p>` : ""}
-            `;
-
-            previewBtn.disabled = false;
-            previewBtn.textContent = "Preview Changes";
-
-            document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
-              const confirmed = await confirmModal({
-                title: "Apply Surfer Value Changes?",
-                bodyHtml: `<p>This will permanently update values and ranks for <strong>${changes.length}</strong> ${label} surfers in Firestore.</p><p style="margin-top:0.5rem"><strong>${modified.length}</strong> surfer${modified.length !== 1 ? "s" : ""} will change price; the rest will have their rank recalculated based on the new ordering.</p><p style="margin-top:0.5rem" class="text-sm text-muted">This cannot be undone. Make sure the preview looks correct.</p>`,
-                confirmLabel: "Apply Changes",
-                cancelLabel: "Cancel",
-                confirmTone: "danger",
-              });
-              if (!confirmed) return;
-              const applyBtn = document.getElementById("btn-apply-repricing");
-              applyBtn.disabled = true;
-              applyBtn.textContent = "Applying…";
-              try {
-                const batch = writeBatch(db);
-                for (const s of changes) {
-                  batch.update(doc(db, "surfers", s.id), {
-                    value: s.newValue,
-                    rank: s.newRank,
-                    priceBracket: priceBracketForValue(s.newValue),
-                  });
-                }
-                await batch.commit();
-                surfers = await getAllSurfers();
-                toast(`${label} surfer values updated! ${modified.length} price change${modified.length !== 1 ? "s" : ""} applied.`, "success");
-                closeValueModal();
-                renderAdmin(container);
-              } catch (err) {
-                toast("Error applying values: " + err.message, "error");
-                applyBtn.disabled = false;
-                applyBtn.textContent = `Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}`;
-              }
+          document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
+            const confirmed = await confirmModal({
+              title: `Apply ${label} Value Changes?`,
+              bodyHtml: `<p>This updates value, season rank and bracket for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. This cannot be undone.</p>`,
+              confirmLabel: "Apply Changes",
+              cancelLabel: "Cancel",
+              confirmTone: "danger",
             });
+            if (!confirmed) return;
+            const applyBtn = document.getElementById("btn-apply-repricing");
+            applyBtn.disabled = true;
+            applyBtn.textContent = "Applying…";
+            try {
+              const batch = writeBatch(db);
+              for (const s of matched) {
+                batch.update(doc(db, "surfers", s.id), {
+                  value: s.newValue,
+                  rank: s.newRank,
+                  priceBracket: priceBracketForValue(s.newValue),
+                });
+              }
+              await batch.commit();
+              surfers = await getAllSurfers();
+              toast(`${label} values updated! ${modified.length} price change${modified.length !== 1 ? "s" : ""} applied.`, "success");
+              closeValueModal();
+              renderAdmin(container);
+            } catch (err) {
+              toast("Error applying values: " + err.message, "error");
+              applyBtn.disabled = false;
+              applyBtn.textContent = `Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}`;
+            }
           });
-        });
+        }
       })();
 
       // ── REFRESH PLAYER DIRECTORY + RESET ALL TEAMS ──

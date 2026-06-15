@@ -114,6 +114,61 @@ export async function fetchSchedule(season = 2026, log = () => {}) {
   return events;
 }
 
+// Scrape the official season-rankings page for one tour (men's = /tour/mct,
+// women's = /tour/wct — separate pages, so the code goes straight in the URL,
+// like fetchSchedule's /ct). One request, no pagination: the full CT ranking
+// table is server-rendered. Each athlete row carries the WSL athlete id in its
+// class (athlete-{id}), the season rank in td.athlete-rank, the full name in
+// a.athlete-name, and the season total in .tour-points.
+// Returns: [{ wslId, name, rank, points }] sorted by rank ascending.
+export async function fetchSeasonRankings(tour, season = 2026, log = () => {}) {
+  const code = tour === "womens" ? "wct" : "mct";
+  const genderLabel = tour === "womens" ? "women's" : "men's";
+  const url = `${WSL_BASE}/athletes/tour/${code}?year=${season}`;
+  log(`Fetching WSL ${season} ${genderLabel} rankings…`);
+  const doc = await fetchDoc(url);
+
+  const rows = doc.querySelectorAll('tr[class*="athlete-"]');
+  const seen = new Set();
+  const rankings = [];
+  for (const row of rows) {
+    // The athlete id lives in a class token like "athlete-7854"; rows without
+    // it (header/spacer) are skipped. Guard against the page rendering a row
+    // twice by deduping on wslId.
+    const idM = (row.className || "").match(/(?:^|\s)athlete-(\d+)(?:\s|$)/);
+    if (!idM) continue;
+    const wslId = parseInt(idM[1], 10);
+    if (seen.has(wslId)) continue;
+
+    // td.athlete-rank holds the rank number; the adjacent rank-CHANGE cell is
+    // a different class token (athlete-rank-change) so it won't be matched.
+    // Strip any non-digit prefix first — WSL renders tied ranks as "T5", which
+    // parseInt would read as NaN and silently drop that surfer (they'd then
+    // fall through to "unmatched" and keep their old price). Tied surfers
+    // legitimately share a rank, so both keep that number.
+    const rankEl = row.querySelector("td.athlete-rank");
+    const rank = rankEl ? parseInt((rankEl.textContent || "").replace(/[^\d]/g, ""), 10) : NaN;
+    if (!Number.isFinite(rank)) continue;
+
+    const nameEl = row.querySelector("a.athlete-name");
+    const name = (nameEl?.textContent || "").trim();
+    if (!name) continue;
+
+    const ptsEl = row.querySelector("td.athlete-points .tour-points");
+    const points = ptsEl ? parseInt((ptsEl.textContent || "").replace(/[^\d]/g, ""), 10) || 0 : 0;
+
+    seen.add(wslId);
+    rankings.push({ wslId, name, rank, points });
+  }
+
+  rankings.sort((a, b) => a.rank - b.rank);
+  log(`  Parsed ${rankings.length} ranked ${tour === "womens" ? "women" : "men"}.`);
+  if (!rankings.length) {
+    throw new Error(`No athletes parsed from rankings page — WSL markup may have changed (${url}).`);
+  }
+  return rankings;
+}
+
 // Pick the single target venue. Priority: first active (live/on/standby) >
 // most recent completed (over). Skip upcoming/canceled. We explicitly sort
 // by eventNumber so the choice is independent of WSL's render order. Returns
