@@ -392,7 +392,7 @@
               </select>
             </div>
             <div class="form-actions">
-              <button class="btn btn--outline" id="btn-clear-results" style="color:var(--color-error);border-color:var(--color-error)">Clear All Results for Event</button>
+              <button class="btn btn--outline" id="btn-clear-results" style="color:#c0392b;border-color:#c0392b">Clear All Results for Event</button>
             </div>
           </div>
         </div>
@@ -1805,7 +1805,7 @@
             const rows = withResult
               .sort((a, b) => a.finish - b.finish)
               .map(s => {
-                const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:var(--color-error)" : "color:var(--color-warm-gray)";
+                const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
                 const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
                 const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
                 const rankChanged = s.newRank !== s.valueRank;
@@ -1822,7 +1822,7 @@
               }).join("");
 
             const applyBtnHtml = modified.length > 0 ? `
-              <button class="btn btn--primary" id="btn-apply-repricing" style="background:var(--color-error);border-color:var(--color-error)">
+              <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
                 Apply ${modified.length} Value Change${modified.length !== 1 ? "s" : ""}
               </button>` : "";
 
