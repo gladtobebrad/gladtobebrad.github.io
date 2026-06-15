@@ -1808,9 +1808,8 @@
           valueUpdateSection.innerHTML = `
             <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
               <p class="text-sm" style="margin:0;color:#7a5500">
-                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve
-                (elite ranks worth far more than mid-pack), then nudged up to ±${formatSalary(750000)} for a notably
-                strong or weak result in ${recentEvent ? `<strong>${escapeHtml(recentEvent.name)}</strong>` : "the most recent event"}.
+                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve, then nudged up to ±${formatSalary(750000)} for a notably
+                strong or weak result in the most recent event${recentEvent ? ` (<strong>${escapeHtml(recentEvent.name)}</strong>)` : ""}.
                 ${recentEvent ? "" : `<em>No event with results found for this tour — anchor only.</em>`}
                 Each cycle a price glides toward its anchor by at most ${formatSalary(2000000)}, so big corrections land over a few events. Multiples of $250K.
               </p>
