@@ -103,6 +103,8 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 
 ## Surfer Repricing (post-event)
 
+> Standalone reference: [docs/pricing-model.md](docs/pricing-model.md).
+
 Run after every completed CT event, before the next trading window opens, via the **Update Values** button on the Surfers tab (reprices whichever sub-tab — men's/women's — is active). Pure logic lives in `js/pricing.js`; the orchestration/preview is the handler in `admin.html`.
 
 **Model — anchor + wiggle (NOT delta-from-previous-price).** Prices are a *target function* of live season rank, re-derived from scratch each cycle, so they can't drift or accumulate bias:
