@@ -28,7 +28,7 @@
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
-      touchLeaderboardVersion,
+      touchLeaderboardVersion, touchEventsVersion,
       savePlayerDirectory, getAllUsers,
       getAllClubs, deleteClub,
       getSiteConfig, saveSiteConfig
@@ -905,7 +905,7 @@
             await saveEvent(id, { ...baseData, tour: tourValue });
             toast("Event saved!", "success");
           }
-          try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+          try { await touchEventsVersion(); } catch {}
           closeEventModal();
           events = await getEvents(SEASON);
           renderAdmin(container);
@@ -926,6 +926,7 @@
         btn.addEventListener("click", async () => {
           if (!confirm("Delete this event? This cannot be undone.")) return;
           await deleteEvent(btn.dataset.deleteEvent);
+          try { await touchEventsVersion(); } catch {}
           toast("Event deleted.", "info");
           events = await getEvents(SEASON);
           renderAdmin(container);
@@ -939,7 +940,7 @@
           try {
             await saveEvent(eventId, { status: sel.value });
             toast(`Status updated to "${sel.value}".`, "success");
-            try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+            try { await touchEventsVersion(); } catch {}
             events = await getEvents(SEASON);
             renderAdmin(container);
           } catch (err) {
@@ -1131,7 +1132,7 @@
           } catch (err) {
             toast(locking ? "Trading locked, but team operations failed (check Firestore permissions)." : "Trading opened, but team unlock failed.", "warning");
           }
-          try { sessionStorage.removeItem(`events_${SEASON}`); } catch {}
+          try { await touchEventsVersion(); } catch {}
           events = await getEvents(SEASON);
           renderAdmin(container);
         });
@@ -1547,7 +1548,7 @@
                 });
                 wslLog(`Saved ${batch.length} ${tour} results to "${g.localEvent.name}" (${g.roundsCompleted}/${g.totalRounds} rounds).`);
               }
-              try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+              try { await touchEventsVersion(); } catch {}
               toast("Scraped results saved.", "success");
               saveBtn.textContent = "Saved ✓";
               // Offer the leaderboard recalc now that fresh results landed.
@@ -1664,7 +1665,7 @@
             // roundsCompleted/totalRounds (from a prior WSL scrape on this
             // event) untouched. Just stamp the source.
             await saveEvent(eventId, { resultsEntered: true, resultsSource: "manual" });
-            try { Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k)); } catch {}
+            try { await touchEventsVersion(); } catch {}
             events = await getEvents(SEASON);
             toast(`Saved ${resultsArr.length} results!`, "success");
             // Offer the leaderboard recalc now that fresh results landed.

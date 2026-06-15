@@ -45,17 +45,50 @@ export async function deleteSurfer(surferId) {
 
 export async function getEvents(season = 2026) {
   const cacheKey = `events_${season}`;
+  let serverVersion = 0;
   try {
+    serverVersion = await fetchEventsVersion();
     const cached = sessionStorage.getItem(cacheKey);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const { data, version } = JSON.parse(cached);
+      if (data && version === serverVersion) return data;
+    }
   } catch {}
   const snap = await getDocs(collection(db, "events"));
   const data = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter((e) => e.season === season)
     .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
-  try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+  try { sessionStorage.setItem(cacheKey, JSON.stringify({ data, version: serverVersion })); } catch {}
   return data;
+}
+
+// Events-list cache invalidation. The events list is cached per-tab in
+// sessionStorage (events_<season>), but admins change tradingOpen/startDate/
+// status from a *different* browser. Without a server-side version gate a
+// long-lived tab keeps serving its pre-change snapshot forever — sessionStorage
+// survives a hard refresh, and removeItem only clears the tab that calls it. So
+// getEvents() gates its cache on meta/events.version (mirrors the leaderboard
+// version pattern below): any admin write bumps it via touchEventsVersion() and every
+// client re-fetches on its next read. Read fresh each call — an in-memory cache
+// of the version would reintroduce the same stale-long-lived-tab bug.
+export async function fetchEventsVersion() {
+  try {
+    const snap = await getDoc(doc(db, "meta", "events"));
+    return snap.exists() ? (snap.data().version || 0) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Call after any admin write that changes an event — bumps version so all
+// clients (any browser) drop their stale events cache on the next read.
+export async function touchEventsVersion() {
+  const version = Date.now();
+  await setDoc(doc(db, "meta", "events"), { version });
+  try {
+    Object.keys(sessionStorage).filter(k => k.startsWith("events_")).forEach(k => sessionStorage.removeItem(k));
+  } catch {}
 }
 
 export async function getEvent(eventId) {

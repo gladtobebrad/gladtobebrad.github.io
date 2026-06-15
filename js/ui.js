@@ -176,6 +176,45 @@ export function startCountdownTimer(el, state) {
 }
 
 /**
+ * Render the public live-status + countdown banners into their slots.
+ * Derived purely from event/config data, so it runs regardless of sign-in
+ * state. Each Firestore read is guarded so one failed read can't blank both
+ * banners. Live banner takes priority — if WSL reports an active event and the
+ * admin hasn't hidden it, show it and suppress the countdown; otherwise fall
+ * back to the countdown when eligible.
+ */
+async function renderBanners(liveStatusEl, countdownEl) {
+  try {
+    const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
+    const SEASON = new Date().getFullYear();
+    const [mensEv, womensEv, siteConfig, liveStatus] = await Promise.all([
+      getCurrentEventForTour("mens", SEASON).catch(() => null),
+      getCurrentEventForTour("womens", SEASON).catch(() => null),
+      getSiteConfig().catch(() => ({})),
+      fetchLiveStatusCached(SEASON),
+    ]);
+    if (window._countdownInterval) clearInterval(window._countdownInterval);
+
+    const showLive = siteConfig.showLiveStatus !== false && !!liveStatus;
+    if (showLive) {
+      renderLiveStatusBanner(liveStatusEl, liveStatus);
+      countdownEl.style.display = "none";
+    } else {
+      renderLiveStatusBanner(liveStatusEl, null);
+      const state = resolveCountdownState({ mensEv, womensEv });
+      if (siteConfig.showCountdown === false || !state) {
+        countdownEl.style.display = "none";
+      } else {
+        countdownEl.style.display = "";
+        window._countdownInterval = startCountdownTimer(countdownEl, state);
+      }
+    }
+  } catch (e) {
+    console.warn("Banner render failed:", e);
+  }
+}
+
+/**
  * Render the shared header/nav into an element with id="app-header"
  */
 export function renderHeader() {
@@ -270,45 +309,17 @@ export function renderHeader() {
         openProfileEditModal(user, profile);
       });
       dropdown?.querySelector('[data-action="signout"]')?.addEventListener("click", signOut);
-
-      // Banners: fetch the live-status (cached) and the countdown inputs in
-      // parallel. Live banner takes priority — if WSL reports an active
-      // event and the admin hasn't hidden it, show it and suppress the
-      // countdown. Otherwise fall back to the countdown if eligible.
-      try {
-        const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
-        const SEASON = new Date().getFullYear();
-        const [mensEv, womensEv, siteConfig, liveStatus] = await Promise.all([
-          getCurrentEventForTour("mens", SEASON),
-          getCurrentEventForTour("womens", SEASON),
-          getSiteConfig(),
-          fetchLiveStatusCached(SEASON),
-        ]);
-        if (window._countdownInterval) clearInterval(window._countdownInterval);
-
-        const showLive = siteConfig.showLiveStatus !== false && !!liveStatus;
-        if (showLive) {
-          renderLiveStatusBanner(liveStatusEl, liveStatus);
-          countdownEl.style.display = "none";
-        } else {
-          renderLiveStatusBanner(liveStatusEl, null);
-          const state = resolveCountdownState({ mensEv, womensEv });
-          if (siteConfig.showCountdown === false || !state) {
-            countdownEl.style.display = "none";
-          } else {
-            countdownEl.style.display = "";
-            window._countdownInterval = startCountdownTimer(countdownEl, state);
-          }
-        }
-      } catch (e) { /* silently skip banners if fetch fails */ }
     } else {
-      renderLiveStatusBanner(liveStatusEl, null);
-      countdownEl.style.display = "none";
       authEl.innerHTML = `
         <button class="btn btn--sm btn--primary" id="btn-signin">Sign In with Google</button>
       `;
       document.getElementById("btn-signin")?.addEventListener("click", signIn);
     }
+
+    // Banners are public — derived purely from event/config data, independent
+    // of sign-in. Render for everyone (signed in OR out) so logged-out visitors
+    // see the countdown / live-status banner too.
+    renderBanners(liveStatusEl, countdownEl);
   });
 }
 
