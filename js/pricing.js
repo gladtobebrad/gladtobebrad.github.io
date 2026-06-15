@@ -24,7 +24,7 @@ export const VALUE_STEP = 250_000;       // every price is a multiple of this
 export const MIN_VALUE = 1_500_000;      // hard floor — also the wildcard price
 export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
                                          // rank on a heater (anchor + wiggle)
-export const MAX_WIGGLE = 750_000;       // cap on the recency nudge (both ways)
+export const MAX_WIGGLE = 500_000;       // cap on the recency nudge (both ways)
 export const MAX_CHANGE = 2_000_000;     // hard cap on price movement per cycle
 
 // Per-tour anchor context. `peak` is the rank-#1 ANCHOR price (tuned so the top
