@@ -309,17 +309,20 @@ export function renderHeader() {
         openProfileEditModal(user, profile);
       });
       dropdown?.querySelector('[data-action="signout"]')?.addEventListener("click", signOut);
+
+      // Render the live-status + countdown banners once auth resolves. Kept
+      // inside the signed-in branch: the rest of the app is auth-gated, so a
+      // logged-out visitor's Firestore reads (events/config) are denied and the
+      // banner can't resolve its data anyway.
+      renderBanners(liveStatusEl, countdownEl);
     } else {
+      renderLiveStatusBanner(liveStatusEl, null);
+      countdownEl.style.display = "none";
       authEl.innerHTML = `
         <button class="btn btn--sm btn--primary" id="btn-signin">Sign In with Google</button>
       `;
       document.getElementById("btn-signin")?.addEventListener("click", signIn);
     }
-
-    // Banners are public — derived purely from event/config data, independent
-    // of sign-in. Render for everyone (signed in OR out) so logged-out visitors
-    // see the countdown / live-status banner too.
-    renderBanners(liveStatusEl, countdownEl);
   });
 }
 
