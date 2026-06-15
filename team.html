@@ -552,7 +552,11 @@
       const eventTour = currentEvent.tour || "mens";
       const available = Object.values(allSurfers)
         .filter((s) => (s.tour || "mens") === eventTour)
-        .sort((a, b) => a.rank - b.rank);
+        // Tiles read left→right, top→bottom in descending VALUE (the price paid),
+        // ties broken by season rank. Sorting by rank mis-orders tiles whenever
+        // value diverges from rank — recency wiggle, unmatched/wildcard surfers,
+        // or manual edits.
+        .sort((a, b) => (b.value || 0) - (a.value || 0) || (a.rank || 999) - (b.rank || 999));
 
       container.innerHTML = `
         <h1 class="page-title" style="margin-bottom:0">My Team</h1>
