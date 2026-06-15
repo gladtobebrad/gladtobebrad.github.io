@@ -22,63 +22,90 @@
 
 export const VALUE_STEP = 250_000;       // every price is a multiple of this
 export const MIN_VALUE = 1_500_000;      // hard floor — also the wildcard price
+export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
+                                         // rank on a heater (anchor + wiggle)
 export const MAX_WIGGLE = 750_000;       // cap on the recency nudge (both ways)
+export const MAX_CHANGE = 2_000_000;     // hard cap on price movement per cycle
 
-// Per-tour anchor context. `peak` is the rank-#1 price (≤ $12.5M by design).
-// `poolFactor` scales the target pool total: targetPool = cap·N/starters·factor,
-// so at factor 1.0 an average-priced full squad costs exactly the cap. Raise it
-// to make the pool richer (cap bites harder, fewer stars affordable); lower it
-// to loosen. `starters` is the squad size that counts against the cap (the
-// alternate is excluded); `cap` matches TEAM_RULES in team.js.
+// Per-tour anchor context. `peak` is the rank-#1 ANCHOR price (tuned so the top
+// ~5 sit in the $10M ±1M band); the absolute price a surfer can reach (anchor +
+// wiggle) is capped at MAX_VALUE, reserved for a top rank on a heater.
+// `poolFactor` scales the target pool total: targetPool = cap·N/starters·factor
+// (N = surfers actually being repriced), so at factor 1.0 an average-priced full
+// squad costs exactly the cap. Raise it to make the pool richer (cap bites
+// harder, fewer stars affordable); lower it to loosen. `starters` is the squad
+// size that counts against the cap (the alternate is excluded); `cap` matches
+// TEAM_RULES in team.js.
 export const PRICING = {
-  mens:   { peak: 12_500_000, starters: 8, cap: 50_000_000, poolFactor: 1.0 },
-  womens: { peak: 12_500_000, starters: 5, cap: 35_000_000, poolFactor: 1.0 },
+  mens:   { peak: 11_000_000, starters: 8, cap: 50_000_000, poolFactor: 1.0 },
+  womens: { peak: 11_000_000, starters: 5, cap: 35_000_000, poolFactor: 1.0 },
 };
 
 const roundToStep = (v, step = VALUE_STEP) => Math.round(v / step) * step;
 
-/** Round to the price step and enforce the hard floor. */
+/** Round to the price step and enforce the hard floor and ceiling. */
 export function clampValue(v) {
-  return Math.max(MIN_VALUE, roundToStep(v));
+  return Math.min(MAX_VALUE, Math.max(MIN_VALUE, roundToStep(v)));
 }
 
-// Unrounded pool total for a curve of N ranks: closed form of
-// Σ_{r=1..N} [min + (peak−min)·decay^(r−1)].
-function poolSum(decay, peak, min, n) {
+/**
+ * Limit how far a price may move in one repricing cycle. The anchor is the
+ * eventual target; we step toward it by at most MAX_CHANGE so prices glide over
+ * a few events rather than jump. In steady state the only recurring move is the
+ * wiggle (≤ MAX_WIGGLE), so per-cycle changes above $1M are rare and above $2M
+ * impossible; the first reprice off hand-set prices is the one-time exception
+ * that converges across cycles. A brand-new (unpriced) surfer starts at target.
+ * @param {number} oldValue - current stored price (falsy = unpriced)
+ * @param {number} target - desired price (clamped anchor + wiggle)
+ * @returns {number} new price, within ±MAX_CHANGE of oldValue (and floor/ceiling)
+ */
+export function cappedValue(oldValue, target) {
+  if (!oldValue) return clampValue(target);
+  const step = Math.max(-MAX_CHANGE, Math.min(MAX_CHANGE, target - oldValue));
+  return clampValue(oldValue + step);
+}
+
+// Unrounded pool total for a set of ranks: Σ_i [min + (peak−min)·decay^(rank_i−1)].
+// Summed over the ACTUAL ranks being priced (which may be sparse), not 1..N, so
+// the pool target reflects exactly the surfers we reprice — non-CT/unmatched
+// surfers never enter and so can't inflate the curve.
+function poolSum(decay, peak, min, ranks) {
   const premium = peak - min;
-  const geom = decay >= 1 ? n : (1 - Math.pow(decay, n)) / (1 - decay);
-  return n * min + premium * geom;
+  let total = 0;
+  for (const r of ranks) total += min + premium * Math.pow(decay, r - 1);
+  return total;
 }
 
-// Solve for the decay that makes an N-rank curve sum to `target`. poolSum is
-// monotonically increasing in decay, so we binary-search (0,1). If the target
-// is outside the achievable range it's clamped to the nearest feasible curve.
-function solveDecayForPool(target, peak, min, n, iters = 60) {
+// Solve for the decay that makes the curve sum to `target` over `ranks`. poolSum
+// is monotonically non-decreasing in decay, so we binary-search (0,1). If the
+// target is outside the achievable range it's clamped to the nearest feasible curve.
+function solveDecayForPool(target, peak, min, ranks, iters = 60) {
   let lo = 0.0001, hi = 0.9999;
-  if (target <= poolSum(lo, peak, min, n)) return lo;
-  if (target >= poolSum(hi, peak, min, n)) return hi;
+  if (target <= poolSum(lo, peak, min, ranks)) return lo;
+  if (target >= poolSum(hi, peak, min, ranks)) return hi;
   for (let i = 0; i < iters; i++) {
     const mid = (lo + hi) / 2;
-    if (poolSum(mid, peak, min, n) < target) lo = mid; else hi = mid;
+    if (poolSum(mid, peak, min, ranks) < target) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
 }
 
 /**
- * Build the anchor curve for a tour, sized to N surfers, with `decay` solved so
- * the pool total lands on the tour's target. Call once per repricing, then feed
- * the returned curve to anchorValueForRank. Assumes a roughly full tour: for a
- * tiny N (≤2) the target falls below the curve's own minimum (peak + (N−1)·MIN_VALUE),
- * so `decay` clamps and the pool overshoots / the shape degenerates — irrelevant
+ * Build the anchor curve for a tour from the ranks actually being priced, with
+ * `decay` solved so the pool total lands on the tour's target. Call once per
+ * repricing, then feed the returned curve to anchorValueForRank. Assumes a
+ * roughly full tour: for a tiny field (≤2 ranks) the target falls below the
+ * curve's own minimum, so `decay` clamps and the shape degenerates — irrelevant
  * in practice since repricing only runs against a populated CT ranking.
  * @param {"mens"|"womens"} tour
- * @param {number} n - number of surfers being priced on this tour
+ * @param {number[]} ranks - season ranks of the surfers being priced (may be sparse)
  * @returns {{peak:number, min:number, decay:number, n:number, tour:string, targetPool:number}}
  */
-export function buildCurve(tour, n) {
+export function buildCurve(tour, ranks) {
   const p = PRICING[tour] || PRICING.mens;
+  const n = ranks.length;
   const targetPool = (p.cap * n / p.starters) * p.poolFactor;
-  const decay = solveDecayForPool(targetPool, p.peak, MIN_VALUE, n);
+  const decay = solveDecayForPool(targetPool, p.peak, MIN_VALUE, ranks);
   return { peak: p.peak, min: MIN_VALUE, decay, n, tour, targetPool };
 }
 

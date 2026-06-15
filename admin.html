@@ -39,7 +39,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, tenabilityReport } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -1718,12 +1718,18 @@
           }
 
           const tourSurfers = surfers.filter((s) => (s.tour || "mens") === tour);
-          const curve = buildCurve(tour, tourSurfers.length);
+          // Resolve each surfer's season rank first, so the curve is calibrated
+          // only over the surfers we can actually price (matched to a ranking) —
+          // unmatched/non-CT surfers must not inflate the target pool.
+          const resolved = tourSurfers.map((s) => {
+            const key = nameToKey(s.name);
+            return { s, key, ranking: key ? rankByKey.get(key) : null };
+          });
+          const curve = buildCurve(tour, resolved.filter((r) => r.ranking).map((r) => r.ranking.rank));
+
           const warnings = [];
           const unmatched = [];
-          const changes = tourSurfers.map((s) => {
-            const key = nameToKey(s.name);
-            const ranking = key ? rankByKey.get(key) : null;
+          const changes = resolved.map(({ s, key, ranking }) => {
             if (!ranking) {
               unmatched.push(s);
               return { ...s, matched: false, newRank: s.rank ?? null, anchor: null,
@@ -1736,7 +1742,8 @@
             const anchor = anchorValueForRank(newRank, curve);
             const finish = finishMap[s.id] ?? null;
             const wiggle = finish != null ? eventWiggle(newRank, finish) : 0;
-            const newValue = clampValue(anchor + wiggle);
+            // Anchor+wiggle is the eventual target; cap how far we move this cycle.
+            const newValue = cappedValue(s.value, clampValue(anchor + wiggle));
             return { ...s, matched: true, newRank, anchor, finish, wiggle, newValue, change: newValue - (s.value || 0) };
           });
 
@@ -1805,7 +1812,7 @@
                 (elite ranks worth far more than mid-pack), then nudged up to ±${formatSalary(750000)} for a notably
                 strong or weak result in ${recentEvent ? `<strong>${escapeHtml(recentEvent.name)}</strong>` : "the most recent event"}.
                 ${recentEvent ? "" : `<em>No event with results found for this tour — anchor only.</em>`}
-                Season rank is scraped fresh; the event result comes from your saved results. Multiples of $250K; bracket recalculated.
+                Each cycle a price glides toward its anchor by at most ${formatSalary(2000000)}, so big corrections land over a few events. Multiples of $250K.
               </p>
             </div>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.6rem">
