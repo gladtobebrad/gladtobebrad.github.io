@@ -355,7 +355,7 @@
             ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
             : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
           const dropBtn = tradingOpen
-            ? `<button class="team-row__drop-btn" data-drop="${s.surferId}" aria-label="Drop ${name}">×</button>`
+            ? `<button class="team-row__drop-btn" data-drop="${s.surferId}" aria-label="Drop ${name}"></button>`
             : "";
           const stanceHtml = data.stance
             ? `<span class="team-row__stance">${data.stance === "goofy" ? "Goofy" : "Regular"}</span>`
@@ -391,7 +391,7 @@
           ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
           : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
         const dropBtn = tradingOpen
-          ? `<button class="team-row__drop-btn" data-drop-alt aria-label="Remove alternate">×</button>`
+          ? `<button class="team-row__drop-btn" data-drop-alt aria-label="Remove alternate"></button>`
           : "";
         const stanceHtml = d.stance
           ? `<span class="team-row__stance">${d.stance === "goofy" ? "Goofy" : "Regular"}</span>`

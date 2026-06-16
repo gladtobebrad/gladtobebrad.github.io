@@ -1449,8 +1449,8 @@ img { max-width: 100%; }
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   color: #c0392b;
@@ -1464,6 +1464,13 @@ img { max-width: 100%; }
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+}
+/* The × glyph sits below the line-box center in most fonts; nudge it up to optically center. */
+.team-row__drop-btn::before {
+  content: "×";
+  display: block;
+  transform: translateY(-1px);
 }
 .team-row__drop-btn:hover { background: #c0392b; color: #fff; }
 
