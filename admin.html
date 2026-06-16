@@ -39,7 +39,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, eventWiggle, clampValue, cappedValue, tenabilityReport, MAX_WIGGLE, MAX_VALUE, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, MAX_VALUE, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
     const SEASON = 2026;
     let surfers = [];
@@ -1217,6 +1217,11 @@
           toast(`Value can't exceed the $${MAX_VALUE / 1_000_000}M ceiling.`, "error");
           return;
         }
+        // A manual value change re-baselines the EMA filter: clear the idempotency
+        // stamp so the next reprice steps from this hand-set value (not the stored
+        // pre-event baseline of an already-priced event).
+        const prevSurfer = editId ? surfers.find((x) => x.id === editId) : null;
+        if (!prevSurfer || prevSurfer.value !== data.value) data.lastPricedEvent = null;
         try {
           await saveSurfer(id, data);
           toast("Surfer saved!", "success");
@@ -1702,9 +1707,9 @@
             .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0))[0] || null;
         }
 
-        // Full repricing for one tour: fresh season ranks scraped from WSL + the
-        // most recent event's finishes → pool-managed anchor + bounded wiggle for
-        // every surfer. Surfers we can't match to a ranking keep their value.
+        // Full repricing for one tour: fresh season ranks scraped from WSL → each
+        // surfer's value takes one EMA step toward its rank-based target. Surfers
+        // we can't match to a ranking keep their value.
         async function computeRepricing(tour, log = () => {}) {
           const rankings = await fetchSeasonRankings(tour, SEASON, log);
           const rankByKey = new Map();
@@ -1716,14 +1721,11 @@
             rankByKey.set(key, r);
           }
 
+          // The most recent results-bearing event is the cadence marker — one EMA
+          // step per event — and its id keys idempotency (re-running the same
+          // event recomputes from each surfer's pre-event baseline, never double-
+          // steps). Finishes aren't used; the season rank already encodes them.
           const recentEvent = latestResultsEvent(tour);
-          const finishMap = {};
-          if (recentEvent) {
-            const results = await getResults(recentEvent.id);
-            results.forEach((r) => {
-              if (Number.isFinite(r.finish) && !r.withdrawn) finishMap[r.surferId] = r.finish;
-            });
-          }
 
           const tourSurfers = surfers.filter((s) => (s.tour || "mens") === tour);
           // Resolve each surfer's season rank first, so the curve is calibrated
@@ -1736,6 +1738,9 @@
           const curve = buildCurve(tour, resolved.filter((r) => r.ranking).map((r) => r.ranking.rank));
 
           const warnings = [];
+          if (!recentEvent) {
+            warnings.push(`No event with results for ${tour} yet — nothing to step from.`);
+          }
           if (curve.degenerate) {
             warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust PRICING.${tour} in pricing.js.`);
           }
@@ -1753,24 +1758,21 @@
           const changes = resolved.map(({ s, key, ranking }) => {
             if (!ranking) {
               unmatched.push(s);
-              return { ...s, matched: false, newRank: s.rank ?? null, anchor: null,
-                       finish: finishMap[s.id] ?? null, wiggle: 0, newValue: s.value || 0, change: 0 };
+              return { ...s, matched: false, newRank: s.rank ?? null, target: null, base: s.value || 0, newValue: s.value || 0, change: 0 };
             }
             if (ambiguous.has(key)) {
               warnings.push(`Ambiguous ranking match for "${s.name}" — two athletes share that initial + surname; verify.`);
             }
             const newRank = ranking.rank;
-            const anchor = anchorValueForRank(newRank, curve);
-            const finish = finishMap[s.id] ?? null;
-            // Wiggle measures over/under-performance vs where the surfer stood
-            // BEFORE this event. s.rank is last cycle's stored (pre-event) rank;
-            // the fresh post-event newRank would be circular (already absorbed
-            // this event). Fall back to newRank when there's no prior rank.
-            const preEventRank = (Number.isFinite(s.rank) && s.rank > 0) ? s.rank : newRank;
-            const wiggle = finish != null ? eventWiggle(preEventRank, finish) : 0;
-            // Anchor+wiggle is the eventual target; cap how far we move this cycle.
-            const newValue = cappedValue(s.value, clampValue(anchor + wiggle));
-            return { ...s, matched: true, newRank, anchor, finish, wiggle, newValue, change: newValue - (s.value || 0) };
+            const target = anchorValueForRank(newRank, curve);   // rank-based target the EMA aims at
+            // Idempotent baseline: if this event was already priced for this
+            // surfer, recompute from the stored pre-event value (valuePrev) so a
+            // re-run is a no-op; otherwise step from the current value. No event
+            // ⇒ no step.
+            const alreadyPriced = recentEvent && s.lastPricedEvent === recentEvent.id;
+            const base = alreadyPriced && Number.isFinite(s.valuePrev) ? s.valuePrev : (s.value || 0);
+            const newValue = recentEvent ? emaStep(base, target) : (s.value || 0);
+            return { ...s, matched: true, newRank, target, base, newValue, change: newValue - (s.value || 0) };
           });
 
           return { changes, warnings, unmatched, recentEvent };
@@ -1813,21 +1815,18 @@
               const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
               const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
               const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
-              const wigClr = s.wiggle > 0 ? "color:#1a7f37" : s.wiggle < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
-              const wigStr = s.wiggle ? `${s.wiggle > 0 ? "+" : "−"}${formatSalary(Math.abs(s.wiggle))}` : "—";
               return `<tr>
                 <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">#${s.newRank}</td>
                 <td style="padding:0.2rem 0.4rem">${escapeHtml(s.name || s.id)}</td>
                 <td style="padding:0.2rem 0.4rem;text-align:right">${formatSalary(s.value || 0)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${formatSalary(s.anchor)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${s.finish != null ? s.finish : "—"}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;${wigClr}">${wigStr}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${formatSalary(s.target)}</td>
                 <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.change !== 0 ? "600" : "400"}">${formatSalary(s.newValue)}</td>
                 <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.change !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
               </tr>`;
             }).join("");
 
-          const applyBtnHtml = matched.length ? `
+          const canApply = recentEvent && matched.length;
+          const applyBtnHtml = canApply ? `
             <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
               Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}
             </button>` : "";
@@ -1835,10 +1834,11 @@
           valueUpdateSection.innerHTML = `
             <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem">
               <p class="text-sm" style="margin:0;color:#7a5500">
-                Prices are anchored to each surfer's live WSL season rank on a pool-managed nonlinear curve, then nudged up to ±${formatSalary(MAX_WIGGLE)} for a notably
-                strong or weak result in the most recent event${recentEvent ? ` (<strong>${escapeHtml(recentEvent.name)}</strong>)` : ""}.
-                ${recentEvent ? "" : `<em>No event with results found for this tour — anchor only.</em>`}
-                Each cycle a price glides toward its anchor by at most ${formatSalary(2000000)}, so big corrections land over a few events. Multiples of $250K.
+                Values are <strong>low-pass filtered</strong> toward each surfer's rank-based target — one gentle step per event:
+                <code>new = α·target + (1−α)·current</code> (α = ${ALPHA}), with a ${formatSalary(MAX_CHANGE)}/event backstop.
+                Target = where the surfer's live WSL season rank sits on the pool-managed curve.
+                ${recentEvent ? `Stepping off <strong>${escapeHtml(recentEvent.name)}</strong> — re-running this same event is safe (idempotent).` : `<em>No event with results for this tour yet — nothing to step.</em>`}
+                Multiples of $250K.
               </p>
             </div>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.6rem">
@@ -1848,7 +1848,7 @@
                 <div class="text-sm" style="color:${tooEasy ? "#c0392b" : "#1a7f37"}">${tooEasy ? "⚠ a superteam fits under the cap" : `affordable stars: top ${ten.affordableStars} of ${ten.starters}`}</div>
               </div>
               <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
-                <div class="text-sm text-muted">Pool total vs target</div>
+                <div class="text-sm text-muted">Pool total vs target <span class="text-sm" style="color:var(--color-warm-gray)">(converges over events)</span></div>
                 <div style="font-weight:600">${formatSalary(ten.poolTotal)} / ${formatSalary(ten.targetPool)} <span class="text-sm" style="color:var(--color-warm-gray)">(${poolPct}%)</span></div>
                 <div class="text-sm" style="color:var(--color-warm-gray)">${matched.length} matched${unmatched.length ? `, ${unmatched.length} unmatched` : ""}</div>
               </div>
@@ -1865,13 +1865,11 @@
                   <th style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
                   <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
                   <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Anchor $</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Last Finish</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Wiggle</th>
+                  <th style="padding:0.3rem 0.4rem;text-align:right">Target $</th>
                   <th style="padding:0.3rem 0.4rem;text-align:right">New $</th>
                   <th style="padding:0.3rem 0.4rem;text-align:right">Δ</th>
                 </tr></thead>
-                <tbody>${rows || `<tr><td colspan="8" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No matched surfers.</td></tr>`}</tbody>
+                <tbody>${rows || `<tr><td colspan="6" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No matched surfers.</td></tr>`}</tbody>
               </table>
             </div>
           `;
@@ -1879,7 +1877,7 @@
           document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
             const confirmed = await confirmModal({
               title: `Apply ${label} Value Changes?`,
-              bodyHtml: `<p>This updates value and season rank for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. This cannot be undone.</p>`,
+              bodyHtml: `<p>This steps value and updates season rank for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. Re-running the same event is safe (idempotent).</p>`,
               confirmLabel: "Apply Changes",
               cancelLabel: "Cancel",
               confirmTone: "danger",
@@ -1894,6 +1892,8 @@
                 batch.update(doc(db, "surfers", s.id), {
                   value: s.newValue,
                   rank: s.newRank,
+                  valuePrev: s.base,
+                  lastPricedEvent: recentEvent.id,
                 });
               }
               await batch.commit();

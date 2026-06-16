@@ -7,87 +7,116 @@ How surfer **values** (prices) are set each event. Pure logic lives in
 > Value (price) is separate from fantasy **points** (`js/scoring.js`). This doc
 > is only about price.
 
-## Running it
+## The idea: a low-pass filter toward a rank-based target
 
-After a completed CT event, before the next trading window opens:
-**Surfers tab → Update Values** (reprices whichever sub-tab — Men's/Women's — is
-active). It scrapes fresh WSL season ranks, previews every change with a
-tenability readout, and writes `value` + `rank` only on **Apply**.
+A surfer's value is an **exponential moving average (single-pole low-pass
+filter)** of their "true value", nudged one gentle step toward a rank-based
+target each event:
 
-## The model: anchor + wiggle
+```
+value_t  =  α · target(rank_t)  +  (1 − α) · value_{t-1}
+```
 
-Prices are a **target function of live season rank**, re-derived from scratch
-each cycle (not evolved from the previous price), so they can't drift.
+- `target(rank)` — where the surfer's live WSL season rank sits on a fixed price
+  curve (below).
+- `α` (`ALPHA`, currently **0.5**) — the one smoothness knob. Higher = faster /
+  larger moves; lower = gentler.
+- A hard backstop `MAX_CHANGE` (**$1.5M**) caps any single move.
 
-1. **Anchor to season rank.** A two-point-pinned nonlinear curve, pinned at
-   `peak` (rank 1) and `RANKED_FLOOR` (the field's last rank):
+This was chosen over a "snap to rank" anchor for one key reason: **early-season
+rank is a noisy few-sample estimate.** A filter moves only a fraction toward a
+noisy target and converges as the rank firms up — gradual, never lurching.
+Move-size profile at α=0.5: most surfers shift only **$0–$250K** event-to-event
+(a settled field barely moves); a surfer genuinely climbing or falling adjusts
+**$250K–$1M**; **$1.5M** is the rare hard cap (a big mover or a correction), and
+nothing exceeds it.
 
-   ```
-   value(rank) = RANKED_FLOOR + (peak − RANKED_FLOOR) ·
-                 (decay^(rank−1) − decay^(maxRank−1)) / (1 − decay^(maxRank−1))
-   ```
+## Idempotent (safe to re-run)
 
-   The #1→#2 gap is the largest and each subsequent gap shrinks — elite ranks
-   are worth far more than mid-pack.
+Repricing is keyed to the **most recent results event**. Each surfer stores
+`valuePrev` (their value *before* that event) and `lastPricedEvent`. Re-running
+the same event recomputes from `valuePrev`, so it produces the **identical
+result** every time — re-clicking Apply, or re-pricing after correcting an
+event's results, never double-steps. A genuinely new event advances the filter
+once (and `valuePrev` rolls forward). Finishes themselves aren't read — the
+season rank already encodes them; the event is just the cadence + idempotency
+key.
 
-2. **Pool-managed.** `decay` is *solved* (binary search) so the anchors sum to
-   `targetPool = cap · N / starters · poolFactor` over the actually-matched
-   ranks. At `poolFactor 1.0` an average-priced full squad costs exactly the cap.
+## The target curve
 
-3. **Recency wiggle.** A bounded nudge for over/under-performance:
-   `delta = (pre-event rank) − finish` in the most recent event. The pre-event
-   rank is the surfer's **stored `rank` from the prior cycle** — *not* the
-   freshly-scraped post-event rank, which already absorbed the event (that would
-   be circular and net ~0).
+`target(rank)` is a **two-point-pinned** nonlinear curve — `peak` at rank 1,
+`RANKED_FLOOR` ($3M) at the field's last rank — with `decay` solved so the curve
+sums to a chosen pool total:
 
-4. **Glide (rate-limited).** Anchor + wiggle is the *target*; each price moves
-   toward it by at most `MAX_CHANGE` per cycle, so big corrections land over a
-   few events rather than in one jump.
+```
+target(rank) = RANKED_FLOOR + (peak − RANKED_FLOOR) ·
+               (decay^(rank−1) − decay^(maxRank−1)) / (1 − decay^(maxRank−1))
+```
 
-Surfers not matched to a WSL ranking by name keep their value untouched and are
-flagged in the preview.
+The #1→#2 gap is the largest and each shrinks, so elite is worth far more than
+mid-pack. Approximate shapes today (peak $11M, floor $3M):
+
+```
+        Men's (N≈36, pool ≈ cap·N/8)      Women's (N≈18, pool ≈ cap·N/5·0.9)
+  #1   $11.00M  ████████████████████      $11.00M  ████████████████████
+  #2   $10.50M  ██████████████████        $10.25M  █████████████████
+  #5   $ 9.50M  ███████████████           $ 8.25M  ████████████
+  #10  $ 8.00M  ██████████                $ 5.75M  ███████
+  #20  $ 6.00M  █████                         —
+  last $ 3.00M                            $ 3.00M
+```
 
 ## Tunables (`PRICING` + constants in `pricing.js`)
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `peak` | $11M (both tours) | rank-#1 anchor (top 5 land ~$10M ±1M) |
-| `RANKED_FLOOR` | $3M | lowest price for a ranked surfer (curve's pinned bottom) |
+| `ALPHA` | 0.5 | EMA smoothing — the main knob (move size / convergence speed) |
+| `peak` | $11M (both) | rank-#1 target (top-5 land ~$10M ±1M) |
+| `RANKED_FLOOR` | $3M | last-ranked surfer's price (curve's pinned bottom) |
 | `WILDCARD_VALUE` | $1.5M | wildcard price — the **only** value below the floor |
-| `MAX_VALUE` | $12.5M | absolute ceiling (reserved for a top rank on a heater) |
-| `MAX_WIGGLE` | $750K | cap on the recency nudge, either direction |
-| `MAX_CHANGE` | $2M | hard cap on price movement per cycle |
+| `MAX_VALUE` | $12.5M | absolute ceiling |
+| `MAX_CHANGE` | $1.5M | hard backstop on a single event's move |
 | `VALUE_STEP` | $250K | all prices are multiples of this |
 | `poolFactor` | 1.0 men / **0.9 women** | scales the target pool (see gotchas) |
 | `cap` / `starters` | $50M/8, $35M/5 | salary cap and squad size (alt excluded) |
 
-Wiggle ladder (by `|delta|`): `≤1 → $0`, `≤3 → $250K`, `≤7 → $500K`, `>7 → $750K`.
-
 ## Invariants
 
-- Ranked values stay in **[$3M, $12.5M]**; wildcards sit at **$1.5M**; nothing
-  in between.
-- No value changes by more than **$2M** in one cycle.
+- Ranked values stay in **[$3M, $12.5M]**; wildcards at **$1.5M**; nothing between.
+- No value moves more than **$1.5M** in one event.
 - Every value is a multiple of **$250K**.
-- The lowest-ranked matched surfer lands on exactly **$3M** (before wiggle).
-- The pool stays managed (the wiggle is off-pool and ~mean-zero).
+- Re-running the same event is **idempotent** (identical result).
 - Repricing never touches an unmatched surfer or a user's team roster.
 
-## Gotchas
+## Gotchas & known limits
 
-- **Reprice once per event.** Re-running on the *same* most-recent event
-  recomputes the wiggle off the now-updated rank (circular) and erodes the prior
-  nudge toward the pure anchor. The normal once-per-event flow is fine.
+- **Lag is by design.** At α=0.5 a surfer whose rank climbs/falls over events is
+  tracked within ~1–2 events (price trails true value slightly — the intended
+  "gradual hone", which creates buy-low value). A *one-off large* mispricing
+  (e.g. season seeding from far off) is cap-limited to ~5–6 events at the $1.5M
+  ceiling: you can't cross a $6M gap faster without breaching the cap. Raising α
+  speeds the small-gap tail but not the capped head; lower it for a calmer board.
+- **Pool converges, not instant.** Because the filter lags the target, the pool
+  total approaches `targetPool` over events rather than hitting it each cycle.
+  The preview shows "pool vs target" so you can watch it.
+- **One reprice per event.** The filter takes one step per event. If you *skip*
+  an event entirely, that step is simply missed (slight under-convergence) — it
+  doesn't double-count. (Re-running the *same* event is safe; see idempotency.)
+- **Manual edits re-baseline.** A hand-edited value becomes the base for the
+  next event's step. (Editing a surfer between pricing an event and re-running
+  that same event is the one edge where the manual value is ignored on the
+  re-run — rare.)
 - **Women's `poolFactor` is 0.9, not 1.0.** Women's `cap/starters` ($7M) equals
   the curve's mid-average `(peak+floor)/2`, so `1.0` makes the target pool
   unreachable and flattens the taper. `buildCurve` flags that case as
   `degenerate` and the preview warns — a guard against future mis-tuning.
-- **Curve shape adapts to matched count.** If many surfers go unmatched (name
-  mismatches), `maxRank` shrinks and the curve flattens — watch the "unmatched"
-  count and "pool vs target" in the preview.
 
-## Repricing a price distribution by hand?
+## Season seeding (deferred to season rollover)
 
-Don't — use the button. But the shape it produces (men's, ~36 ranked): ~$11M at
-#1 tapering to exactly $3M at the last rank, top 5 in the $10M ±1M band, pool
-≈ `cap·N/starters`.
+At a fresh season start there's no prior value to filter from. The agreed
+approach (not yet wired — ties into the season-rollover work): **seed each value
+from the prior-season rank** — scrape it from the WSL rankings page if it carries
+last year's order before event 1, else compute an internal rank from the
+previous season's stored results in Firestore. Mid-season this isn't exercised
+(every surfer already has a value, and brand-new mid-season entrants seed
+straight to their rank's target via the filter's cold-start branch).

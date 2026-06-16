@@ -1,26 +1,32 @@
 // Pure surfer-pricing logic.
 //
-// Design: prices are ANCHORED to a surfer's live WSL season rank, not evolved
-// step-by-step from the previous price. An anchor (target function) is
-// self-correcting — re-derived from rank every cycle — so it can't drift or
-// accumulate the rounding/floor bias an incremental "delta from last price"
-// scheme suffers. It also lets us MANAGE THE POOL TOTAL directly: the sum of a
-// curve over a fixed set of ranks is analytic, so we pick the total we want
-// and solve the curve to hit it (see buildCurve / solveDecayForPool).
+// Design: a surfer's value is a LOW-PASS-FILTERED (EMA) estimate of their "true
+// value", nudged one gentle step toward a rank-based target each event:
 //
-// On top of the anchor we add a small bounded "wiggle": a recency nudge for a
-// notably strong/weak result in the most recent event. The anchor always
-// dominates, so form colours a price without un-anchoring it from standing.
+//     value_t = α · target(rank_t) + (1 − α) · value_{t−1}
 //
-// Curve: an exponential taper from `peak` (rank 1) down to RANKED_FLOOR (the
-// field's last rank) — BOTH ends pinned — with `decay` setting the curvature:
-//   value(rank) = RANKED_FLOOR + (peak − RANKED_FLOOR) ·
+// — a single-pole low-pass filter. Chosen for inspectability, maintainability,
+// and robustness: the target is just "where this rank sits on the curve", α is
+// the one smoothness knob, and there is no per-event cap/glide/wiggle stack.
+// Early season (when rank is a noisy few-sample estimate) the filter barely
+// moves; as the season matures and rank firms up, value converges to the
+// target. Big swings are impossible by construction — each move is a fraction of
+// the gap, with a small hard backstop (MAX_CHANGE) for the rare large gap.
+//
+// target(rank): a two-point-pinned curve, peak (rank 1) → RANKED_FLOOR (the
+// field's last rank), with `decay` solved so the curve sums to a chosen pool
+// total (see buildCurve / solveDecayForPool):
+//   target(rank) = RANKED_FLOOR + (peak − RANKED_FLOOR) ·
 //     (decay^(rank−1) − decay^(maxRank−1)) / (1 − decay^(maxRank−1))
 // The #1→#2 gap is the largest and each subsequent gap shrinks, so "elite" is
-// worth far more than "very good" (only marginally more than "mid-pack") —
-// mirroring how WSL event scoring rewards the very top steeply. Pinning both
-// ends means the lowest-ranked surfer lands EXACTLY on RANKED_FLOOR ($3M), not
-// merely near it; wildcards sit below at WILDCARD_VALUE ($1.5M), nothing between.
+// worth far more than "very good". Pinning both ends means the last-ranked
+// surfer lands EXACTLY on RANKED_FLOOR ($3M); wildcards sit below at
+// WILDCARD_VALUE ($1.5M), nothing between.
+//
+// Idempotency: repricing is keyed to the most-recent event. Re-running the same
+// event recomputes from each surfer's pre-event value (the admin handler stores
+// valuePrev/lastPricedEvent), so it never double-steps — robust to multiple
+// resolves, unlike a raw EMA.
 
 export const VALUE_STEP = 250_000;       // every price is a multiple of this
 export const WILDCARD_VALUE = 1_500_000; // wildcard price — the only value below
@@ -28,20 +34,19 @@ export const WILDCARD_VALUE = 1_500_000; // wildcard price — the only value be
 export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer: the
                                          // curve's pinned bottom endpoint (the
                                          // last rank lands here) and clamp floor
-export const MAX_VALUE = 12_500_000;     // absolute ceiling — reserved for a top
-                                         // rank on a heater (anchor + wiggle)
-export const MAX_WIGGLE = 750_000;       // cap on the recency nudge (both ways)
-export const MAX_CHANGE = 2_000_000;     // hard cap on price movement per cycle
+export const MAX_VALUE = 12_500_000;     // absolute ceiling (clamp ceiling)
+export const ALPHA = 0.5;                // EMA smoothing factor — the one knob:
+                                         // higher = faster/larger moves, lower = gentler
+export const MAX_CHANGE = 1_500_000;     // hard backstop on per-event movement
+                                         // (rarely binds; α keeps moves gentle)
 
-// Per-tour anchor context. `peak` is the rank-#1 ANCHOR price (tuned so the top
-// ~5 sit in the $10M ±1M band); the absolute price a surfer can reach (anchor +
-// wiggle) is capped at MAX_VALUE, reserved for a top rank on a heater.
-// `poolFactor` scales the target pool total: targetPool = cap·N/starters·factor
-// (N = surfers actually being repriced), so at factor 1.0 an average-priced full
-// squad costs exactly the cap. Raise it to make the pool richer (cap bites
-// harder, fewer stars affordable); lower it to loosen. `starters` is the squad
-// size that counts against the cap (the alternate is excluded); `cap` matches
-// TEAM_RULES in team.js.
+// Per-tour curve context. `peak` is the rank-#1 target price (tuned so the top
+// ~5 sit in the $10M ±1M band; capped by MAX_VALUE). `poolFactor` scales the
+// target pool total: targetPool = cap·N/starters·factor (N = surfers actually
+// repriced), so at factor 1.0 an average-priced full squad costs exactly the
+// cap. Raise it to make the pool richer (cap bites harder, fewer stars
+// affordable); lower it to loosen. `starters` is the squad size that counts
+// against the cap (the alternate is excluded); `cap` matches TEAM_RULES in team.js.
 export const PRICING = {
   mens:   { peak: 11_000_000, starters: 8, cap: 50_000_000, poolFactor: 1.0 },
   womens: { peak: 11_000_000, starters: 5, cap: 35_000_000, poolFactor: 0.9 }, // <1.0 required: cap/starters ($7M) = the curve's mid-average, so 1.0 flattens the taper
@@ -56,23 +61,19 @@ export function clampValue(v) {
 }
 
 /**
- * Limit how far a price may move in one repricing cycle. The anchor is the
- * eventual target; we step toward it by at most MAX_CHANGE so prices glide over
- * a few events rather than jump. In steady state the only recurring move is the
- * wiggle (≤ MAX_WIGGLE), so per-cycle changes above $1M are rare and above $2M
- * impossible; the first reprice off hand-set prices is the one-time exception
- * that converges across cycles. A brand-new (unpriced) surfer starts at target.
- * @param {number} oldValue - current stored price (falsy = unpriced)
- * @param {number} target - desired price (clamped anchor + wiggle)
- * @returns {number} new price, within ±MAX_CHANGE of oldValue (and floor/ceiling)
+ * One EMA step: move `prevValue` a fraction α toward `target`, with a hard
+ * backstop of MAX_CHANGE so even a big gap (e.g. a brand-new surfer, or a season
+ * cold-start) can't lurch. An unpriced surfer (falsy prevValue) seeds straight
+ * at the target. Result is rounded to the step and clamped to [RANKED_FLOOR, MAX_VALUE].
+ * @param {number} prevValue - the surfer's value before this step (falsy = unpriced)
+ * @param {number} target - the rank-based target price (from anchorValueForRank)
+ * @param {number} [alpha=ALPHA]
+ * @returns {number} the new price
  */
-export function cappedValue(oldValue, target) {
-  if (!oldValue) return clampValue(target);
-  const step = Math.max(-MAX_CHANGE, Math.min(MAX_CHANGE, target - oldValue));
-  // clampValue's floor takes priority over the cap: a stored value below the
-  // legal floor (invalid data) is lifted into range even if that one move
-  // exceeds MAX_CHANGE — a one-time correction, never an in-band result.
-  return clampValue(oldValue + step);
+export function emaStep(prevValue, target, alpha = ALPHA) {
+  if (!prevValue) return clampValue(target);
+  const move = Math.max(-MAX_CHANGE, Math.min(MAX_CHANGE, alpha * (target - prevValue)));
+  return clampValue(prevValue + move);
 }
 
 // Weight for `rank` on the two-point-pinned curve: 1 at rank 1, 0 at maxRank, so
@@ -144,33 +145,6 @@ export function anchorValueForRank(rank, curve) {
   if (!Number.isFinite(rank) || rank < 1 || !curve) return null;
   const w = curveWeight(curve.decay, rank, curve.maxRank);
   return clampValue(curve.floor + (curve.peak - curve.floor) * w);
-}
-
-// Bounded recency nudge, keyed off how far the latest event finish beat (or
-// missed) where the surfer stood BEFORE the event. Tight dead-zone (a 1-spot
-// beat is noise) and a steep early ramp, capped at MAX_WIGGLE.
-const WIGGLE_BUCKETS = [
-  { within: 1, amount: 0 },
-  { within: 3, amount: 250_000 },
-  { within: 7, amount: 500_000 },
-  { within: Infinity, amount: MAX_WIGGLE },
-];
-
-/**
- * Recency wiggle for one surfer. delta = baselineRank − finish, where
- * baselineRank is the surfer's PRE-event standing — NOT the post-event season
- * rank, which already absorbed this event (using it would be circular and the
- * residual would be ~0). Positive delta = finished better than they came in →
- * price up.
- * @param {number} baselineRank - pre-event rank (or a sensible proxy)
- * @param {number} finish
- * @returns {number} signed dollar nudge (0 if either input is missing)
- */
-export function eventWiggle(baselineRank, finish) {
-  if (!Number.isFinite(baselineRank) || !Number.isFinite(finish)) return 0;
-  const delta = baselineRank - finish;
-  const mag = WIGGLE_BUCKETS.find((b) => Math.abs(delta) <= b.within).amount;
-  return delta > 0 ? mag : delta < 0 ? -mag : 0;
 }
 
 /**
