@@ -187,6 +187,13 @@ export async function clearAllTeams() {
 // AND when trading is opened on this event, so users entering event N+1 see the
 // team they finished N with (with updated market-value deltas). Admin can opt
 // out at either point via the second confirm in the toggle handler.
+//
+// The alternate is intentionally NOT carried forward — it's a fresh per-event
+// pick (see about.html: "you must re-select your alternate before each event").
+// Dropping it also avoids stashing a now-expensive bench player cap-free: the
+// ALT_CAP eligibility check uses live market value, so an alt bought under the
+// cap whose value has since risen above it would otherwise carry forward as an
+// invalid (but still-scoring) roster slot.
 export async function carryForwardTeams(eventId, season = 2026) {
   // Bypass sessionStorage cache — needs live tradingOpen values to find locked prev events
   try { sessionStorage.removeItem(`events_${season}`); } catch {}
@@ -243,7 +250,7 @@ export async function carryForwardTeams(eventId, season = 2026) {
       eventId,
       savedAt: serverTimestamp(),
       surfers: prevTeam.surfers,
-      alternate: prevTeam.alternate || null,
+      alternate: null, // re-selected fresh each event — never carried forward
       carriedForward: true,
     }, { merge: true });
   }

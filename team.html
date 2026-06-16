@@ -507,7 +507,10 @@
           const prev = await getPreviousTeam(user.uid, currentEvent.id, tour, SEASON);
           if (prev?.surfers?.length) {
             roster = padToSparse(prev.surfers, rules.rosterSize);
-            alternate = prev.alternate ? { ...prev.alternate } : null;
+            // Alternate is a fresh per-event pick — not carried forward (matches
+            // carryForwardTeams). Seed an empty alt slot so this preview shows
+            // exactly what the real carried-forward doc will contain.
+            alternate = null;
           } else {
             roster = padToSparse([], rules.rosterSize);
           }
@@ -1033,9 +1036,10 @@
         }
         const rules = getTeamRules(tour);
         roster = padToSparse(prev.surfers, rules.rosterSize);
-        alternate = prev.alternate ? { ...prev.alternate } : null;
+        // Alternate doesn't carry between events — re-select it each event.
+        alternate = null;
         renderTeamPage(container, user);
-        toast("Team reverted to last event's roster.", "success");
+        toast("Roster reverted to last event's lineup. Re-select your alternate.", "success");
       });
 
       // Locked-state interaction feedback: when trading is closed, clicking
