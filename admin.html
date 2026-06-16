@@ -1798,49 +1798,37 @@
           renderRepricePreview(tour, label, result);
         });
 
-        function renderRepricePreview(tour, label, result, resetToCurve = false) {
-          const { changes, warnings, unmatched, recentEvent } = result;
+        function renderRepricePreview(tour, label, { changes, warnings, unmatched, recentEvent }) {
           const matched = changes.filter((c) => c.matched);
-          // ── ONE-TIME reset-to-curve cleanup (temporary — remove after first use) ──
-          // Snaps each surfer straight to its rank target, discarding the current
-          // value (used once to clear the bad experimental data); otherwise
-          // displayNew is the normal EMA step. TO REMOVE: drop the `resetToCurve`
-          // param, this displayNew branch (use c.newValue / c.change directly), the
-          // "reset-to-curve" checkbox + its change listener, and the resetToCurve
-          // branches in the apply handler. (grep: resetToCurve / reset-to-curve)
-          const view = matched.map((c) => {
-            const displayNew = resetToCurve && c.target != null ? c.target : c.newValue;
-            return { ...c, displayNew, displayChange: displayNew - (c.value || 0) };
-          });
-          const modified = view.filter((c) => c.displayChange !== 0);
+          const modified = matched.filter((c) => c.change !== 0);
           // Tenability over the MATCHED surfers (the set the curve manages), so
           // its internal targetPool matches buildCurve's N and "pool vs target"
           // is an honest read of pool management.
-          const ten = tenabilityReport(view.map((c) => c.displayNew), tour);
+          const ten = tenabilityReport(matched.map((c) => c.newValue), tour);
           const pct = ten.cap ? Math.round((ten.topStartersSum / ten.cap) * 100) : 0;
           const poolPct = ten.targetPool ? Math.round((ten.poolTotal / ten.targetPool) * 100) : 0;
           const tooEasy = ten.affordableStars >= ten.starters;
 
-          const rows = view
+          const rows = matched
             .sort((a, b) => a.newRank - b.newRank)
             .map((s) => {
-              const clr = s.displayChange > 0 ? "color:#1a7f37" : s.displayChange < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
-              const arrow = s.displayChange > 0 ? "▲" : s.displayChange < 0 ? "▼" : "—";
-              const changeStr = s.displayChange !== 0 ? `${s.displayChange > 0 ? "+" : "−"}${formatSalary(Math.abs(s.displayChange))}` : "—";
+              const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
+              const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
+              const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
               return `<tr>
                 <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">#${s.newRank}</td>
                 <td style="padding:0.2rem 0.4rem">${escapeHtml(s.name || s.id)}</td>
                 <td style="padding:0.2rem 0.4rem;text-align:right">${formatSalary(s.value || 0)}</td>
                 <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${formatSalary(s.target)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.displayChange !== 0 ? "600" : "400"}">${formatSalary(s.displayNew)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.displayChange !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${s.change !== 0 ? "600" : "400"}">${formatSalary(s.newValue)}</td>
+                <td style="padding:0.2rem 0.4rem;text-align:right;${clr};font-weight:${s.change !== 0 ? "600" : "400"}">${arrow} ${changeStr}</td>
               </tr>`;
             }).join("");
 
           const canApply = recentEvent && matched.length;
           const applyBtnHtml = canApply ? `
             <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
-              ${resetToCurve ? `Reset ${matched.length} to Curve` : `Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}`}
+              Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}
             </button>` : "";
 
           valueUpdateSection.innerHTML = `
@@ -1856,10 +1844,6 @@
               </ul>
               ${recentEvent ? "" : `<p class="text-sm" style="margin:0.35rem 0 0"><em>No event with results for this tour yet — nothing to step.</em></p>`}
             </div>
-            <label style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.6rem;font-size:0.85rem;${resetToCurve ? "color:#c0392b;font-weight:600" : "color:var(--color-warm-gray)"}">
-              <input type="checkbox" id="reset-to-curve"${resetToCurve ? " checked" : ""}>
-              Reset to curve — snap every surfer straight to Target, discarding current values (one-time cleanup; resume normal reprices after)
-            </label>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.6rem">
               <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
                 <div class="text-sm text-muted">Top ${ten.starters} cost vs cap</div>
@@ -1893,45 +1877,37 @@
             </div>
           `;
 
-          document.getElementById("reset-to-curve")?.addEventListener("change", (e) => {
-            renderRepricePreview(tour, label, result, e.target.checked);
-          });
-
           document.getElementById("btn-apply-repricing")?.addEventListener("click", async () => {
             const confirmed = await confirmModal({
-              title: resetToCurve ? `Reset ${label} Values to Curve?` : `Apply ${label} Value Changes?`,
-              bodyHtml: resetToCurve
-                ? `<p><strong>Snaps</strong> all <strong>${matched.length}</strong> ${label} surfers straight to their rank's curve value, discarding current values (<strong>${modified.length}</strong> change). A one-time cleanup — use it to clear bad data, then resume normal gradual reprices.</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched.</p>`
-                : `<p>This steps value and updates season rank for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. Re-running the same event is safe (idempotent).</p>`,
-              confirmLabel: resetToCurve ? "Reset to Curve" : "Apply Changes",
+              title: `Apply ${label} Value Changes?`,
+              bodyHtml: `<p>This steps value and updates season rank for <strong>${matched.length}</strong> ${label} surfer${matched.length !== 1 ? "s" : ""} in Firestore (<strong>${modified.length}</strong> price change${modified.length !== 1 ? "s" : ""}).</p><p style="margin-top:0.5rem" class="text-sm text-muted">Unmatched surfers are left untouched. Re-running the same event is safe (idempotent).</p>`,
+              confirmLabel: "Apply Changes",
               cancelLabel: "Cancel",
               confirmTone: "danger",
             });
             if (!confirmed) return;
             const applyBtn = document.getElementById("btn-apply-repricing");
             applyBtn.disabled = true;
-            applyBtn.textContent = resetToCurve ? "Resetting…" : "Applying…";
+            applyBtn.textContent = "Applying…";
             try {
               const batch = writeBatch(db);
-              for (const s of view) {
+              for (const s of matched) {
                 batch.update(doc(db, "surfers", s.id), {
-                  value: s.displayNew,
+                  value: s.newValue,
                   rank: s.newRank,
-                  // Reset makes the curve value the new baseline; a normal step
-                  // records the pre-event value so re-runs stay idempotent.
-                  valuePrev: resetToCurve ? s.displayNew : s.base,
+                  valuePrev: s.base,
                   lastPricedEvent: recentEvent.id,
                 });
               }
               await batch.commit();
               surfers = await getAllSurfers();
-              toast(`${label} ${resetToCurve ? "reset to curve" : "values updated"} — ${modified.length} change${modified.length !== 1 ? "s" : ""}.`, "success");
+              toast(`${label} values updated! ${modified.length} price change${modified.length !== 1 ? "s" : ""} applied.`, "success");
               closeValueModal();
               renderAdmin(container);
             } catch (err) {
               toast("Error applying values: " + err.message, "error");
               applyBtn.disabled = false;
-              applyBtn.textContent = resetToCurve ? `Reset ${matched.length} to Curve` : `Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}`;
+              applyBtn.textContent = `Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}`;
             }
           });
         }
