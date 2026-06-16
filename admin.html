@@ -248,8 +248,7 @@
             <div class="card">
               <div class="card__header">
                 <span class="card__title">Surfers</span>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                  <button class="btn btn--sm btn--outline" id="btn-import-csv">Import CSV</button>
+                <div style="display:flex;gap:0.5rem">
                   <button class="btn btn--sm btn--outline" id="btn-update-values">Update Values</button>
                   <button class="btn btn--sm btn--primary" id="btn-add-surfer">+ Add Surfer</button>
                 </div>
@@ -359,16 +358,6 @@
                 <button class="modal__close" id="value-update-modal-close">&times;</button>
               </div>
               <div id="value-update-section"></div>
-            </div>
-          </div>
-
-          <div class="modal-overlay" id="csv-import-modal" style="display:none">
-            <div class="modal" style="max-width:780px">
-              <div class="modal__header">
-                <span class="modal__title">Import Values from CSV</span>
-                <button class="modal__close" id="csv-import-modal-close">&times;</button>
-              </div>
-              <div id="csv-import-section"></div>
             </div>
           </div>
         </div>
@@ -1922,132 +1911,6 @@
             }
           });
         }
-      })();
-
-      // ── IMPORT VALUES FROM CSV ──
-      (function () {
-        const importBtn = document.getElementById("btn-import-csv");
-        const importModal = document.getElementById("csv-import-modal");
-        const importSection = document.getElementById("csv-import-section");
-        const closeImport = () => { if (importModal) importModal.style.display = "none"; };
-        importModal?.querySelector("#csv-import-modal-close")?.addEventListener("click", closeImport);
-        importModal?.addEventListener("click", (e) => { if (e.target === importModal) closeImport(); });
-
-        // Parse a values CSV. Needs header columns name_first, name_last, price
-        // (rank + tour optional); a leading index column is fine. → [{name, price, rank, tour}].
-        function parseCsv(text) {
-          const lines = text.trim().split(/\r?\n/);
-          if (lines.length < 2) return [];
-          const h = lines[0].split(",").map((s) => s.trim());
-          const ci = ["name_first", "name_last", "price", "rank", "tour"].map((n) => h.indexOf(n));
-          if (ci[0] < 0 || ci[1] < 0 || ci[2] < 0) throw new Error("CSV needs name_first, name_last and price columns.");
-          return lines.slice(1).map((l) => l.split(",")).map((c) => ({
-            name: `${(c[ci[0]] || "").trim()} ${(c[ci[1]] || "").trim()}`.trim(),
-            price: parseInt(c[ci[2]], 10),
-            rank: ci[3] >= 0 ? parseInt(c[ci[3]], 10) : null,
-            tour: ci[4] >= 0 ? (c[ci[4]] || "mens").trim() : "mens",
-          })).filter((r) => r.name && Number.isFinite(r.price));
-        }
-
-        // Match rows to local surfers by NAME (same resolver as the WSL scrape),
-        // per-tour. Unmatched rows are returned for the admin to see — never guessed.
-        function matchRows(rows) {
-          const idx = { mens: buildSurferIndex(surfers, "mens"), womens: buildSurferIndex(surfers, "womens") };
-          const matched = [], unmatched = [];
-          for (const r of rows) {
-            const res = resolveSurfer(r.name, idx[r.tour === "womens" ? "womens" : "mens"]);
-            if (!res) { unmatched.push(`${r.name} (${r.tour})`); continue; }
-            matched.push({ surfer: res.surfer, price: r.price, rank: r.rank, ambiguous: res.ambiguous });
-          }
-          return { matched, unmatched };
-        }
-
-        importBtn?.addEventListener("click", () => {
-          if (!importModal || !importSection) return;
-          importSection.innerHTML = `
-            <p class="text-sm text-muted" style="margin:0 0 0.5rem">
-              Paste a values CSV (men's and/or women's — it reads the <code>tour</code> column per row). Surfers are
-              matched by name; <strong>value</strong> and <strong>rank</strong> are overwritten exactly as given.
-              Nothing is written until you Preview and confirm.
-            </p>
-            <textarea id="csv-import-input" class="form-input" style="width:100%;min-height:130px;font-family:ui-monospace,Menlo,monospace;font-size:0.75rem" placeholder=",id,name_first,name_last,...,price,...,tour,rank,..."></textarea>
-            <div class="form-actions" style="margin-top:0.5rem">
-              <button class="btn btn--outline" id="btn-csv-preview">Preview</button>
-            </div>
-            <div id="csv-import-preview" class="mt-3"></div>
-          `;
-          importModal.style.display = "flex";
-
-          document.getElementById("btn-csv-preview")?.addEventListener("click", () => {
-            const out = document.getElementById("csv-import-preview");
-            let rows;
-            try { rows = parseCsv(document.getElementById("csv-import-input").value); }
-            catch (err) { out.innerHTML = `<p style="margin:0;color:#c0392b">${escapeHtml(err.message)}</p>`; return; }
-            if (!rows.length) { out.innerHTML = `<p style="margin:0;color:#c0392b">No data rows found.</p>`; return; }
-            const { matched, unmatched } = matchRows(rows);
-
-            const tableRows = matched.map((m) => {
-              const changed = (m.surfer.value || 0) !== m.price;
-              return `<tr>
-                <td style="padding:0.2rem 0.4rem">${escapeHtml(m.surfer.name)}${m.ambiguous ? ' <span title="ambiguous name match — verify" style="color:#a37500">⚠</span>' : ""}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${formatSalary(m.surfer.value || 0)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;font-weight:${changed ? "600" : "400"}">${formatSalary(m.price)}</td>
-                <td style="padding:0.2rem 0.4rem;text-align:right;color:var(--color-warm-gray)">${m.rank ?? "—"}</td>
-              </tr>`;
-            }).join("");
-
-            const ambiguousCount = matched.filter((m) => m.ambiguous).length;
-            out.innerHTML = `
-              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
-                <h4 style="margin:0">${matched.length} matched${unmatched.length ? `, ${unmatched.length} unmatched` : ""}${ambiguousCount ? `, ${ambiguousCount} ⚠ ambiguous` : ""}</h4>
-                ${matched.length ? `<button class="btn" id="btn-csv-apply" style="background:#c0392b;color:#fff;border-color:#c0392b">Import ${matched.length} Value${matched.length !== 1 ? "s" : ""}</button>` : ""}
-              </div>
-              ${unmatched.length ? `<p class="text-sm" style="margin:0 0 0.5rem;color:#a37500">Unmatched — <strong>skipped</strong>, fix the name or add the surfer then re-preview: ${unmatched.map((n) => escapeHtml(n)).join(", ")}.</p>` : ""}
-              <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:340px;overflow-y:auto">
-                <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
-                  <thead><tr style="background:#f7f5f0;position:sticky;top:0">
-                    <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Import $</th>
-                    <th style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
-                  </tr></thead>
-                  <tbody>${tableRows}</tbody>
-                </table>
-              </div>
-            `;
-
-            document.getElementById("btn-csv-apply")?.addEventListener("click", async () => {
-              const confirmed = await confirmModal({
-                title: "Import Values from CSV?",
-                bodyHtml: `<p>This overwrites <strong>value</strong> and <strong>rank</strong> for <strong>${matched.length}</strong> matched surfer${matched.length !== 1 ? "s" : ""} in Firestore, exactly as given.</p><p style="margin-top:0.5rem" class="text-sm text-muted">${unmatched.length} unmatched row${unmatched.length !== 1 ? "s are" : " is"} skipped. This cannot be undone.</p>`,
-                confirmLabel: "Import",
-                cancelLabel: "Cancel",
-                confirmTone: "danger",
-              });
-              if (!confirmed) return;
-              const applyBtn = document.getElementById("btn-csv-apply");
-              applyBtn.disabled = true;
-              applyBtn.textContent = "Importing…";
-              try {
-                const batch = writeBatch(db);
-                for (const m of matched) {
-                  const fields = { value: m.price, valuePrev: m.price, lastPricedEvent: null };
-                  if (Number.isFinite(m.rank)) fields.rank = m.rank;
-                  batch.update(doc(db, "surfers", m.surfer.id), fields);
-                }
-                await batch.commit();
-                surfers = await getAllSurfers();
-                toast(`Imported ${matched.length} value${matched.length !== 1 ? "s" : ""} from CSV.`, "success");
-                closeImport();
-                renderAdmin(container);
-              } catch (err) {
-                toast("Error importing: " + err.message, "error");
-                applyBtn.disabled = false;
-                applyBtn.textContent = `Import ${matched.length} Value${matched.length !== 1 ? "s" : ""}`;
-              }
-            });
-          });
-        });
       })();
 
       // ── REFRESH PLAYER DIRECTORY + RESET ALL TEAMS ──
