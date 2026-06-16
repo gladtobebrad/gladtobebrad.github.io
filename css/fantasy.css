@@ -1399,6 +1399,31 @@ img { max-width: 100%; }
   border-radius: var(--radius-sm);
   line-height: 1.5;
 }
+
+/* Value-change tag: a small semi-transparent colored block pinned to the
+   photo's top-left — green (up) / red (down) fill with white text showing the
+   arrow + amount the surfer has moved since purchase. White-on-color stays
+   legible over any photo; kept small so it doesn't dominate the tile. Held
+   separate from the price (which always reads as the value), out of flow so it
+   never alters tile height, and omitted on the alternate tile so it never
+   competes with the ALT badge. */
+.team-row__change {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 0.03rem 0.26rem;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.team-row__change--up { background: rgba(46, 125, 50, 0.85); }
+.team-row__change--down { background: rgba(192, 57, 43, 0.85); }
+
 .team-row__alt-divider {
   flex: 0 0 1px;
   align-self: stretch;
@@ -1409,20 +1434,15 @@ img { max-width: 100%; }
 
 
 /* Price annotation (editable Your Roster strip on team.html). Sits below
-   the name. When a surfer's market value has moved since purchase, the
-   price is tinted and prefixed with an arrow (▲ up / ▼ down) rather than
-   carrying a separate delta row — this keeps the roster tile exactly the
-   same height as an Available-pool tile, preserving the illusion that a
-   tile is simply relocated on drop. The precise figure can be read off
-   the same surfer's full price in the pool. */
+   the name, always plain charcoal — it is the surfer's value, so it must not
+   read as a change. The value change (if any) is shown separately as a
+   corner tag (.team-row__change). */
 .team-row__price {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--color-charcoal);
   margin-top: 0.25rem;
 }
-.team-row__price--up { color: #2e7d32; }
-.team-row__price--down { color: #c0392b; }
 
 /* Small × button overlay on each editable roster tile. */
 .team-row__drop-btn {

@@ -360,17 +360,18 @@
           const stanceHtml = data.stance
             ? `<span class="team-row__stance">${data.stance === "goofy" ? "Goofy" : "Regular"}</span>`
             : "";
-          // Value-change signal rides on the price line (tint + arrow)
-          // rather than a separate row, so the tile stays the same height as
-          // an Available-pool tile. ▲/green = worth more than paid; ▼/red = less.
-          const priceCls = delta > 0 ? " team-row__price--up" : delta < 0 ? " team-row__price--down" : "";
-          const arrow = delta > 0 ? "▲ " : delta < 0 ? "▼ " : "";
+          // Value change is shown as a corner tag (top-left), keeping the
+          // price itself plain black so the value never reads as a delta.
+          // ▲/green = worth more than paid; ▼/red = less.
+          const changeTag = delta !== 0
+            ? `<span class="team-row__change team-row__change--${delta > 0 ? "up" : "down"}">${delta > 0 ? "▲" : "▼"} ${formatSalary(Math.abs(delta))}</span>`
+            : "";
           tiles.push(`
             <div class="team-row__surfer" data-roster-index="${i}" ${tradingOpen ? `draggable="true"` : ""}>
-              ${photo}${dropBtn}
+              ${photo}${dropBtn}${changeTag}
               ${nameLabelHtml(name)}
               ${stanceHtml}
-              <span class="team-row__price${priceCls}">${arrow}${formatSalary(s.purchasePrice)}</span>
+              <span class="team-row__price">${formatSalary(s.purchasePrice)}</span>
             </div>`);
         } else {
           // Empty slot — also has data-roster-index so drag-drop can target it.
@@ -386,8 +387,6 @@
       if (alternate) {
         const d = allSurfers[alternate.surferId] || {};
         const altName = d.name || alternate.surferId.replace(/-/g, " ");
-        const marketVal = d.value || alternate.purchasePrice;
-        const delta = marketVal - alternate.purchasePrice;
         const photo = d.photoUrl
           ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
           : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
@@ -397,15 +396,15 @@
         const stanceHtml = d.stance
           ? `<span class="team-row__stance">${d.stance === "goofy" ? "Goofy" : "Regular"}</span>`
           : "";
-        const priceCls = delta > 0 ? " team-row__price--up" : delta < 0 ? " team-row__price--down" : "";
-        const arrow = delta > 0 ? "▲ " : delta < 0 ? "▼ " : "";
+        // No change tag on the alternate — only its sub-threshold status matters,
+        // not its value, so the ALT badge has the corner to itself.
         altTile = `
           <div class="team-row__surfer" id="alternate-slot" ${tradingOpen ? `draggable="true" data-alt-drag="1"` : ""}>
             ${photo}${dropBtn}
             <span class="team-row__alt-label">ALT</span>
             ${nameLabelHtml(altName)}
             ${stanceHtml}
-            <span class="team-row__price${priceCls}">${arrow}${formatSalary(alternate.purchasePrice)}</span>
+            <span class="team-row__price">${formatSalary(alternate.purchasePrice)}</span>
           </div>`;
       } else {
         altTile = `
