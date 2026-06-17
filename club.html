@@ -23,12 +23,12 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
+    import { SEASON, BEST_N_EVENTS, TOURS } from "./js/config.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml } from "./js/ui.js";
 
-    const SEASON = 2026;
     let clubScoringMode = "best9";
 
     // Cache fetched data so scoring-mode toggles don't re-fetch
@@ -263,7 +263,7 @@
               .map(evId => (e.eventScores || {})[evId] || 0)
               .filter(s => s > 0)
               .sort((a, b) => b - a);
-            return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
+            return { userId: e.userId, total: scores.slice(0, BEST_N_EVENTS).reduce((a, b) => a + b, 0) };
           }).sort((a, b) => b.total - a.total);
           const rank = standings.findIndex(s => s.userId === user.uid) + 1;
           ranks.push(rank > 0 ? rank : null);
@@ -379,7 +379,7 @@
               <button class="club-scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${clubScoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
             </div>
           </div>
-          ${["mens", "womens"].map((tour) => {
+          ${TOURS.map((tour) => {
             const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
             const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
             const entries = (tour === "mens" ? mensMemberEntries : womensMemberEntries)

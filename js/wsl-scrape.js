@@ -5,6 +5,8 @@
 // All exported functions accept an optional `log(msg, level?)` callback so
 // the admin UI can stream progress while a scrape is in flight.
 
+import { SEASON } from "./config.js";
+
 const WSL_BASE = "https://www.worldsurfleague.com";
 const TOUR_CODE = { MCT: "mens", WCT: "womens" };
 const FETCH_TIMEOUT_MS = 15_000;
@@ -42,7 +44,7 @@ async function fetchDoc(url, timeoutMs = FETCH_TIMEOUT_MS) {
 // /events/{year}/ct/{wslEventId}/{slug} URL.
 //
 // Returns: [{ statEventId, wslEventId, slug, name, primaryTour, status, eventNumber }]
-export async function fetchSchedule(season = 2026, log = () => {}) {
+export async function fetchSchedule(season = SEASON, log = () => {}) {
   log(`Fetching WSL ${season} CT schedule…`);
   const doc = await fetchDoc(`${WSL_BASE}/events/${season}/ct?all=1`);
   const rows = doc.querySelectorAll('tr[class*="event-"]');
@@ -121,7 +123,7 @@ export async function fetchSchedule(season = 2026, log = () => {}) {
 // class (athlete-{id}), the season rank in td.athlete-rank, the full name in
 // a.athlete-name, and the season total in .tour-points.
 // Returns: [{ wslId, name, rank, points }] sorted by rank ascending.
-export async function fetchSeasonRankings(tour, season = 2026, log = () => {}) {
+export async function fetchSeasonRankings(tour, season = SEASON, log = () => {}) {
   const code = tour === "womens" ? "wct" : "mct";
   const genderLabel = tour === "womens" ? "women's" : "men's";
   const url = `${WSL_BASE}/athletes/tour/${code}?year=${season}`;
@@ -416,7 +418,7 @@ export async function scrapeEventForGender(event, season, log = () => {}) {
 //                     "Off for the Day, Next Call May 17, 2026 7:15 AM FJT"
 //   - nextCallDisplay: just the formatted next-call timestamp if WSL embedded
 //                     a .user-time-display span, else null
-export async function fetchLiveEventStatus(season = 2026, log = () => {}) {
+export async function fetchLiveEventStatus(season = SEASON, log = () => {}) {
   const schedule = await fetchSchedule(season, log);
   const venue = pickTargetVenue(schedule);
   if (!venue) {

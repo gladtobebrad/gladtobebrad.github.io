@@ -157,6 +157,7 @@
 
   <script type="module">
     import { escapeHtml } from "./js/ui.js";
+    import { TOURS } from "./js/config.js";
     async function boot() {
       window.__dataBoot.started = true;
 
@@ -330,7 +331,7 @@
         const t = tours[selectedTour];
 
         // Tour tabs
-        const allTourKeys = ["mens", "womens"];
+        const allTourKeys = TOURS;
         const tourTabs = `<div class="tour-tabs mb-3">${allTourKeys.map(tour =>
           `<button class="tour-tab ${tour === selectedTour ? "tour-tab--active" : ""}" data-tour="${tour}">${tour === "mens" ? "Men's CT" : "Women's CT"}</button>`
         ).join("")}</div>`;

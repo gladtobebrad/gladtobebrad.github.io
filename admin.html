@@ -23,6 +23,7 @@
 
   <script type="module">
     import { initAuth, requireAdmin } from "./js/auth.js";
+    import { SEASON, TOURS } from "./js/config.js";
     import {
       getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
@@ -41,7 +42,6 @@
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
     import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, MAX_VALUE, VALUE_STEP, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
-    const SEASON = 2026;
     let surfers = [];
     let events = [];
     let users = [];
@@ -765,7 +765,7 @@
         }
         return "";
       };
-      const summary = ["mens", "womens"].map((tour) => {
+      const summary = TOURS.map((tour) => {
         const evs = freshEvents
           .filter((e) => (e.tour || "mens") === tour && (e.resultsEntered || e.status === "completed"))
           .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0)); // newest first
@@ -810,7 +810,7 @@
       if (!confirmed) return;
 
       const outcomes = [];
-      for (const tour of ["mens", "womens"]) {
+      for (const tour of TOURS) {
         try {
           outcomes.push(await recalcLeaderboardForTour(tour, freshEvents, freshUsers));
         } catch (err) {
@@ -1313,7 +1313,7 @@
       }
 
       function renderScrapeSummary(byTour, warnings) {
-        const sections = ["mens", "womens"].map((tour) => {
+        const sections = TOURS.map((tour) => {
           const g = byTour[tour];
           const label = tour === "mens" ? "Men's" : "Women's";
           if (!g) {
@@ -1375,7 +1375,7 @@
 
           const genders = await discoverGenders(venue, SEASON, wslLog);
 
-          for (const tour of ["mens", "womens"]) {
+          for (const tour of TOURS) {
             const g = genders[tour];
             if (!g) {
               wslLog(`No ${tour} statEventId discovered for this venue.`, "warn");
@@ -1478,7 +1478,7 @@
             try {
               // Pre-check: any existing results in target events?
               const existingByTour = {};
-              for (const tour of ["mens", "womens"]) {
+              for (const tour of TOURS) {
                 const g = scrapedByTour[tour];
                 if (!g) continue;
                 existingByTour[tour] = await getResults(g.localEvent.id);
@@ -1486,7 +1486,7 @@
               // List the tours that already have non-empty stored results, so
               // the confirm can name them rather than say "this event."
               const overwriteTours = [];
-              for (const tour of ["mens", "womens"]) {
+              for (const tour of TOURS) {
                 const arr = existingByTour[tour] || [];
                 if (arr.some((r) => r.finish || r.withdrawn)) {
                   const g = scrapedByTour[tour];
@@ -1521,7 +1521,7 @@
               }
 
               saveBtn.textContent = "Saving…";
-              for (const tour of ["mens", "womens"]) {
+              for (const tour of TOURS) {
                 const g = scrapedByTour[tour];
                 if (!g || !g.resolvedResults.length) continue;
                 const batch = g.resolvedResults.map((r) => ({

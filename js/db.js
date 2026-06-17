@@ -1,4 +1,5 @@
 import { db } from "./firebase-config.js";
+import { SEASON } from "./config.js";
 import {
   collection, doc, getDoc, setDoc, getDocs, updateDoc,
   writeBatch, serverTimestamp, deleteDoc, arrayUnion, arrayRemove,
@@ -43,7 +44,7 @@ export async function deleteSurfer(surferId) {
 
 // ── Events ───────────────────────────────────────────
 
-export async function getEvents(season = 2026) {
+export async function getEvents(season = SEASON) {
   const cacheKey = `events_${season}`;
   let serverVersion = 0;
   try {
@@ -96,7 +97,7 @@ export async function getEvent(eventId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-export async function getCurrentEventForTour(tour, season = 2026) {
+export async function getCurrentEventForTour(tour, season = SEASON) {
   const events = await getEvents(season);
   const tourEvents = events.filter((e) => (e.tour || "mens") === tour);
   return tourEvents.find((e) => e.status === "live")
@@ -194,7 +195,7 @@ export async function clearAllTeams() {
 // ALT_CAP eligibility check uses live market value, so an alt bought under the
 // cap whose value has since risen above it would otherwise carry forward as an
 // invalid (but still-scoring) roster slot.
-export async function carryForwardTeams(eventId, season = 2026) {
+export async function carryForwardTeams(eventId, season = SEASON) {
   // Bypass sessionStorage cache — needs live tradingOpen values to find locked prev events
   try { sessionStorage.removeItem(`events_${season}`); } catch {}
   const [allUsers, existingTeams, events] = await Promise.all([
@@ -287,7 +288,7 @@ export async function touchLeaderboardVersion() {
   } catch {}
 }
 
-export async function getLeaderboard(season = 2026, tour = null) {
+export async function getLeaderboard(season = SEASON, tour = null) {
   const cacheKey = `lb_${season}_${tour}`;
   let serverVersion = 0;
   try {
@@ -415,7 +416,7 @@ export async function deleteClub(clubId, memberIds) {
 
 // ── Previous team snapshot (for revert) ──────────────
 
-export async function getPreviousTeam(userId, currentEventId, tour, season = 2026) {
+export async function getPreviousTeam(userId, currentEventId, tour, season = SEASON) {
   const events = await getEvents(season);
   // Most recent locked event on the same tour before the current one.
   // tradingOpen === false (vs. status === "completed") matches carryForwardTeams

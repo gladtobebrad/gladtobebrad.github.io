@@ -1,4 +1,5 @@
 import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
+import { SEASON } from "./config.js";
 
 // ── Security helpers ─────────────────────────────────
 
@@ -217,7 +218,6 @@ export function startCountdownTimer(el, state) {
 async function renderBanners(liveStatusEl, countdownEl) {
   try {
     const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
-    const SEASON = new Date().getFullYear();
     const [mensEv, womensEv, siteConfig, liveStatus] = await Promise.all([
       getCurrentEventForTour("mens", SEASON).catch(() => null),
       getCurrentEventForTour("womens", SEASON).catch(() => null),
