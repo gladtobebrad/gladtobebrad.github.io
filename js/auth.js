@@ -107,16 +107,6 @@ export async function signOut() {
   currentUserProfile = null;
 }
 
-// Get current Firebase user
-export function getCurrentUser() {
-  return currentUser;
-}
-
-// Get current user's Firestore profile
-export function getUserProfile() {
-  return currentUserProfile;
-}
-
 // Register a callback for auth state changes
 export function onAuth(callback) {
   authCallbacks.push(callback);

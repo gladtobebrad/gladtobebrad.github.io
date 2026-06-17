@@ -306,9 +306,7 @@ img { max-width: 100%; }
   gap: 1.5rem;
 }
 .grid--2 { grid-template-columns: 1fr 1fr; }
-.grid--3 { grid-template-columns: 1fr 1fr 1fr; }
 .grid--sidebar { grid-template-columns: 1fr 380px; }
-.grid--team { grid-template-columns: 1fr; gap: 0.5rem; }
 
 /* ── Buttons ──────────────────────────────────────── */
 
@@ -590,30 +588,12 @@ img { max-width: 100%; }
   word-break: break-word;
 }
 
-.surfer-row__country {
-  font-size: 0.8rem;
-  color: var(--color-warm-brown);
-}
-
 .surfer-row__value {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--color-charcoal);
   min-width: 65px;
   text-align: right;
-}
-
-.surfer-row__action {
-  flex-shrink: 0;
-}
-
-/* Alternate slot styling */
-.surfer-row--alternate {
-  border-style: dashed;
-  border-color: var(--color-warm-gray);
-}
-.surfer-row--alternate:hover {
-  border-color: var(--color-terracotta);
 }
 
 /* ── Search & Filter ──────────────────────────────── */
@@ -889,7 +869,6 @@ img { max-width: 100%; }
 @media (max-width: 1024px) {
   .grid--sidebar { grid-template-columns: 1fr; }
   .grid--2 { grid-template-columns: 1fr; }
-  .grid--team { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
@@ -920,7 +899,6 @@ img { max-width: 100%; }
   }
   .nav-user-name { display: none; }
 
-  .grid--3 { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
 
   .data-table { font-size: 0.8rem; }
@@ -1058,31 +1036,6 @@ img { max-width: 100%; }
 
 /* ── Surfer Photos ─────────────────────────────────── */
 
-/* Available surfers list */
-.surfer-photo {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  object-position: center;
-  flex-shrink: 0;
-  border: 1px solid var(--color-beige);
-}
-
-.surfer-photo--empty {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-sm);
-  background: var(--color-beige);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-warm-brown);
-  flex-shrink: 0;
-}
-
 /* Medium — roster list */
 .surfer-photo--sm {
   width: 44px;
@@ -1107,23 +1060,6 @@ img { max-width: 100%; }
   flex-shrink: 0;
 }
 
-/* Stacked name/meta inside surfer rows */
-.surfer-row__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.surfer-row__meta {
-  font-size: 0.75rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-warm-brown);
-}
-
 /* ── Drag & Drop ───────────────────────────────────── */
 
 .surfer-row[draggable="true"] {
@@ -1134,27 +1070,6 @@ img { max-width: 100%; }
 }
 .surfer-row--dragging {
   opacity: 0.4;
-}
-.surfer-row--drag-over {
-  background: rgba(156, 168, 152, 0.15) !important;
-  outline: 2px dashed var(--color-sage);
-  outline-offset: -2px;
-}
-
-/* Purchase price delta indicator */
-.price-delta {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-}
-.price-delta--up {
-  color: var(--color-success);
-  background: var(--color-success-bg);
-}
-.price-delta--down {
-  color: var(--color-error);
-  background: var(--color-error-bg);
 }
 
 /* Tour tabs */
@@ -1183,51 +1098,6 @@ img { max-width: 100%; }
   font-weight: 600;
 }
 
-/* All-Teams horizontal photo strip */
-.team-photo-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.team-strip__surfer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  width: 60px;
-}
-.team-strip__photo {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  object-position: center;
-  border: 2px solid var(--color-beige);
-}
-.team-strip__photo--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-beige);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-warm-brown);
-}
-.team-strip__photo--alt {
-  border-style: dashed;
-  opacity: 0.75;
-}
-.team-strip__name {
-  font-size: 0.65rem;
-  text-align: center;
-  color: var(--color-dark);
-  line-height: 1.2;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .drop-zone--over {
   background: rgba(156, 168, 152, 0.1) !important;
   border-color: var(--color-sage) !important;
@@ -1292,9 +1162,6 @@ img { max-width: 100%; }
   flex-wrap: wrap;
 }
 
-/* No-op now that --max-width handles content sizing; kept as a hook for
-   future per-section width overrides. */
-.dash-content-cap {}
 .dash-title { min-width: 0; }
 .dash-subtitle {
   font-family: var(--font-heading);
@@ -1312,7 +1179,6 @@ img { max-width: 100%; }
    exactly 920px (via --max-width: 984 minus padding), so team-card
    naturally fills that without needing its own max-width.
    Below 1000px viewport: hard switch to 4×2 wrap layout. */
-.team-card {}
 .team-row {
   display: flex;
   flex-wrap: nowrap;
@@ -1579,58 +1445,6 @@ img { max-width: 100%; }
     aspect-ratio: 1 / 1;
   }
   .team-row__alt-divider { display: none; }
-}
-
-/* ── Profile widget ─────────────────────────────────────────── */
-.profile-widget {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-.profile-widget__avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.profile-widget__avatar--empty {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--color-beige);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 1.2rem;
-  color: var(--color-warm-brown);
-  flex-shrink: 0;
-}
-.profile-widget__info {
-  text-align: right;
-  min-width: 0;
-}
-.profile-widget__name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-.profile-widget__clubs {
-  font-size: 0.75rem;
-  color: var(--color-warm-brown);
-  margin-top: 0.1rem;
-}
-.profile-widget__coins { margin-top: 0.25rem; }
-
-@media (max-width: 768px) {
-  .profile-widget__name { max-width: 100px; font-size: 0.82rem; }
-  .profile-widget__avatar,
-  .profile-widget__avatar--empty { width: 40px; height: 40px; font-size: 1rem; }
 }
 
 /* ── Inline Selects (for data-table cells) ────────── */

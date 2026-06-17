@@ -91,7 +91,6 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 - **Results** — *Fetch & Update Results from WSL* (auto-scrape current venue, parse heats, compute finish positions, preview, then save with themed overwrite-confirm) and manual results entry. Both save paths trigger `promptUpdateLeaderboard()`.
 - **Players** — registered users + Refresh Player Directory + Reset All Teams (destructive).
 - **Clubs** — list/delete clubs.
-- **Seed Data** — one-click bulk import of 2026 schedule + men's surfer roster (legacy bootstrap; can be removed once season is fully seeded).
 
 ### Recent Features (not always reflected in older code paths)
 
