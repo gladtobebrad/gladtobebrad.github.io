@@ -23,11 +23,11 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
+    import { SEASON } from "./js/config.js";
     import { getLeaderboard, getEvents, getPlayerDirectory } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml, safeUrl } from "./js/ui.js";
 
-    const SEASON = 2026;
     let scoringMode = "best9"; // "best9" or "all"
 
     initAuth();

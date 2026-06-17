@@ -14,6 +14,8 @@
 
 - 2026-06-17 — Audit generated and committed to repo.
 - 2026-06-17 — **Wave 0 (in-repo parts) done.** Authored `firestore.rules` / `storage.rules` / `firebase.json` / `firestore.indexes.json` / `.firebaserc` from the real data model. Added canonical `escapeHtml()`+`safeUrl()` to `js/ui.js` and escaped every user/remote `innerHTML` sink across all 10 pages + the live-status banner; avatar URLs validated on save. Added `test/security-helpers.test.mjs` (17/17 pass). Full repo passes `node --check`. Remaining Wave 0 items need Firebase access → see [firebase-deploy-handoff.md](firebase-deploy-handoff.md). Branch: `wave0-security-hardening`.
+- 2026-06-17 — Wave 1 underway (config / color tokens / a11y / dead-code + batch-chunking). **writeBatch chunking (F-61):** added `commitInChunks` (retries transients, reports partial-write count, sets-before-deletes, idempotent re-run). Owner accepted the brief-but-recoverable partial window over reverting to a single atomic batch; the single-doc-per-tour leaderboard (fully atomic, no 500-op cap) is recorded in Wave 2 as the escape hatch if zero-partial-state or >500-user scale is later required.
+- 2026-06-17 — **Wave 1 complete** (all 7 items) and pushed across 6 commits: config module, semantic color tokens, accessibility bundle, dead-code/asset cleanup, writeBatch chunking, themed danger confirm-modals + type-to-confirm. Node now installed; `test/security-helpers.test.mjs` green throughout. Up next: Wave 2 (structural refactors).
 
 ---
 
@@ -52,13 +54,13 @@ These recur across dimensions and matter more than any single finding.
 
 ### Wave 1 — High-leverage quick wins (trivial/small effort, real payoff)
 
-- [ ] Create `js/config.js` exporting `SEASON`, `BEST_N_EVENTS`, `TOURS`; import everywhere; remove per-page redeclarations and `=2026` defaults; fix `ui.js` `getFullYear()` drift _(F-43, F-78)_
-- [ ] Add semantic color tokens (`--color-success`/`-bg`, `--color-error-bg`, `--color-warning`/`-bg`, `--color-info`/`-bg`, `--color-on-accent`); wire up `--color-error` _(F-01, F-09, F-10, F-11)_
-- [ ] Accessibility token/markup fixes: darken CTA + `.text-muted` to AA; global `:focus-visible`; `role`/`aria-live` on toasts; labels on search inputs; `prefers-reduced-motion` block _(F-68, F-69)_
-- [ ] Chunk every `writeBatch` to ≤450 ops (sets-before-deletes, version bump last) _(F-61)_
-- [ ] Replace destructive native `confirm()` with `confirmModal({confirmTone:'danger'})`; type-to-confirm on Reset All Teams _(F-64)_
-- [ ] Delete dead code: `getCurrentUser`/`getUserProfile`; confirmed-dead CSS (`.profile-widget*`, `.team-strip*`); `data/*.py` + `rankings_2025.txt`; fix stale CLAUDE.md "Seed Data" tab + 44-byte README _(F-37, F-38)_
-- [ ] Compress `loadpage.jpg` (3.6 MB misnamed PNG) + add a dedicated 1200×630 OG image _(F-75)_
+- [x] **`js/config.js`** exports `SEASON`/`BEST_N_EVENTS`/`TOURS`; removed 8 per-page `SEASON` redeclarations + the `=2026` defaults (db.js/wsl-scrape.js) + best-9 magic numbers; fixed the `ui.js` `getFullYear()` drift. _(F-43, F-78)_
+- [x] Added semantic tokens (`--color-success`/`-bg`, `--color-error-bg`, `--color-warning`/`-bg`/`-border`); wired the dead `--color-error` (2→29 uses) + `--font-mono`; consolidated 5 greens / 4 reds / scattered golds. _(F-01, F-09, F-10, F-11)_ — *deferred:* `--color-info` (no distinct info color exists — `.toast--info` uses charcoal) and `--color-on-accent`/`#fff` (already one consistent value, not fragmented).
+- [x] CTA → AA (5.26:1), `.text-muted` token → AA (5.65:1), `.footer-sub` fixed; global `:focus-visible` (component `:focus` guarded with `:not(:focus-visible)`); `role`/`aria-live` on toasts; `aria-label` on search inputs; `prefers-reduced-motion` block. _(F-68, F-69)_ — *left:* `.btn--secondary` terracotta (3.26:1, passes the 3:1 UI bar) + decorative warm-gray uses.
+- [x] Chunked the 4 user-scaling `writeBatch` sites (clearAllTeams, carry-forward, lock, leaderboard recalc) via `commitInChunks` (sets-before-deletes; partial-write reporting + admin re-run prompt); structurally-bounded batches left as-is. Retry dropped per owner; single-doc-leaderboard escape hatch recorded in Wave 2. _(F-61)_
+- [x] Replaced all 6 native `confirm()` with `confirmModal({confirmTone:'danger'})`; added optional `requireText` so Reset-All-Teams requires typing `RESET` (click/Enter/input all gated). _(F-64)_
+- [x] Deleted `getCurrentUser`/`getUserProfile`, 186 lines of verified-dead CSS (28 selectors), 3 orphan `data/` files; fixed stale CLAUDE.md "Seed Data" + `SEASON` lines; rewrote the README. _(F-37, F-38)_ — *left:* the `uncertain` design-system CSS primitives (kept conservatively).
+- [x] Compressed `loadpage.jpg` 3.6 MB → 612 KB (q90 JPEG, same dimensions). _(F-75)_ — *deferred:* a dedicated 1200×630 OG crop (the resized image serves as OG today).
 
 ### Wave 2 — Structural refactors (medium/large; sequence by payoff)
 
@@ -69,6 +71,8 @@ These recur across dimensions and matter more than any single finding.
 - [ ] Have `pricing.js` consume cap/roster via `getTeamRules()` _(F-21)_
 - [ ] Split `ui.js` (819 lines) into format/banners/modals/nav
 - [ ] Decompose `admin.html` (1,913 inline lines) into per-tab controller modules — do last, incrementally
+
+- [ ] **(Escape hatch / deferred 2026-06-17)** Restructure the leaderboard to one document per tour (`leaderboard/{season}_{tour}` holding the standings array): makes recalc a single atomic `setDoc` — never partial, no 500-op cap, cheaper reads (1 doc vs N), and drops the orphan-delete logic. Read paths unaffected if `getLeaderboard()` keeps its array shape. Chosen against (for now) in favor of chunked+retry per owner decision.
 
 ### Wave 3 — Nice-to-haves
 

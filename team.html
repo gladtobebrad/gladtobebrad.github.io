@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
   <style>
     .surfer-row--selected {
-      border: 2px solid #3a6b1f;
+      border: 2px solid var(--color-success);
       background: #d6ebca;
     }
     /* Unaffordable surfers in the Available pane just fade out — clearer
@@ -23,8 +23,8 @@
     }
     .btn--unaffordable {
       background: none;
-      border: 1px solid #c0392b;
-      color: #c0392b;
+      border: 1px solid var(--color-error);
+      color: var(--color-error);
       cursor: default;
       font-weight: 700;
     }
@@ -191,10 +191,10 @@
       width: 80%;
       text-align: center;
     }
-    .overlay-btn--add  { color: #27ae60; }
-    .overlay-btn--drop { color: #c0392b; }
+    .overlay-btn--add  { color: var(--color-success); }
+    .overlay-btn--drop { color: var(--color-error); }
     .overlay-btn--alt  { color: #2471a3; }
-    .overlay-btn--cant { color: #c0392b; cursor: default; opacity: 0.7; }
+    .overlay-btn--cant { color: var(--color-error); cursor: default; opacity: 0.7; }
     .available-card__photo-wrap {
       position: relative;
       z-index: 1;
@@ -248,12 +248,12 @@
 
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
+    import { SEASON } from "./js/config.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
     import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
 
-    const SEASON = 2026;
 
     // Working state
     let activeTour = new URLSearchParams(window.location.search).get("tour") || "mens";
@@ -580,7 +580,7 @@
             <div class="salary-bar" style="margin-top:1rem;margin-bottom:0">
               <div class="salary-bar__header">
                 <span>Salary Cap: ${formatSalaryFull(spent)} / ${formatSalaryFull(rules.salaryCap)}</span>
-                <span>Remaining: <strong style="color:${overCap ? "#c0392b" : "inherit"}">${formatSalaryFull(Math.abs(remaining))}${overCap ? " OVER" : ""}</strong></span>
+                <span>Remaining: <strong style="color:${overCap ? "var(--color-error)" : "inherit"}">${formatSalaryFull(Math.abs(remaining))}${overCap ? " OVER" : ""}</strong></span>
               </div>
               <div class="salary-bar__track">
                 <div class="salary-bar__fill ${overCap ? "salary-bar__fill--over" : pct > 90 ? "salary-bar__fill--warn" : ""}" style="width:${pct}%"></div>

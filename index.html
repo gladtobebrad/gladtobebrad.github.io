@@ -34,10 +34,10 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
+    import { SEASON, BEST_N_EVENTS } from "./js/config.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
 
-    const SEASON = 2026;
 
     initAuth();
     renderHeader();
@@ -233,7 +233,7 @@
               .map(evId => (e.eventScores || {})[evId] || 0)
               .filter(s => s > 0)
               .sort((a, b) => b - a);
-            return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
+            return { userId: e.userId, total: scores.slice(0, BEST_N_EVENTS).reduce((a, b) => a + b, 0) };
           }).sort((a, b) => b.total - a.total);
           const rank = standings.findIndex(s => s.userId === user.uid) + 1;
           ranks.push(rank > 0 ? rank : null);

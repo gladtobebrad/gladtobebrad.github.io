@@ -23,11 +23,11 @@
 
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
+    import { SEASON } from "./js/config.js";
     import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints } from "./js/scoring.js";
     import { renderHeader, renderFooter, showLoading, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
 
-    const SEASON = 2026;
 
     initAuth();
     renderHeader();

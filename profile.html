@@ -23,11 +23,11 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
+    import { SEASON, BEST_N_EVENTS } from "./js/config.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
 
-    const SEASON = 2026;
 
     initAuth();
     renderHeader();
@@ -152,7 +152,7 @@
           const scored = rosters.filter(r => r.score).map(r => r.score.totalPoints).sort((a, b) => b - a);
           return {
             eventsPlayed: scored.length,
-            best9: scored.slice(0, 9).reduce((s, p) => s + p, 0),
+            best9: scored.slice(0, BEST_N_EVENTS).reduce((s, p) => s + p, 0),
           };
         };
         const mensStandings = toStandings(mensRosters);

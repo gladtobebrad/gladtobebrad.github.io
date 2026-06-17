@@ -23,12 +23,12 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
+    import { SEASON, BEST_N_EVENTS, TOURS } from "./js/config.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml, confirmModal } from "./js/ui.js";
 
-    const SEASON = 2026;
     let clubScoringMode = "best9";
 
     // Cache fetched data so scoring-mode toggles don't re-fetch
@@ -111,7 +111,7 @@
             <div class="card__header"><span class="card__title">Create a Club</span></div>
             <div class="form-group mb-2">
               <label class="form-label">Club Name</label>
-              <input type="text" class="search-input" id="club-name-input" placeholder="The Barrels" maxlength="40">
+              <input type="text" class="search-input" id="club-name-input" aria-label="Club name" placeholder="The Barrels" maxlength="40">
             </div>
             <button class="btn btn--primary btn--sm" id="btn-create-club">Create Club</button>
           </div>
@@ -119,7 +119,7 @@
             <div class="card__header"><span class="card__title">Join a Club</span></div>
             <div class="form-group mb-2">
               <label class="form-label">Invite Code</label>
-              <input type="text" class="search-input" id="invite-code-input" placeholder="e.g. AB3XY7" maxlength="6" style="text-transform:uppercase">
+              <input type="text" class="search-input" id="invite-code-input" aria-label="Invite code" placeholder="e.g. AB3XY7" maxlength="6" style="text-transform:uppercase">
             </div>
             <button class="btn btn--outline btn--sm" id="btn-join-club">Join Club</button>
           </div>
@@ -263,7 +263,7 @@
               .map(evId => (e.eventScores || {})[evId] || 0)
               .filter(s => s > 0)
               .sort((a, b) => b - a);
-            return { userId: e.userId, total: scores.slice(0, 9).reduce((a, b) => a + b, 0) };
+            return { userId: e.userId, total: scores.slice(0, BEST_N_EVENTS).reduce((a, b) => a + b, 0) };
           }).sort((a, b) => b.total - a.total);
           const rank = standings.findIndex(s => s.userId === user.uid) + 1;
           ranks.push(rank > 0 ? rank : null);
@@ -358,7 +358,7 @@
       container.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
           <h1 class="page-title" style="margin:0">${escapeHtml(club.name)}</h1>
-          <button class="btn btn--outline btn--sm" id="btn-leave-club" style="color:var(--color-error,#c0392b);border-color:var(--color-error,#c0392b)">
+          <button class="btn btn--outline btn--sm" id="btn-leave-club" style="color:var(--color-error);border-color:var(--color-error)">
             ${isOwner ? "Delete Club" : "Leave Club"}
           </button>
         </div>
@@ -379,7 +379,7 @@
               <button class="club-scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${clubScoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
             </div>
           </div>
-          ${["mens", "womens"].map((tour) => {
+          ${TOURS.map((tour) => {
             const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
             const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
             const entries = (tour === "mens" ? mensMemberEntries : womensMemberEntries)
@@ -451,7 +451,7 @@
             <div class="card__header"><span class="card__title">Join Another Club</span><span class="text-xs text-muted">${clubIds.length}/3 clubs</span></div>
             <div style="display:flex;gap:0.5rem;align-items:flex-end">
               <div class="form-group" style="flex:1;margin:0">
-                <input type="text" class="search-input" id="invite-code-input" placeholder="Invite code" maxlength="6" style="text-transform:uppercase">
+                <input type="text" class="search-input" id="invite-code-input" aria-label="Invite code" placeholder="Invite code" maxlength="6" style="text-transform:uppercase">
               </div>
               <button class="btn btn--outline btn--sm" id="btn-join-more">Join</button>
             </div>
@@ -510,7 +510,14 @@
       });
 
       document.getElementById("btn-leave-club")?.addEventListener("click", async () => {
-        if (!confirm(`Are you sure you want to ${isOwner ? "delete this club" : "leave"}?`)) return;
+        if (!(await confirmModal({
+          title: isOwner ? "Delete club?" : "Leave club?",
+          bodyHtml: isOwner
+            ? "<p>This deletes the club and removes all members. This cannot be undone.</p>"
+            : "<p>Are you sure you want to leave this club?</p>",
+          confirmLabel: isOwner ? "Delete club" : "Leave club",
+          confirmTone: "danger",
+        }))) return;
         const btn = document.getElementById("btn-leave-club");
         btn.disabled = true;
         try {

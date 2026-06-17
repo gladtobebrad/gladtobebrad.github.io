@@ -1,9 +1,39 @@
 import { db } from "./firebase-config.js";
+import { SEASON } from "./config.js";
 import {
   collection, doc, getDoc, setDoc, getDocs, updateDoc,
   writeBatch, serverTimestamp, deleteDoc, arrayUnion, arrayRemove,
   query, where
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+// Commit an array of batch-op callbacks in chunks of <=chunkSize ops. Firestore
+// caps a single writeBatch at 500 operations; chunking keeps user-scaling admin
+// actions (clear-all-teams, carry-forward, leaderboard recalc) working past that
+// ceiling.
+//
+// Chunks are NOT atomic with each other, so order ops to degrade safely (all
+// sets before any deletes). If a chunk fails, the earlier chunks STAY committed
+// and this throws an Error carrying how many writes landed (`.committed` /
+// `.total` / `.partial`) so the caller can tell the admin it was a PARTIAL write
+// and prompt them to run it again. Every caller is idempotent (recompute-and-
+// overwrite, or skip-already-done), so re-running safely completes the rest.
+export async function commitInChunks(ops, chunkSize = 450) {
+  let committed = 0;
+  for (let i = 0; i < ops.length; i += chunkSize) {
+    const slice = ops.slice(i, i + chunkSize);
+    try {
+      const batch = writeBatch(db);
+      for (const op of slice) op(batch);
+      await batch.commit();
+      committed += slice.length;
+    } catch (err) {
+      const e = new Error(`committed ${committed}/${ops.length} writes before failing: ${err.message}`);
+      e.committed = committed; e.total = ops.length; e.partial = committed > 0;
+      throw e;
+    }
+  }
+  return committed;
+}
 
 // ── Site Config ─────────────────────────────────────
 
@@ -43,7 +73,7 @@ export async function deleteSurfer(surferId) {
 
 // ── Events ───────────────────────────────────────────
 
-export async function getEvents(season = 2026) {
+export async function getEvents(season = SEASON) {
   const cacheKey = `events_${season}`;
   let serverVersion = 0;
   try {
@@ -96,7 +126,7 @@ export async function getEvent(eventId) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-export async function getCurrentEventForTour(tour, season = 2026) {
+export async function getCurrentEventForTour(tour, season = SEASON) {
   const events = await getEvents(season);
   const tourEvents = events.filter((e) => (e.tour || "mens") === tour);
   return tourEvents.find((e) => e.status === "live")
@@ -167,18 +197,12 @@ export async function getTeamsForEvent(eventId) {
 
 export async function lockTeamsForEvent(eventId, locked = true) {
   const teams = await getTeamsForEvent(eventId);
-  const batch = writeBatch(db);
-  for (const t of teams) {
-    batch.update(doc(db, "teams", t.id), { locked });
-  }
-  await batch.commit();
+  await commitInChunks(teams.map((t) => (batch) => batch.update(doc(db, "teams", t.id), { locked })));
 }
 
 export async function clearAllTeams() {
   const snap = await getDocs(collection(db, "teams"));
-  const batch = writeBatch(db);
-  snap.docs.forEach(d => batch.delete(d.ref));
-  await batch.commit();
+  await commitInChunks(snap.docs.map((d) => (batch) => batch.delete(d.ref)));
   return snap.docs.length;
 }
 
@@ -194,7 +218,7 @@ export async function clearAllTeams() {
 // ALT_CAP eligibility check uses live market value, so an alt bought under the
 // cap whose value has since risen above it would otherwise carry forward as an
 // invalid (but still-scoring) roster slot.
-export async function carryForwardTeams(eventId, season = 2026) {
+export async function carryForwardTeams(eventId, season = SEASON) {
   // Bypass sessionStorage cache — needs live tradingOpen values to find locked prev events
   try { sessionStorage.removeItem(`events_${season}`); } catch {}
   const [allUsers, existingTeams, events] = await Promise.all([
@@ -242,19 +266,16 @@ export async function carryForwardTeams(eventId, season = 2026) {
 
   if (toWrite.length === 0) return 0;
 
-  const batch = writeBatch(db);
-  for (const { userId, prevTeam } of toWrite) {
-    const docId = `${userId}_${eventId}`;
-    batch.set(doc(db, "teams", docId), {
+  await commitInChunks(toWrite.map(({ userId, prevTeam }) => (batch) =>
+    batch.set(doc(db, "teams", `${userId}_${eventId}`), {
       userId,
       eventId,
       savedAt: serverTimestamp(),
       surfers: prevTeam.surfers,
       alternate: null, // re-selected fresh each event — never carried forward
       carriedForward: true,
-    }, { merge: true });
-  }
-  await batch.commit();
+    }, { merge: true })
+  ));
   const carried = toWrite.length;
   return carried;
 }
@@ -287,7 +308,7 @@ export async function touchLeaderboardVersion() {
   } catch {}
 }
 
-export async function getLeaderboard(season = 2026, tour = null) {
+export async function getLeaderboard(season = SEASON, tour = null) {
   const cacheKey = `lb_${season}_${tour}`;
   let serverVersion = 0;
   try {
@@ -415,7 +436,7 @@ export async function deleteClub(clubId, memberIds) {
 
 // ── Previous team snapshot (for revert) ──────────────
 
-export async function getPreviousTeam(userId, currentEventId, tour, season = 2026) {
+export async function getPreviousTeam(userId, currentEventId, tour, season = SEASON) {
   const events = await getEvents(season);
   // Most recent locked event on the same tour before the current one.
   // tradingOpen === false (vs. status === "completed") matches carryForwardTeams

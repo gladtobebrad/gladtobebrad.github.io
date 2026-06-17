@@ -1,4 +1,5 @@
 import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
+import { SEASON } from "./config.js";
 
 // ── Security helpers ─────────────────────────────────
 
@@ -217,7 +218,6 @@ export function startCountdownTimer(el, state) {
 async function renderBanners(liveStatusEl, countdownEl) {
   try {
     const { getCurrentEventForTour, getSiteConfig } = await import("./db.js");
-    const SEASON = new Date().getFullYear();
     const [mensEv, womensEv, siteConfig, liveStatus] = await Promise.all([
       getCurrentEventForTour("mens", SEASON).catch(() => null),
       getCurrentEventForTour("womens", SEASON).catch(() => null),
@@ -275,14 +275,14 @@ export function renderHeader() {
   if (!liveStatusEl) {
     liveStatusEl = document.createElement("div");
     liveStatusEl.id = "live-status-banner";
-    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal)";
+    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--color-charcoal)";
     header.parentNode.insertBefore(liveStatusEl, header.nextSibling);
   }
   let countdownEl = document.getElementById("trading-countdown");
   if (!countdownEl) {
     countdownEl = document.createElement("div");
     countdownEl.id = "trading-countdown";
-    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal)";
+    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--color-charcoal)";
     header.parentNode.insertBefore(countdownEl, liveStatusEl.nextSibling);
   }
 
@@ -512,6 +512,8 @@ export function toast(message, type = "info", duration = 3500) {
   }
   const el = document.createElement("div");
   el.className = `toast toast--${type}`;
+  el.setAttribute("role", type === "error" ? "alert" : "status");
+  el.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
   el.textContent = message;
   el.dataset.toastMessage = message;
   toastContainer.appendChild(el);
@@ -537,7 +539,8 @@ export function confirmModal({
   cancelLabel = "Cancel",
   confirmTone = "primary",
   steps = null,        // array of step labels, e.g. ["Lock trading", "Carry forward", "Popularity"]
-  currentStep = 1      // 1-based index into `steps`
+  currentStep = 1,     // 1-based index into `steps`
+  requireText = null   // if set, the user must type this exact text before Confirm enables
 }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -560,6 +563,13 @@ export function confirmModal({
       }).join("")}</ol>`;
     }
 
+    const requireHtml = requireText
+      ? `<div class="confirm-modal__require">
+          <label class="form-label" for="confirm-require-input">Type <strong>${escapeHtml(requireText)}</strong> to confirm</label>
+          <input type="text" class="search-input" id="confirm-require-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${escapeHtml(requireText)}">
+        </div>`
+      : "";
+
     overlay.innerHTML = `
       <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         <div class="modal__header">
@@ -568,12 +578,17 @@ export function confirmModal({
         </div>
         ${stepsHtml}
         <div class="confirm-modal__body">${bodyHtml}</div>
+        ${requireHtml}
         <div class="confirm-modal__actions">
           <button class="btn btn--outline" data-confirm-action="cancel">${cancelLabel}</button>
-          <button class="btn btn--${confirmTone}" data-confirm-action="confirm">${confirmLabel}</button>
+          <button class="btn btn--${confirmTone}" data-confirm-action="confirm"${requireText ? " disabled" : ""}>${confirmLabel}</button>
         </div>
       </div>
     `;
+
+    const confirmBtn = overlay.querySelector('[data-confirm-action="confirm"]');
+    const reqInput = overlay.querySelector("#confirm-require-input");
+    const textMatches = () => !requireText || (reqInput?.value.trim() === requireText);
 
     const previouslyFocused = document.activeElement;
     function close(result) {
@@ -586,19 +601,21 @@ export function confirmModal({
     }
     function onKey(e) {
       if (e.key === "Escape") { e.preventDefault(); close(false); }
-      else if (e.key === "Enter") { e.preventDefault(); close(true); }
+      else if (e.key === "Enter") { e.preventDefault(); if (textMatches()) close(true); }
     }
 
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) { close(false); return; }
       const action = e.target.closest("[data-confirm-action]")?.dataset.confirmAction;
       if (action === "cancel") close(false);
-      else if (action === "confirm") close(true);
+      else if (action === "confirm" && textMatches()) close(true);
     });
+
+    if (reqInput) reqInput.addEventListener("input", () => { confirmBtn.disabled = !textMatches(); });
 
     document.addEventListener("keydown", onKey);
     document.body.appendChild(overlay);
-    overlay.querySelector('[data-confirm-action="confirm"]')?.focus();
+    (reqInput || confirmBtn)?.focus();
   });
 }
 
@@ -792,7 +809,7 @@ export function showAuthGate(container) {
           <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
           <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
           <button class="btn btn--outline" id="btn-email-submit" style="width:100%">${isRegister ? "Create Account" : "Sign In"}</button>
-          <p id="auth-error" style="color:#b45309;font-size:0.85rem;text-align:center;min-height:1.2rem"></p>
+          <p id="auth-error" style="color:var(--color-error);font-size:0.85rem;text-align:center;min-height:1.2rem"></p>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem">
             <a href="#" id="auth-toggle" style="color:var(--color-sage)">${isRegister ? "Already have an account?" : "Create an account"}</a>
             ${!isRegister ? `<a href="#" id="auth-forgot" style="color:var(--color-sage)">Forgot password?</a>` : ""}
@@ -845,7 +862,7 @@ export function showAuthGate(container) {
         errEl.style.color = "green";
         errEl.textContent = "Password reset email sent.";
       } catch (err) {
-        errEl.style.color = "#b45309";
+        errEl.style.color = "var(--color-error)";
         errEl.textContent = err.message;
       }
     });

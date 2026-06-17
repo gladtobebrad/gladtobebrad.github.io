@@ -67,7 +67,7 @@ The leaderboard is derived data. The single canonical write path is `recalcLeade
 
 1. **Compute first, validate, then write.** New leaderboard entries are built entirely in memory; if any read fails, Firestore is untouched.
 2. **Skip tours with no results.** A tour with zero events marked `resultsEntered` is skipped entirely — never overwrites a populated leaderboard with empties.
-3. **Single atomic `writeBatch` per tour.** Combines sets-for-current-users + deletes-of-orphan-users in one commit; a failure mid-flight leaves that tour's leaderboard unchanged.
+3. **Chunked writes per tour (≤450 ops), safe to re-run.** Firestore caps a `writeBatch` at 500 ops, so the recalc commits in ≤450-op chunks via `commitInChunks()` (a tour past ~500 users still writes). Sets run before deletes, so a partial failure leaves entries stale-but-present (never missing), and the admin is told how many writes landed and to re-run. Because recalc recomputes-and-overwrites, **re-running Update safely completes any partial write** — the canonical recovery path.
 4. **Per-tour try/catch.** A women's recalc failure cannot corrupt the men's leaderboard.
 5. **User team rosters (`teams/`) are read-only here.** Recalc never modifies a roster a user saved.
 6. **In-progress events store a projected score.** Recalc uses `projectTeam()` instead of `scoreTeam()` for events where `isInProgress(ev)` is true, so live standings show each team's upside (a guaranteed floor that only rises) rather than the inverted locked-in total. Once the event completes, the next recalc overwrites it with the final `scoreTeam()` total. This is the only place projections are computed — the standings/clubhouse/event pages just read the leaderboard and style live columns as estimates.
@@ -80,7 +80,7 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 - Alternate must cost under $4M (`ALT_CAP` in `team.js`, both tours) and is excluded from the salary cap
 - Alternate auto-substitutes for the first non-competing surfer
 - Season standings use best-9-of-N events; tiebreaker is all-events total
-- Current season constant: `SEASON = 2026` (defined in each HTML page)
+- Current season constant: `SEASON` (exported from `js/config.js`, imported everywhere)
 
 ### Admin Page
 
@@ -91,7 +91,6 @@ There is intentionally no standalone `clearLeaderboard` or `saveLeaderboardBatch
 - **Results** — *Fetch & Update Results from WSL* (auto-scrape current venue, parse heats, compute finish positions, preview, then save with themed overwrite-confirm) and manual results entry. Both save paths trigger `promptUpdateLeaderboard()`.
 - **Players** — registered users + Refresh Player Directory + Reset All Teams (destructive).
 - **Clubs** — list/delete clubs.
-- **Seed Data** — one-click bulk import of 2026 schedule + men's surfer roster (legacy bootstrap; can be removed once season is fully seeded).
 
 ### Recent Features (not always reflected in older code paths)
 

@@ -1,3 +1,5 @@
+import { BEST_N_EVENTS } from "./config.js";
+
 // Men's scoring: finish position (1-indexed) → points
 // Index 0 is unused so that MEN_SCORING[1] = 200, etc.
 export const MEN_SCORING = [
@@ -237,7 +239,7 @@ export function calculateSeasonStandings(entries) {
   return entries.map((entry) => {
     const scores = Object.values(entry.eventScores || {});
     scores.sort((a, b) => b - a);
-    const bestNine = scores.slice(0, 9);
+    const bestNine = scores.slice(0, BEST_N_EVENTS);
     const bestNineTotal = bestNine.reduce((a, b) => a + b, 0);
     const allEventsTotal = scores.reduce((a, b) => a + b, 0);
     return {
