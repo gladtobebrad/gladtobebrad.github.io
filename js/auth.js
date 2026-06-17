@@ -41,7 +41,7 @@ export async function signIn() {
         if (currentUser) return;
         const btn = document.getElementById("btn-gate-signin") || document.getElementById("btn-signin");
         const msg = document.createElement("p");
-        msg.style.cssText = "color:#b45309;font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
+        msg.style.cssText = "color:var(--color-error);font-size:0.85rem;margin-top:0.75rem;text-align:center;max-width:320px;margin-left:auto;margin-right:auto";
         msg.textContent = "Pop-up was blocked. Please allow pop-ups for this site, then try again — or use email sign-in below.";
         if (btn?.parentNode) btn.parentNode.insertBefore(msg, btn.nextSibling);
       }, 3000);

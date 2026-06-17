@@ -105,7 +105,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center;margin-bottom:0.6rem">
                   <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Live Status</span>
-                  <div id="live-status-preview" style="text-align:center;padding:0.4rem 1rem;background:rgba(33,122,60,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <div id="live-status-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
                   <label class="toggle" id="toggle-live-status" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
@@ -114,7 +114,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center">
                   <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Countdown</span>
-                  <div id="countdown-preview" style="text-align:center;padding:0.4rem 1rem;background:rgba(192,57,43,0.12);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <div id="countdown-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
                   <label class="toggle" id="toggle-banner" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
@@ -370,7 +370,7 @@
             <div class="form-actions">
               <button class="btn btn--primary" id="btn-fetch-results">Fetch &amp; Update Results from WSL</button>
             </div>
-            <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.78rem;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
+            <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:var(--font-mono);font-size:0.78rem;background:var(--color-cream);border:1px solid var(--color-beige);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
             <div id="wsl-fetch-output" class="mt-3"></div>
           </div>
           <div class="card mb-3">
@@ -396,7 +396,7 @@
               </select>
             </div>
             <div class="form-actions">
-              <button class="btn btn--outline" id="btn-clear-results" style="color:#c0392b;border-color:#c0392b">Clear All Results for Event</button>
+              <button class="btn btn--outline" id="btn-clear-results" style="color:var(--color-error);border-color:var(--color-error)">Clear All Results for Event</button>
             </div>
           </div>
         </div>
@@ -1328,7 +1328,7 @@
               <p class="text-sm text-muted" style="margin:0 0 0.4rem">${g.resolvedResults.length} placements${g.unmatched.length ? ` · ${g.unmatched.length} unmatched` : ""}</p>
               <div style="max-height:280px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff">
                 <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
-                  <thead><tr style="background:#f7f5f0;position:sticky;top:0"><th style="padding:0.3rem 0.4rem;text-align:right">#</th><th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th><th style="padding:0.3rem 0.4rem;text-align:right">Heat</th><th style="padding:0.3rem 0.4rem;text-align:right">Pts</th></tr></thead>
+                  <thead><tr style="background:var(--color-cream);position:sticky;top:0"><th style="padding:0.3rem 0.4rem;text-align:right">#</th><th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th><th style="padding:0.3rem 0.4rem;text-align:right">Heat</th><th style="padding:0.3rem 0.4rem;text-align:right">Pts</th></tr></thead>
                   <tbody>${rows || `<tr><td colspan="4" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No completed rounds yet.</td></tr>`}</tbody>
                 </table>
               </div>
@@ -1337,8 +1337,8 @@
         }).join("");
 
         const warnHtml = warnings.length ? `
-          <div class="mt-3" style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem">
-            <strong style="color:#a37500">Warnings (${warnings.length}):</strong>
+          <div class="mt-3" style="background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:6px;padding:0.6rem 0.8rem">
+            <strong style="color:var(--color-warning)">Warnings (${warnings.length}):</strong>
             <ul style="margin:0.3rem 0 0;padding-left:1.2rem;font-size:0.8rem;line-height:1.4">
               ${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}
             </ul>
@@ -1788,7 +1788,7 @@
           try {
             result = await computeRepricing(tour);
           } catch (err) {
-            valueUpdateSection.innerHTML = `<p style="margin:0;color:#c0392b">Couldn't reprice: ${escapeHtml(err.message)}</p>`;
+            valueUpdateSection.innerHTML = `<p style="margin:0;color:var(--color-error)">Couldn't reprice: ${escapeHtml(err.message)}</p>`;
             return;
           }
           renderRepricePreview(tour, label, result);
@@ -1808,7 +1808,7 @@
           const rows = matched
             .sort((a, b) => a.newRank - b.newRank)
             .map((s) => {
-              const clr = s.change > 0 ? "color:#1a7f37" : s.change < 0 ? "color:#c0392b" : "color:var(--color-warm-gray)";
+              const clr = s.change > 0 ? "color:var(--color-success)" : s.change < 0 ? "color:var(--color-error)" : "color:var(--color-warm-gray)";
               const arrow = s.change > 0 ? "▲" : s.change < 0 ? "▼" : "—";
               const changeStr = s.change !== 0 ? `${s.change > 0 ? "+" : "−"}${formatSalary(Math.abs(s.change))}` : "—";
               return `<tr>
@@ -1823,12 +1823,12 @@
 
           const canApply = recentEvent && matched.length;
           const applyBtnHtml = canApply ? `
-            <button class="btn" id="btn-apply-repricing" style="background:#c0392b;color:#fff;border-color:#c0392b">
+            <button class="btn" id="btn-apply-repricing" style="background:var(--color-error);color:#fff;border-color:var(--color-error)">
               Apply to ${matched.length} Surfer${matched.length !== 1 ? "s" : ""}
             </button>` : "";
 
           valueUpdateSection.innerHTML = `
-            <div style="background:#fff4dc;border:1px solid #f0d68c;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem;color:#7a5500">
+            <div style="background:var(--color-warning-bg);border:1px solid var(--color-warning-border);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem;color:var(--color-warning)">
               <p class="text-sm" style="margin:0 0 0.35rem">
                 Each surfer's value is <strong>low-pass filtered</strong> toward a rank-based target — one gentle step per event, with a minimum step size of ${formatSalary(VALUE_STEP)} and a ${formatSalary(MAX_CHANGE)} backstop:
               </p>
@@ -1841,18 +1841,18 @@
               ${recentEvent ? "" : `<p class="text-sm" style="margin:0.35rem 0 0"><em>No event with results for this tour yet — nothing to step.</em></p>`}
             </div>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.6rem">
-              <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
+              <div style="flex:1 1 200px;background:var(--color-cream);border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
                 <div class="text-sm text-muted">Top ${ten.starters} cost vs cap</div>
                 <div style="font-weight:600">${formatSalary(ten.topStartersSum)} / ${formatSalary(ten.cap)} <span class="text-sm" style="color:var(--color-warm-gray)">(${pct}%)</span></div>
-                <div class="text-sm" style="color:${tooEasy ? "#c0392b" : "#1a7f37"}">${tooEasy ? "⚠ a superteam fits under the cap" : `affordable stars: top ${ten.affordableStars} of ${ten.starters}`}</div>
+                <div class="text-sm" style="color:${tooEasy ? "var(--color-error)" : "var(--color-success)"}">${tooEasy ? "⚠ a superteam fits under the cap" : `affordable stars: top ${ten.affordableStars} of ${ten.starters}`}</div>
               </div>
-              <div style="flex:1 1 200px;background:#f7f5f0;border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
+              <div style="flex:1 1 200px;background:var(--color-cream);border:1px solid var(--color-beige);border-radius:6px;padding:0.5rem 0.7rem">
                 <div class="text-sm text-muted">Pool total vs target <span class="text-sm" style="color:var(--color-warm-gray)">(converges over events)</span></div>
                 <div style="font-weight:600">${formatSalary(ten.poolTotal)} / ${formatSalary(ten.targetPool)} <span class="text-sm" style="color:var(--color-warm-gray)">(${poolPct}%)</span></div>
                 <div class="text-sm" style="color:var(--color-warm-gray)">${matched.length} matched${unmatched.length ? `, ${unmatched.length} unmatched` : ""}</div>
               </div>
             </div>
-            ${warnings.length ? `<ul class="text-sm" style="margin:0 0 0.5rem;padding-left:1.1rem;color:#a37500">${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>` : ""}
+            ${warnings.length ? `<ul class="text-sm" style="margin:0 0 0.5rem;padding-left:1.1rem;color:var(--color-warning)">${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>` : ""}
             ${unmatched.length ? `<p class="text-sm text-muted" style="margin:0 0 0.5rem">Unmatched (value unchanged): ${unmatched.map((u) => escapeHtml(u.name)).join(", ")}. Check name spelling or add them to our roster.</p>` : ""}
             <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.4rem">
               <h4 style="margin:0">${modified.length} of ${matched.length} surfers change price</h4>
@@ -1860,7 +1860,7 @@
             </div>
             <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:360px;overflow-y:auto">
               <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
-                <thead><tr style="background:#f7f5f0;position:sticky;top:0">
+                <thead><tr style="background:var(--color-cream);position:sticky;top:0">
                   <th style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
                   <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
                   <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>

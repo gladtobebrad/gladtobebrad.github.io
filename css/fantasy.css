@@ -23,12 +23,23 @@
   --color-warm-brown: #8B7E74;
   --color-warm-gray: #C9C5BE;
   --color-dark: var(--color-charcoal);
-  --color-error: #c0392b;
   --color-off-white: #f8f7f4;
+
+  /* Semantic state colors — foreground + tinted background (+ a warning
+     border) per status. Use these instead of hardcoding success greens,
+     error reds or warning golds, which had fragmented into 5 greens, 4 reds
+     and several golds scattered across CSS, inline styles and JS. */
+  --color-success: #217a3c;
+  --color-success-bg: #dff5e3;
+  --color-error: #c0392b;
+  --color-error-bg: #fde8e4;
+  --color-warning: #b8860b;
+  --color-warning-bg: #fff8e1;
+  --color-warning-border: #f0d060;
 
   --font-heading: 'Lora', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'SF Mono', Monaco, Consolas, monospace;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --radius-sm: 2px;
   --radius-md: 4px;
@@ -355,13 +366,13 @@ img { max-width: 100%; }
 
 .btn--danger {
   background: transparent;
-  color: #c0392b;
+  color: var(--color-error);
   border-color: #e6d5d3;
 }
 .btn--danger:hover:not(:disabled) {
-  background: #c0392b;
+  background: var(--color-error);
   color: #fff;
-  border-color: #c0392b;
+  border-color: var(--color-error);
 }
 
 .btn--sm {
@@ -398,20 +409,20 @@ img { max-width: 100%; }
   color: var(--color-warm-brown);
 }
 .badge--live {
-  background: #dff5e3;
-  color: #217a3c;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .badge--completed {
   background: var(--color-beige);
   color: var(--color-charcoal);
 }
 .badge--open {
-  background: #dff5e3;
-  color: #217a3c;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .badge--locked {
-  background: #fde8e4;
-  color: #c0392b;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 /* ── Data Tables ──────────────────────────────────── */
@@ -512,7 +523,7 @@ img { max-width: 100%; }
 }
 
 .salary-bar__fill--over {
-  background: #c0392b;
+  background: var(--color-error);
 }
 
 .salary-bar__fill--warn {
@@ -800,11 +811,11 @@ img { max-width: 100%; }
 }
 
 .toast--success {
-  background: #217a3c;
+  background: var(--color-success);
   color: #fff;
 }
 .toast--error {
-  background: #c0392b;
+  background: var(--color-error);
   color: #fff;
 }
 .toast--info {
@@ -993,9 +1004,9 @@ img { max-width: 100%; }
   gap: 0.3rem;
   font-size: 0.8rem;
   font-weight: 600;
-  background: #fff8e1;
-  color: #b8860b;
-  border: 1px solid #f0d060;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
   border-radius: 999px;
   padding: 0.2rem 0.7rem;
   white-space: nowrap;
@@ -1139,12 +1150,12 @@ img { max-width: 100%; }
   border-radius: 3px;
 }
 .price-delta--up {
-  color: #2e7d32;
-  background: rgba(46, 125, 50, 0.1);
+  color: var(--color-success);
+  background: var(--color-success-bg);
 }
 .price-delta--down {
-  color: #c0392b;
-  background: rgba(192, 57, 43, 0.1);
+  color: var(--color-error);
+  background: var(--color-error-bg);
 }
 
 /* Tour tabs */
@@ -1453,8 +1464,8 @@ img { max-width: 100%; }
   height: 18px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
-  color: #c0392b;
-  border: 1px solid #c0392b;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 700;
@@ -1472,7 +1483,7 @@ img { max-width: 100%; }
   display: block;
   transform: translateY(-1px);
 }
-.team-row__drop-btn:hover { background: #c0392b; color: #fff; }
+.team-row__drop-btn:hover { background: var(--color-error); color: #fff; }
 
 /* Editable variant: tiles get the same card-style background + border as
    the .available-card so the visual treatment is consistent between
@@ -1658,8 +1669,8 @@ img { max-width: 100%; }
   color: var(--color-warm-brown);
 }
 .inline-select--status[data-current="live"] {
-  background-color: #dff5e3;
-  color: #217a3c;
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
 }
 .inline-select--status[data-current="completed"] {
   background-color: var(--color-beige);
@@ -1668,12 +1679,12 @@ img { max-width: 100%; }
 
 /* Surfer status colours */
 .inline-select--surfer-status[data-current="active"] {
-  background-color: #dff5e3;
-  color: #217a3c;
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
 }
 .inline-select--surfer-status[data-current="injured"] {
-  background-color: #fde2e2;
-  color: #a02c2c;
+  background-color: var(--color-error-bg);
+  color: var(--color-error);
 }
 .inline-select--surfer-status[data-current="inactive"] {
   background-color: var(--color-beige);
@@ -1693,7 +1704,7 @@ img { max-width: 100%; }
   position: relative;
   width: 36px;
   height: 20px;
-  background: #c0392b;
+  background: var(--color-error);
   border-radius: 100px;
   transition: background 0.25s;
   flex-shrink: 0;
@@ -1710,7 +1721,7 @@ img { max-width: 100%; }
   transition: transform 0.25s;
 }
 .toggle input:checked + .toggle__track {
-  background: #217a3c;
+  background: var(--color-success);
 }
 .toggle input:checked + .toggle__track::after {
   transform: translateX(16px);
