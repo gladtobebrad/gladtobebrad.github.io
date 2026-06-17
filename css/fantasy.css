@@ -19,8 +19,9 @@
   --color-warm-black: #3A3A38;
   --color-sage: #9CA898;
   --color-sage-dark: #7D8975;
+  --color-sage-deep: #637059;   /* AA: white text passes 4.5:1 */
   --color-terracotta: #C97A60;
-  --color-warm-brown: #8B7E74;
+  --color-warm-brown: #6a6055;
   --color-warm-gray: #C9C5BE;
   --color-dark: var(--color-charcoal);
   --color-off-white: #f8f7f4;
@@ -333,14 +334,12 @@ img { max-width: 100%; }
 }
 
 .btn--primary {
-  background: var(--color-sage);
+  background: var(--color-sage-deep);
   color: #fff;
-  border-color: var(--color-sage);
+  border-color: var(--color-sage-deep);
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--color-sage-dark);
-  border-color: var(--color-sage-dark);
-  color: #fff;
+  filter: brightness(0.9);
 }
 
 .btn--secondary {
@@ -636,7 +635,7 @@ img { max-width: 100%; }
   color: var(--color-charcoal);
   transition: border-color var(--transition);
 }
-.search-input:focus {
+.search-input:focus:not(:focus-visible) {
   outline: none;
   border-color: var(--color-sage);
 }
@@ -654,7 +653,7 @@ img { max-width: 100%; }
   color: var(--color-charcoal);
   cursor: pointer;
 }
-.filter-select:focus {
+.filter-select:focus:not(:focus-visible) {
   outline: none;
   border-color: var(--color-sage);
 }
@@ -688,9 +687,9 @@ img { max-width: 100%; }
   color: var(--color-charcoal);
   transition: border-color var(--transition);
 }
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
+.form-input:focus:not(:focus-visible),
+.form-select:focus:not(:focus-visible),
+.form-textarea:focus:not(:focus-visible) {
   outline: none;
   border-color: var(--color-sage);
 }
@@ -778,7 +777,7 @@ img { max-width: 100%; }
 
 .footer-sub {
   font-size: 0.8rem;
-  color: var(--color-warm-gray);
+  color: var(--color-warm-brown);
   margin-top: 0.25rem;
 }
 
@@ -1655,7 +1654,7 @@ img { max-width: 100%; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
 }
 .inline-select:hover { border-color: var(--color-beige); }
-.inline-select:focus { outline: none; border-color: var(--color-sage); }
+.inline-select:focus:not(:focus-visible) { outline: none; border-color: var(--color-sage); }
 
 .inline-select--status option,
 .inline-select--surfer-status option {
@@ -1879,4 +1878,24 @@ img { max-width: 100%; }
   color: var(--color-warm-gray);
   font-size: 0.95rem;
   line-height: 1;
+}
+
+/* ── Accessibility ───────────────────────────────── */
+
+/* Keyboard focus ring — visible on keyboard nav, suppressed on mouse click
+   (component :focus rules use :focus:not(:focus-visible) to hide it on click). */
+:focus-visible {
+  outline: 2px solid var(--color-sage-dark);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Honor the reduced-motion preference — collapse animations/transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

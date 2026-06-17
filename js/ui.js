@@ -512,6 +512,8 @@ export function toast(message, type = "info", duration = 3500) {
   }
   const el = document.createElement("div");
   el.className = `toast toast--${type}`;
+  el.setAttribute("role", type === "error" ? "alert" : "status");
+  el.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
   el.textContent = message;
   el.dataset.toastMessage = message;
   toastContainer.appendChild(el);
