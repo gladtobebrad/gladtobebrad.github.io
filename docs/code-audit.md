@@ -14,6 +14,7 @@
 
 - 2026-06-17 — Audit generated and committed to repo.
 - 2026-06-17 — **Wave 0 (in-repo parts) done.** Authored `firestore.rules` / `storage.rules` / `firebase.json` / `firestore.indexes.json` / `.firebaserc` from the real data model. Added canonical `escapeHtml()`+`safeUrl()` to `js/ui.js` and escaped every user/remote `innerHTML` sink across all 10 pages + the live-status banner; avatar URLs validated on save. Added `test/security-helpers.test.mjs` (17/17 pass). Full repo passes `node --check`. Remaining Wave 0 items need Firebase access → see [firebase-deploy-handoff.md](firebase-deploy-handoff.md). Branch: `wave0-security-hardening`.
+- 2026-06-17 — Wave 1 underway (config / color tokens / a11y / dead-code + batch-chunking). **writeBatch chunking (F-61):** added `commitInChunks` (retries transients, reports partial-write count, sets-before-deletes, idempotent re-run). Owner accepted the brief-but-recoverable partial window over reverting to a single atomic batch; the single-doc-per-tour leaderboard (fully atomic, no 500-op cap) is recorded in Wave 2 as the escape hatch if zero-partial-state or >500-user scale is later required.
 
 ---
 
@@ -69,6 +70,8 @@ These recur across dimensions and matter more than any single finding.
 - [ ] Have `pricing.js` consume cap/roster via `getTeamRules()` _(F-21)_
 - [ ] Split `ui.js` (819 lines) into format/banners/modals/nav
 - [ ] Decompose `admin.html` (1,913 inline lines) into per-tab controller modules — do last, incrementally
+
+- [ ] **(Escape hatch / deferred 2026-06-17)** Restructure the leaderboard to one document per tour (`leaderboard/{season}_{tour}` holding the standings array): makes recalc a single atomic `setDoc` — never partial, no 500-op cap, cheaper reads (1 doc vs N), and drops the orphan-delete logic. Read paths unaffected if `getLeaderboard()` keeps its array shape. Chosen against (for now) in favor of chunked+retry per owner decision.
 
 ### Wave 3 — Nice-to-haves
 

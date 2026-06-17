@@ -28,7 +28,7 @@
       getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
-      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
+      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams, commitInChunks,
       touchLeaderboardVersion, touchEventsVersion,
       savePlayerDirectory, getAllUsers,
       getAllClubs, deleteClub,
@@ -634,8 +634,9 @@
     //  1. Compute the entire new leaderboard in memory before touching Firestore.
     //  2. Pre-flight: skip a tour entirely if it has no events with results
     //     entered — never overwrite a real leaderboard with empties.
-    //  3. Single atomic writeBatch per tour: all sets + orphan deletes commit
-    //     together, so a failure mid-flight leaves the leaderboard untouched.
+    //  3. Writes are chunked to <=450 ops (Firestore caps a batch at 500) so a
+    //     tour past ~500 users still commits. Sets run before deletes, so a
+    //     partial failure leaves entries stale-but-present (never missing).
     //  4. Per-tour try/catch so one tour's failure cannot corrupt the other.
     //  5. User team rosters (teams/) are read-only here — never written.
     async function recalcLeaderboardForTour(tour, freshEvents, freshUsers) {
@@ -706,10 +707,14 @@
       });
       const newUserIds = new Set(newStandings.map((s) => s.userId));
 
-      const batch = writeBatch(db);
+      // Sets BEFORE deletes so a partial failure across chunks degrades safely
+      // (an entry may be stale, never missing). Chunked at <=450 ops because a
+      // single writeBatch caps at 500 — a tour past ~500 users would otherwise
+      // throw and leave the whole tour unwritten.
+      const ops = [];
       for (const entry of newStandings) {
         const docId = `${entry.userId}_${SEASON}_${tour}`;
-        batch.set(doc(db, "leaderboard", docId), {
+        ops.push((batch) => batch.set(doc(db, "leaderboard", docId), {
           userId: entry.userId,
           season: SEASON,
           tour,
@@ -719,14 +724,14 @@
           bestNineTotal: entry.bestNineTotal,
           allEventsTotal: entry.allEventsTotal,
           eventsPlayed: entry.eventsPlayed,
-        });
+        }));
       }
       for (const oldUserId of existingUserIds) {
         if (!newUserIds.has(oldUserId)) {
-          batch.delete(doc(db, "leaderboard", `${oldUserId}_${SEASON}_${tour}`));
+          ops.push((batch) => batch.delete(doc(db, "leaderboard", `${oldUserId}_${SEASON}_${tour}`)));
         }
       }
-      await batch.commit(); // atomic — all-or-nothing
+      await commitInChunks(ops);
 
       return {
         tour,
@@ -814,8 +819,9 @@
         try {
           outcomes.push(await recalcLeaderboardForTour(tour, freshEvents, freshUsers));
         } catch (err) {
-          // Atomic batch failed → that tour's leaderboard is unchanged. Record
-          // the failure and continue with the other tour.
+          // A chunk commit failed mid-recalc. Sets-before-deletes means that
+          // tour's entries are stale-but-present (never missing). Record the
+          // failure and continue with the other tour.
           outcomes.push({ tour, status: "failed", reason: err.message });
         }
       }
@@ -834,7 +840,7 @@
       const parts = outcomes.map((o) => {
         if (o.status === "updated") return `${labelOf(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
         if (o.status === "skipped") return `${labelOf(o.tour)} skipped (${o.reason})`;
-        return `${labelOf(o.tour)} FAILED: ${o.reason}`;
+        return `${labelOf(o.tour)} FAILED: ${o.reason} — re-running Update is safe and completes it`;
       });
       const anyFailed = outcomes.some((o) => o.status === "failed");
       const anyUpdated = outcomes.some((o) => o.status === "updated");
@@ -1136,7 +1142,7 @@
               toast(`Trading opened.${carried > 0 ? ` ${carried} roster(s) carried forward.` : ""}`, "success");
             }
           } catch (err) {
-            toast(locking ? "Trading locked, but team operations failed (check Firestore permissions)." : "Trading opened, but team unlock failed.", "warning");
+            toast((locking ? "Trading locked, but team operations failed" : "Trading opened, but team unlock failed") + " — re-run the toggle to finish. " + err.message, "warning");
           }
           try { await touchEventsVersion(); } catch {}
           events = await getEvents(SEASON);
@@ -1915,7 +1921,7 @@
         try {
           const count = await clearAllTeams();
           toast(`All teams cleared (${count} rosters deleted).`, "success");
-        } catch (err) { toast("Error: " + err.message, "error"); }
+        } catch (err) { toast("Reset failed (" + err.message + "). Re-running is safe — it deletes whatever remains.", "error"); }
       });
 
       document.getElementById("btn-refresh-directory")?.addEventListener("click", async () => {

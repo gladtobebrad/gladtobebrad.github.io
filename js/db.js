@@ -6,6 +6,35 @@ import {
   query, where
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
+// Commit an array of batch-op callbacks in chunks of <=chunkSize ops. Firestore
+// caps a single writeBatch at 500 operations; chunking keeps user-scaling admin
+// actions (clear-all-teams, carry-forward, leaderboard recalc) working past that
+// ceiling.
+//
+// Chunks are NOT atomic with each other, so order ops to degrade safely (all
+// sets before any deletes). If a chunk fails, the earlier chunks STAY committed
+// and this throws an Error carrying how many writes landed (`.committed` /
+// `.total` / `.partial`) so the caller can tell the admin it was a PARTIAL write
+// and prompt them to run it again. Every caller is idempotent (recompute-and-
+// overwrite, or skip-already-done), so re-running safely completes the rest.
+export async function commitInChunks(ops, chunkSize = 450) {
+  let committed = 0;
+  for (let i = 0; i < ops.length; i += chunkSize) {
+    const slice = ops.slice(i, i + chunkSize);
+    try {
+      const batch = writeBatch(db);
+      for (const op of slice) op(batch);
+      await batch.commit();
+      committed += slice.length;
+    } catch (err) {
+      const e = new Error(`committed ${committed}/${ops.length} writes before failing: ${err.message}`);
+      e.committed = committed; e.total = ops.length; e.partial = committed > 0;
+      throw e;
+    }
+  }
+  return committed;
+}
+
 // ── Site Config ─────────────────────────────────────
 
 export async function getSiteConfig() {
@@ -168,18 +197,12 @@ export async function getTeamsForEvent(eventId) {
 
 export async function lockTeamsForEvent(eventId, locked = true) {
   const teams = await getTeamsForEvent(eventId);
-  const batch = writeBatch(db);
-  for (const t of teams) {
-    batch.update(doc(db, "teams", t.id), { locked });
-  }
-  await batch.commit();
+  await commitInChunks(teams.map((t) => (batch) => batch.update(doc(db, "teams", t.id), { locked })));
 }
 
 export async function clearAllTeams() {
   const snap = await getDocs(collection(db, "teams"));
-  const batch = writeBatch(db);
-  snap.docs.forEach(d => batch.delete(d.ref));
-  await batch.commit();
+  await commitInChunks(snap.docs.map((d) => (batch) => batch.delete(d.ref)));
   return snap.docs.length;
 }
 
@@ -243,19 +266,16 @@ export async function carryForwardTeams(eventId, season = SEASON) {
 
   if (toWrite.length === 0) return 0;
 
-  const batch = writeBatch(db);
-  for (const { userId, prevTeam } of toWrite) {
-    const docId = `${userId}_${eventId}`;
-    batch.set(doc(db, "teams", docId), {
+  await commitInChunks(toWrite.map(({ userId, prevTeam }) => (batch) =>
+    batch.set(doc(db, "teams", `${userId}_${eventId}`), {
       userId,
       eventId,
       savedAt: serverTimestamp(),
       surfers: prevTeam.surfers,
       alternate: null, // re-selected fresh each event — never carried forward
       carriedForward: true,
-    }, { merge: true });
-  }
-  await batch.commit();
+    }, { merge: true })
+  ));
   const carried = toWrite.length;
   return carried;
 }
