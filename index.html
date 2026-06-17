@@ -34,7 +34,8 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { SEASON, BEST_N_EVENTS } from "./js/config.js";
+    import { SEASON } from "./js/config.js";
+    import { buildRankProgression } from "./js/scoring.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
@@ -203,28 +204,7 @@
         return `${m}m ${sec}s`;
       }
 
-      // ── Rank progression chart (kept from prior dashboard) ─
-      const buildRankProgression = (leaderboard, completedEventIds, memberIds = null) => {
-        const entries = memberIds
-          ? leaderboard.filter(e => memberIds.includes(e.userId))
-          : leaderboard;
-        if (entries.length === 0 || completedEventIds.length === 0) return [];
-        const ranks = [];
-        for (let n = 1; n <= completedEventIds.length; n++) {
-          const evSubset = completedEventIds.slice(0, n);
-          const standings = entries.map(e => {
-            const scores = evSubset
-              .map(evId => (e.eventScores || {})[evId] || 0)
-              .filter(s => s > 0)
-              .sort((a, b) => b - a);
-            return { userId: e.userId, total: scores.slice(0, BEST_N_EVENTS).reduce((a, b) => a + b, 0) };
-          }).sort((a, b) => b.total - a.total);
-          const rank = standings.findIndex(s => s.userId === user.uid) + 1;
-          ranks.push(rank > 0 ? rank : null);
-        }
-        return ranks;
-      };
-
+      // ── Rank progression chart ──────────────────────────
       const mensCompletedEvents = events
         .filter(e => (e.tour || "mens") === "mens" && e.status === "completed")
         .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
@@ -318,8 +298,8 @@
         // Render two variants — tall for the 2-col layout, wide (clubhouse-
         // style flat aspect) for the post-snap single-col layout. CSS swaps
         // visibility at the same breakpoint where dash-grid-2 stacks.
-        const leagueMensRanks = buildRankProgression(mensLeaderboard, mensCompletedEvents);
-        const leagueWomensRanks = buildRankProgression(womensLeaderboard, womensCompletedEvents);
+        const leagueMensRanks = buildRankProgression(mensLeaderboard, mensCompletedEvents, user.uid);
+        const leagueWomensRanks = buildRankProgression(womensLeaderboard, womensCompletedEvents, user.uid);
         const totalPlayers = Math.max(mensLeaderboard.length, womensLeaderboard.length, 12);
         const leagueChartTall = renderRankChart(leagueMensRanks, leagueWomensRanks, totalPlayers);
         const leagueChartWide = renderRankChart(leagueMensRanks, leagueWomensRanks, totalPlayers, {

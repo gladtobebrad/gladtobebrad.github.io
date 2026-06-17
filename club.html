@@ -23,10 +23,10 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { SEASON, BEST_N_EVENTS, TOURS } from "./js/config.js";
+    import { SEASON, TOURS } from "./js/config.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
-    import { isInProgress } from "./js/scoring.js";
+    import { isInProgress, buildRankProgression } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, toast, escapeHtml, confirmModal } from "./js/ui.js";
     import { renderStandingsTable, wireStandingsTables } from "./js/standings-table.js";
 
@@ -254,24 +254,6 @@
         .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
         .map(e => e.id);
 
-      const buildRankProgression = (entries, completedEventIds) => {
-        if (entries.length === 0 || completedEventIds.length === 0) return [];
-        const ranks = [];
-        for (let n = 1; n <= completedEventIds.length; n++) {
-          const evSubset = completedEventIds.slice(0, n);
-          const standings = entries.map(e => {
-            const scores = evSubset
-              .map(evId => (e.eventScores || {})[evId] || 0)
-              .filter(s => s > 0)
-              .sort((a, b) => b - a);
-            return { userId: e.userId, total: scores.slice(0, BEST_N_EVENTS).reduce((a, b) => a + b, 0) };
-          }).sort((a, b) => b.total - a.total);
-          const rank = standings.findIndex(s => s.userId === user.uid) + 1;
-          ranks.push(rank > 0 ? rank : null);
-        }
-        return ranks;
-      };
-
       const MENS_LINE_COLOR = "#7D8975";   // sage-dark
       const WOMENS_LINE_COLOR = "#B0837A"; // muted dusty rose
 
@@ -339,8 +321,8 @@
           </div>`;
       };
 
-      const clubMensRanks = buildRankProgression(mensMemberEntries, mensCompletedIds);
-      const clubWomensRanks = buildRankProgression(womensMemberEntries, womensCompletedIds);
+      const clubMensRanks = buildRankProgression(mensMemberEntries, mensCompletedIds, user.uid);
+      const clubWomensRanks = buildRankProgression(womensMemberEntries, womensCompletedIds, user.uid);
       const clubChartHtml = renderRankChart(
         clubMensRanks,
         clubWomensRanks,

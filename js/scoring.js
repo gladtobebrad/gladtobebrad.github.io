@@ -231,6 +231,20 @@ export function isInProgress(event) {
 }
 
 /**
+ * Best-N total: sum of a competitor's top BEST_N_EVENTS event scores — the
+ * single home for the best-9-of-N rule. Copies `scores` before sorting so the
+ * caller's array is left untouched.
+ * @param {number[]} scores - event point totals, any order
+ * @returns {number}
+ */
+function bestNTotal(scores) {
+  return [...scores]
+    .sort((a, b) => b - a)
+    .slice(0, BEST_N_EVENTS)
+    .reduce((a, b) => a + b, 0);
+}
+
+/**
  * Calculate season standings using best-9-of-N rule
  * @param {Object[]} entries - array of { userId, displayName, teamName, eventScores: { eventId: pts } }
  * @returns {Object[]} sorted standings
@@ -238,14 +252,10 @@ export function isInProgress(event) {
 export function calculateSeasonStandings(entries) {
   return entries.map((entry) => {
     const scores = Object.values(entry.eventScores || {});
-    scores.sort((a, b) => b - a);
-    const bestNine = scores.slice(0, BEST_N_EVENTS);
-    const bestNineTotal = bestNine.reduce((a, b) => a + b, 0);
-    const allEventsTotal = scores.reduce((a, b) => a + b, 0);
     return {
       ...entry,
-      bestNineTotal,
-      allEventsTotal,
+      bestNineTotal: bestNTotal(scores),
+      allEventsTotal: scores.reduce((a, b) => a + b, 0),
       eventsPlayed: scores.length
     };
   }).sort((a, b) => {
@@ -255,4 +265,32 @@ export function calculateSeasonStandings(entries) {
     if (b.allEventsTotal !== a.allEventsTotal) return b.allEventsTotal - a.allEventsTotal;
     return 0;
   });
+}
+
+/**
+ * The viewer's rank over time: for each completed event 1..N (in order), rank
+ * `userId` within `entries` by best-N total *through that event*. Returns an
+ * array of ranks aligned to `completedEventIds` (null where the user has no
+ * standing yet). Drives the dashboard / club rank sparkline. `entries` is the
+ * already-filtered set whose ranking matters (full leaderboard or one club).
+ * @param {Array}    entries            leaderboard entries: { userId, eventScores }
+ * @param {string[]} completedEventIds  completed event ids, in chronological order
+ * @param {string}   userId             the viewer whose rank to track
+ * @returns {(number|null)[]} rank at each event step
+ */
+export function buildRankProgression(entries, completedEventIds, userId) {
+  if (entries.length === 0 || completedEventIds.length === 0) return [];
+  const ranks = [];
+  for (let n = 1; n <= completedEventIds.length; n++) {
+    const evSubset = completedEventIds.slice(0, n);
+    const standings = entries.map((e) => {
+      const scores = evSubset
+        .map((evId) => (e.eventScores || {})[evId] || 0)
+        .filter((s) => s > 0);
+      return { userId: e.userId, total: bestNTotal(scores) };
+    }).sort((a, b) => b.total - a.total);
+    const rank = standings.findIndex((s) => s.userId === userId) + 1;
+    ranks.push(rank > 0 ? rank : null);
+  }
+  return ranks;
 }
