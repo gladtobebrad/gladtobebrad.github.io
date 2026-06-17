@@ -34,7 +34,7 @@
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints, getMaxFinishPosition, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
@@ -68,7 +68,7 @@
         ]);
         try { clubs = await getAllClubs(); } catch { clubs = []; }
       } catch (err) {
-        container.innerHTML = `<h1>Admin Panel</h1><div class="card"><p class="text-muted">Error: ${err.message}</p></div>`;
+        container.innerHTML = `<h1>Admin Panel</h1><div class="card"><p class="text-muted">Error: ${escapeHtml(err.message)}</p></div>`;
         return;
       }
       renderAdmin(container);
@@ -135,7 +135,7 @@
                       ${events.map((e) => `
                         <tr>
                           <td>${e.eventNumber}</td>
-                          <td>${e.name}</td>
+                          <td>${escapeHtml(e.name)}</td>
                           <td>${e.tour === "womens" ? "W" : "M"}</td>
                           <td>
                             <select class="inline-select inline-select--status" data-status-event="${e.id}" data-current="${e.status}">
@@ -269,8 +269,8 @@
                       ${(() => { const currentStatus = s.status || (s.active === false ? "inactive" : "active"); return `
                       <tr style="${currentStatus === "inactive" ? "opacity:0.5" : ""}">
                         <td>${s.rank || "—"}</td>
-                        <td>${s.name}</td>
-                        <td>${s.country || ""}</td>
+                        <td>${escapeHtml(s.name)}</td>
+                        <td>${escapeHtml(s.country || "")}</td>
                         <td>${formatSalary(s.value)}</td>
                         <td>
                           <select class="inline-select inline-select--surfer-status" data-status-surfer="${s.id}" data-current="${currentStatus}">
@@ -379,7 +379,7 @@
               <label class="form-label">Select Event</label>
               <select class="form-select" id="results-event-select">
                 <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"} (${e.status})</option>`).join("")}
+                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"} (${e.status})</option>`).join("")}
               </select>
             </div>
             <div id="results-form-container"></div>
@@ -391,7 +391,7 @@
               <select class="form-select" id="clear-results-event-select">
                 <option value="">Choose an event...</option>
                 ${events.filter((e) => e.resultsEntered).map((e) =>
-                  `<option value="${e.id}">${e.eventNumber}. ${e.name} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
+                  `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
                 ).join("")}
               </select>
             </div>
@@ -422,9 +422,9 @@
                 <tbody>
                   ${users.map((u) => `
                     <tr>
-                      <td>${u.displayName || "—"}</td>
-                      <td><strong>${u.teamName || "—"}</strong></td>
-                      <td class="text-sm text-muted">${u.email || "—"}</td>
+                      <td>${escapeHtml(u.displayName || "—")}</td>
+                      <td><strong>${escapeHtml(u.teamName || "—")}</strong></td>
+                      <td class="text-sm text-muted">${escapeHtml(u.email || "—")}</td>
                       <td>${u.isAdmin ? '<span class="badge badge--live">Admin</span>' : ""}</td>
                       <td class="text-sm text-muted">${formatDate(u.joinedAt)}</td>
                     </tr>
@@ -463,10 +463,10 @@
                   ${clubs.map((c) => {
                     const owner = users.find((u) => u.id === c.ownerId);
                     return `<tr>
-                      <td><strong>${c.name}</strong></td>
-                      <td>${owner ? (owner.teamName || owner.displayName || owner.email) : c.ownerId}</td>
+                      <td><strong>${escapeHtml(c.name)}</strong></td>
+                      <td>${escapeHtml(owner ? (owner.teamName || owner.displayName || owner.email) : c.ownerId)}</td>
                       <td>${(c.memberIds || []).length}</td>
-                      <td><code>${c.inviteCode}</code></td>
+                      <td><code>${escapeHtml(c.inviteCode)}</code></td>
                       <td class="text-xs text-muted">${c.id}</td>
                       <td>
                         <button class="btn btn--sm btn--danger" data-delete-club="${c.id}" data-club-members='${JSON.stringify(c.memberIds || [])}'>Delete</button>
@@ -1167,7 +1167,7 @@
           document.getElementById("surfer-tour").value = s.tour || "mens";
           document.getElementById("surfer-stance").value = s.stance || "";
           document.getElementById("surfer-photo").value = s.photoUrl || "";
-          preview.innerHTML = s.photoUrl ? `<img src="${s.photoUrl}" class="surfer-photo--sm" alt="">` : "";
+          preview.innerHTML = s.photoUrl ? `<img src="${escapeHtml(safeUrl(s.photoUrl))}" class="surfer-photo--sm" alt="">` : "";
           document.getElementById("surfer-form-title").textContent = "Edit Surfer";
         } else {
           document.getElementById("surfer-form").reset();
@@ -1310,10 +1310,6 @@
         if (m) return m;
         m = localEvents.find((e) => (e.tour || "mens") === wslEvent.tour && (norm(e.name).includes(w) || w.includes(norm(e.name))));
         return m || null;
-      }
-
-      function escapeHtml(s) {
-        return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       }
 
       function renderScrapeSummary(byTour, warnings) {
@@ -1595,7 +1591,7 @@
                 const ex = existingMap[s.id];
                 return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border:1px solid var(--color-beige);border-radius:6px;background:#fff">
                   <span style="font-size:0.72rem;color:var(--color-warm-gray);flex-shrink:0;min-width:1.6rem">#${s.rank || "?"}</span>
-                  <span style="flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.name}">${s.name}</span>
+                  <span style="flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
                   <input class="form-input" type="text" data-result-surfer="${s.id}" data-result-tour="${eventTour}" value="${ex?.withdrawn ? "WDRW" : (ex?.finish || "")}" style="width:55px;padding:0.2rem 0.3rem;font-size:0.82rem;text-align:center" placeholder="">
                   <span class="result-pts" data-pts-for="${s.id}" style="font-size:0.72rem;color:var(--color-warm-gray);min-width:2rem;text-align:right">${ex?.withdrawn ? "WDRW" : (ex?.finish ? getPoints(ex.finish, eventTour) : "—")}</span>
                 </div>`;

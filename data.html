@@ -156,6 +156,7 @@
   </script>
 
   <script type="module">
+    import { escapeHtml } from "./js/ui.js";
     async function boot() {
       window.__dataBoot.started = true;
 
@@ -386,11 +387,11 @@
 
         const isDropdownLoc = !allLocations.includes(selectedLocation) && t.allLocationsFull.includes(selectedLocation);
         const locBtns = allLocations.map(l =>
-          `<button class="loc-btn${l === selectedLocation ? " active" : ""}" data-loc="${l}">${l}</button>`
+          `<button class="loc-btn${l === selectedLocation ? " active" : ""}" data-loc="${escapeHtml(l)}">${escapeHtml(l)}</button>`
         ).join("")
         + `<select class="loc-select" id="loc-more">
             <option value="" ${isDropdownLoc ? "" : "selected"}>More…</option>
-            ${t.allLocationsFull.map(l => `<option value="${l}" ${l === selectedLocation ? "selected" : ""}>${l}</option>`).join("")}
+            ${t.allLocationsFull.map(l => `<option value="${escapeHtml(l)}" ${l === selectedLocation ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}
           </select>`;
 
         const eventRows = locSurfers.map(s => {
@@ -398,7 +399,7 @@
             `<td class="text-center">${placeBadge(s.yearData[y] ?? null)}</td>`
           ).join("");
           return `<tr>
-            <td>${s.name}</td>
+            <td>${escapeHtml(s.name)}</td>
             <td class="text-center avg-cell">${s.avg !== null ? s.avg : "—"}</td>
             <td class="text-center">${placeBadge(s.best)}</td>
             <td class="text-center">${placeBadge(s.worst)}</td>
@@ -426,7 +427,7 @@
             : null;
           const cells = yearPlaces.map(p => `<td class="text-center">${placeBadge(p)}</td>`).join("");
           return `<tr>
-            <td>${loc}</td>
+            <td>${escapeHtml(loc)}</td>
             ${cells}
             <td class="text-center avg-cell">${avg !== null ? avg : "—"}</td>
           </tr>`;
@@ -434,7 +435,7 @@
 
         const names = visibleNames();
         const btnList = names.map(n =>
-          `<button class="surfer-btn${n === selectedSurfer ? " active" : ""}" data-name="${n.replace(/"/g, "&quot;")}">${n}</button>`
+          `<button class="surfer-btn${n === selectedSurfer ? " active" : ""}" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`
         ).join("");
 
         main.innerHTML = `
@@ -484,7 +485,7 @@
                 </div>
                 <div>
                   <div class="card__header" style="margin-bottom:0.5rem">
-                    <span class="card__title">${name}</span>
+                    <span class="card__title">${escapeHtml(name)}</span>
                     <span class="text-sm text-muted">Place by location</span>
                   </div>
                   ${surferRows.length > 0 ? `
@@ -594,7 +595,7 @@
       console.error("Data page boot failed:", err);
       const main = document.getElementById("app-main");
       if (main) {
-        main.innerHTML = `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">Page failed to start: ${err.message}</p></div>`;
+        main.innerHTML = `<h1 class="page-title">Surfer Data</h1><div class="card"><p class="text-muted">Page failed to start: ${escapeHtml(err.message)}</p></div>`;
       }
     });
   </script>

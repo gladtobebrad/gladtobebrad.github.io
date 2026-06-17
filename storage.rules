@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// =============================================================================
+// Fantasy Surf League — Cloud Storage security rules
+// -----------------------------------------------------------------------------
+// Avatars are uploaded by openProfileEditModal() to avatars/{uid}.
+// Deploy with:  firebase deploy --only storage
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Profile avatars — publicly readable (shown in nav/standings), writable
+    // only by the owning user, image-only, capped at 5 MB.
+    match /avatars/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Everything else: deny.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

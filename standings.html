@@ -25,7 +25,7 @@
     import { initAuth, onAuth } from "./js/auth.js";
     import { getLeaderboard, getEvents, getPlayerDirectory } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml, safeUrl } from "./js/ui.js";
 
     const SEASON = 2026;
     let scoringMode = "best9"; // "best9" or "all"
@@ -116,8 +116,8 @@
                     <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                   </th>
                   ${tourEvents.map(e => `
-                    <th class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${e.name}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
-                      <div>${locationForEvent(e.name)}</div>
+                    <th class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${escapeHtml(e.name)}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
+                      <div>${escapeHtml(locationForEvent(e.name))}</div>
                       <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                     </th>
                   `).join("")}
@@ -125,19 +125,19 @@
                 </tr></thead>
                 <tbody>
                   ${players.map(p => `
-                    <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${p.id}'"
+                    <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${encodeURIComponent(p.id)}'"
                       data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
-                      data-search="${(p.teamName + " " + p.displayName).toLowerCase()}"
+                      data-search="${escapeHtml((p.teamName + " " + p.displayName).toLowerCase())}"
                       ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
                       <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
                       <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">
                         <div class="flex gap-1" style="align-items:center;min-width:0">
                           ${p.avatarUrl
-                            ? `<img src="${p.avatarUrl}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                            ? `<img src="${escapeHtml(safeUrl(p.avatarUrl))}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
                             : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
                           <div style="min-width:0;overflow:hidden">
-                            <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.teamName}</strong>
-                            ${p.teamName !== p.displayName ? `<div class="text-xs text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.displayName}</div>` : ""}
+                            <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.teamName)}</strong>
+                            ${p.teamName !== p.displayName ? `<div class="text-xs text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.displayName)}</div>` : ""}
                           </div>
                         </div>
                       </td>
@@ -258,7 +258,7 @@
       } catch (err) {
         container.innerHTML = `
           <h1 class="page-title">Standings</h1>
-          <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
+          <div class="card"><p class="text-muted">Unable to load data. ${escapeHtml(err.message)}</p></div>
         `;
       }
     }

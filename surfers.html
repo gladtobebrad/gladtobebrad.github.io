@@ -114,7 +114,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getEvents, getSurfers } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml } from "./js/ui.js";
 
     const SEASON = 2026;
     let activeSubPage = "location";  // "location" (Results) | "popularity"
@@ -271,7 +271,7 @@
       } catch (err) {
         container.innerHTML = `
           <h1 class="page-title">Data Vault</h1>
-          <div class="card"><p class="text-muted">Unable to load data. ${err.message}</p></div>
+          <div class="card"><p class="text-muted">Unable to load data. ${escapeHtml(err.message)}</p></div>
         `;
       }
     }
@@ -352,7 +352,7 @@
         const dropdownLocs = [...allLocations, ...dt.allLocationsFull];
         const locDropdown = `
           <select class="loc-select-main" id="loc-select">
-            ${dropdownLocs.map(l => `<option value="${l}" ${l === loc ? "selected" : ""}>${l}</option>`).join("")}
+            ${dropdownLocs.map(l => `<option value="${escapeHtml(l)}" ${l === loc ? "selected" : ""}>${escapeHtml(l)}</option>`).join("")}
           </select>`;
 
         const eventRows = locSurfers.map(s => {
@@ -360,7 +360,7 @@
             `<td class="text-center">${placeBadge(s.yearData[y] ?? null)}</td>`
           ).join("");
           return `<tr>
-            <td>${s.name}</td>
+            <td>${escapeHtml(s.name)}</td>
             <td class="text-center avg-cell">${s.avg !== null ? s.avg : "—"}</td>
             ${yearCells}
           </tr>`;
@@ -431,11 +431,11 @@
                       return null;
                     });
                     return `<tr
-                      data-name="${surfer.name.toLowerCase()}"
+                      data-name="${escapeHtml(surfer.name.toLowerCase())}"
                       data-rank="${surfer.rank || 999}"
                       data-value="${surfer.value || 0}"
                       ${eventCells.map((v, i) => `data-ev${i}="${v ?? -1}"`).join(" ")}>
-                      <td>${surfer.name}</td>
+                      <td>${escapeHtml(surfer.name)}</td>
                       <td class="text-right">${surfer.rank || "—"}</td>
                       <td class="text-right">$${surfer.value ? (surfer.value/1_000_000).toFixed(2) + "M" : "—"}</td>
                       ${eventCells.map(v => `<td class="text-right">${v != null ? v + "%" : "—"}</td>`).join("")}

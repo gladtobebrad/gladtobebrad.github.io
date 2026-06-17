@@ -1,5 +1,34 @@
 import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
 
+// ── Security helpers ─────────────────────────────────
+
+/**
+ * Escape a string for safe interpolation into HTML text or a
+ * double/single-quoted attribute. Run EVERY user- or remote-sourced
+ * value (team/display names, club names, scraped surfer/venue/status
+ * strings) through this before placing it in an innerHTML template.
+ */
+export function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+/**
+ * Validate a URL destined for an <img src> / <a href> attribute.
+ * Allows only http(s) absolute URLs and scheme-less same-origin
+ * relative paths (e.g. "data/photos/x.png"); returns "" for anything
+ * else — javascript:, data:, vbscript:, or protocol-relative //host.
+ * Still wrap the result in escapeHtml() when placing it in an attribute.
+ */
+export function safeUrl(url) {
+  const s = String(url ?? "").trim().replace(/[\x00-\x1F]/g, "");
+  if (!s || s.startsWith("//")) return "";
+  const scheme = s.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (scheme) return /^https?$/i.test(scheme[1]) ? s : "";
+  return s; // scheme-less → relative path, same origin
+}
+
 // ── Navigation ───────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -140,11 +169,13 @@ export function renderLiveStatusBanner(el, status) {
     el.style.display = "none";
     return;
   }
+  // statusColor is scraped from WSL → only allow a bare hex color into the CSS context.
+  const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(status.statusColor || "") ? status.statusColor : "#616161";
   const labelHtml = status.statusLabel
-    ? `<span style="display:inline-block;padding:0.1rem 0.6rem;border-radius:4px;background:${status.statusColor || "#616161"};color:#fff;font-weight:600;font-size:0.78rem;margin-right:0.6rem;vertical-align:middle">${status.statusLabel}</span>`
+    ? `<span style="display:inline-block;padding:0.1rem 0.6rem;border-radius:4px;background:${safeColor};color:#fff;font-weight:600;font-size:0.78rem;margin-right:0.6rem;vertical-align:middle">${escapeHtml(status.statusLabel)}</span>`
     : "";
-  const eventPrefix = status.eventName ? `<strong>${status.eventName}:</strong> ` : "";
-  const msg = status.statusMessage || "";
+  const eventPrefix = status.eventName ? `<strong>${escapeHtml(status.eventName)}:</strong> ` : "";
+  const msg = escapeHtml(status.statusMessage || "");
   el.innerHTML = `${labelHtml}${eventPrefix}${msg}`;
   el.style.display = "";
 }
@@ -269,10 +300,10 @@ export function renderHeader() {
     if (user) {
       const brandLink = document.getElementById("nav-brand-link");
       if (brandLink) brandLink.href = "index.html";
-      const photoSrc = profile?.avatarUrl || user.photoURL;
+      const photoSrc = safeUrl(profile?.avatarUrl || user.photoURL);
       const photo = photoSrc
-        ? `<img src="${photoSrc}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-        : `<div class="nav-avatar" style="background:var(--color-sage);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${(profile?.displayName || user.displayName || "?")[0]}</div>`;
+        ? `<img src="${escapeHtml(photoSrc)}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+        : `<div class="nav-avatar" style="background:var(--color-sage);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${escapeHtml((profile?.displayName || user.displayName || "?")[0])}</div>`;
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
         : "";
@@ -281,7 +312,7 @@ export function renderHeader() {
         <div class="nav-user-menu">
           <button class="nav-user-btn" id="nav-user-btn" aria-haspopup="true" aria-expanded="false">
             ${photo}
-            <span class="nav-user-name">${user.displayName || "User"}</span>
+            <span class="nav-user-name">${escapeHtml(user.displayName || "User")}</span>
             <span class="nav-user-caret" aria-hidden="true">▾</span>
           </button>
           <div class="nav-user-dropdown" id="nav-user-dropdown" role="menu">
@@ -579,9 +610,10 @@ export function confirmModal({
  */
 export function openProfileEditModal(user, profile) {
   const avatarUrl = profile?.avatarUrl || profile?.photoUrl || user.photoURL || "";
-  const initial = (profile?.displayName || user.displayName || "?")[0];
-  const avatarPreview = avatarUrl
-    ? `<img src="${avatarUrl}" alt="" class="avatar-preview" id="pe-avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+  const initial = escapeHtml((profile?.displayName || user.displayName || "?")[0]);
+  const safeAvatar = safeUrl(avatarUrl);
+  const avatarPreview = safeAvatar
+    ? `<img src="${escapeHtml(safeAvatar)}" alt="" class="avatar-preview" id="pe-avatar-preview" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
     : `<div class="avatar-preview avatar-preview--empty" id="pe-avatar-preview">${initial}</div>`;
   const urlValue = (profile?.avatarUrl && !profile.avatarUrl.startsWith("https://firebasestorage")) ? profile.avatarUrl : "";
 
@@ -598,7 +630,7 @@ export function openProfileEditModal(user, profile) {
         <div class="profile-edit__fields">
           <div class="form-group mb-1">
             <label class="form-label">Team Name</label>
-            <input type="text" class="search-input" id="pe-team-name" maxlength="30" value="${profile?.teamName || ""}">
+            <input type="text" class="search-input" id="pe-team-name" maxlength="30" value="${escapeHtml(profile?.teamName || "")}">
           </div>
           <div class="form-group mb-1">
             <label class="form-label">Profile Photo</label>
@@ -609,7 +641,7 @@ export function openProfileEditModal(user, profile) {
               </label>
               <span class="text-xs text-muted" id="pe-file-name">or drag &amp; drop here</span>
             </div>
-            <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${urlValue}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
+            <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${escapeHtml(urlValue)}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
           </div>
         </div>
       </div>
@@ -667,6 +699,10 @@ export function openProfileEditModal(user, profile) {
 
     const file = document.getElementById("pe-file")?.files[0];
     const urlInput = document.getElementById("pe-url")?.value.trim();
+    if (urlInput && safeUrl(urlInput) === "") {
+      toast("Photo URL must be an http(s) link.", "error");
+      return;
+    }
     let finalUrl = urlInput || profile?.avatarUrl || "";
 
     if (file) {

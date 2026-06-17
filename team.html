@@ -251,7 +251,7 @@
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -298,8 +298,8 @@
     const nameLabelHtml = (fullName) => {
       const { first, last } = splitName(fullName);
       return `<span class="team-row__name">
-        ${first ? `<span class="team-row__firstname">${first}</span>` : ""}
-        <span class="team-row__lastname">${last || fullName}</span>
+        ${first ? `<span class="team-row__firstname">${escapeHtml(first)}</span>` : ""}
+        <span class="team-row__lastname">${escapeHtml(last || fullName)}</span>
       </span>`;
     };
 
@@ -317,7 +317,7 @@
           const data = allSurfers[s.surferId] || {};
           const name = data.name || s.surferId.replace(/-/g, " ");
           const photo = data.photoUrl
-            ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+            ? `<img src="${escapeHtml(safeUrl(data.photoUrl))}" class="team-row__photo" alt="">`
             : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
           tiles.push(`<div class="team-row__surfer">${photo}${nameLabelHtml(name)}</div>`);
         } else {
@@ -329,7 +329,7 @@
         const d = allSurfers[team.alternate.surferId] || {};
         const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
         const p = d.photoUrl
-          ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+          ? `<img src="${escapeHtml(safeUrl(d.photoUrl))}" class="team-row__photo team-row__photo--alt" alt="">`
           : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
         altTile = `<div class="team-row__surfer">${p}${nameLabelHtml(altName)}<span class="team-row__alt-label">ALT</span></div>`;
       } else {
@@ -352,10 +352,10 @@
           const marketVal = data.value || s.purchasePrice;
           const delta = marketVal - s.purchasePrice;
           const photo = data.photoUrl
-            ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+            ? `<img src="${escapeHtml(safeUrl(data.photoUrl))}" class="team-row__photo" alt="">`
             : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
           const dropBtn = tradingOpen
-            ? `<button class="team-row__drop-btn" data-drop="${s.surferId}" aria-label="Drop ${name}"></button>`
+            ? `<button class="team-row__drop-btn" data-drop="${s.surferId}" aria-label="Drop ${escapeHtml(name)}"></button>`
             : "";
           const stanceHtml = data.stance
             ? `<span class="team-row__stance">${data.stance === "goofy" ? "Goofy" : "Regular"}</span>`
@@ -388,7 +388,7 @@
         const d = allSurfers[alternate.surferId] || {};
         const altName = d.name || alternate.surferId.replace(/-/g, " ");
         const photo = d.photoUrl
-          ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+          ? `<img src="${escapeHtml(safeUrl(d.photoUrl))}" class="team-row__photo team-row__photo--alt" alt="">`
           : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
         const dropBtn = tradingOpen
           ? `<button class="team-row__drop-btn" data-drop-alt aria-label="Remove alternate"></button>`
@@ -524,7 +524,7 @@
           <h1 class="page-title">My Team</h1>
           <div class="card">
             <p class="text-muted">Unable to load data. Check Firebase config.</p>
-            <p class="text-muted text-sm mt-1">${err.message}</p>
+            <p class="text-muted text-sm mt-1">${escapeHtml(err.message)}</p>
           </div>
         `;
       }
@@ -567,7 +567,7 @@
           <button class="tour-tab ${activeTour === "womens" ? "tour-tab--active" : ""}" data-tour="womens">Women's CT</button>
         </div>
         <div class="flex-between mb-2">
-          <p class="text-muted" style="margin:0">${currentEvent.name} — ${currentEvent.location || ""}</p>
+          <p class="text-muted" style="margin:0">${escapeHtml(currentEvent.name)} — ${escapeHtml(currentEvent.location || "")}</p>
           <div>${statusBadge(currentEvent.status)} ${tradingBadge(tradingOpen)}</div>
         </div>
 
@@ -614,7 +614,7 @@
               ${priorRosters.map(({ event, team, score }) => `
                 <div class="card mb-3">
                   <div class="card__header" style="padding-bottom:0.5rem;margin-bottom:0.5rem">
-                    <span class="card__title" style="font-size:0.95rem">${event.name}</span>
+                    <span class="card__title" style="font-size:0.95rem">${escapeHtml(event.name)}</span>
                     <span class="text-sm" style="font-weight:600;color:var(--color-warm-black);white-space:nowrap">
                       ${score ? `${score.totalPoints} pts` : (event.status === "live" ? "Live" : "—")}
                     </span>
@@ -641,7 +641,7 @@
         const isUnaffordable = !isSelected && (s.value > remaining);
         const rowClass = isSelected ? " surfer-row--selected" : isUnaffordable ? " surfer-row--unaffordable" : "";
         const photoEl = s.photoUrl
-          ? `<img src="${s.photoUrl}" class="available-card__photo" alt="">`
+          ? `<img src="${escapeHtml(safeUrl(s.photoUrl))}" class="available-card__photo" alt="">`
           : `<div class="available-card__photo--empty">${(s.name || "?")[0]}</div>`;
         const overlayButtons = !tradingOpen ? "" : (
           isAlt
@@ -680,8 +680,8 @@
                 const last = parts.length > 1 ? parts.pop() : '';
                 const first = parts.join(' ');
                 return `<span class="available-card__name">
-                  <span class="available-card__firstname">${first}</span>
-                  <span class="available-card__lastname">${last || s.name}</span>
+                  <span class="available-card__firstname">${escapeHtml(first)}</span>
+                  <span class="available-card__lastname">${escapeHtml(last || s.name)}</span>
                 </span>`;
               })()}
               ${s.stance ? `<span class="available-card__stance">${s.stance === "goofy" ? "Goofy" : "Regular"}</span>` : ""}
