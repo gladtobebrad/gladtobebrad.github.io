@@ -247,12 +247,12 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAuth } from "./js/auth.js";
+    import { requireAuth } from "./js/auth.js";
     import { SEASON, tourLabelFull } from "./js/config.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
+    import { bootstrapPage, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
 
     // Working state
@@ -432,12 +432,9 @@
       return rows.filter(Boolean);
     }
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     requireAuth().then(async (user) => {
-      const main = document.getElementById("app-main");
       showLoading(main);
       await loadTeamPage(main, user);
     });
@@ -1104,7 +1101,6 @@
         btn.addEventListener("click", async () => {
           if (btn.dataset.tour === activeTour) return;
           activeTour = btn.dataset.tour;
-          const main = document.getElementById("app-main");
           showLoading(main);
           await loadTeamPage(main, user);
         });

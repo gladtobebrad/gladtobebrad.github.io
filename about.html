@@ -316,12 +316,9 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth } from "./js/auth.js";
-    import { renderHeader, renderFooter } from "./js/ui.js";
+    import { bootstrapPage } from "./js/ui.js";
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    bootstrapPage();
 
     // Tab switching
     document.querySelectorAll(".about-tab").forEach(btn => {

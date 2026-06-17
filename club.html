@@ -22,12 +22,12 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth } from "./js/auth.js";
+    import { onAuth } from "./js/auth.js";
     import { SEASON, TOURS } from "./js/config.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress, buildRankProgression } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, escapeHtml, confirmModal } from "./js/ui.js";
+    import { bootstrapPage, showAuthGate, showLoading, toast, escapeHtml, confirmModal } from "./js/ui.js";
     import { renderStandingsTable, wireStandingsTables } from "./js/standings-table.js";
 
     let clubScoringMode = "best9";
@@ -39,12 +39,9 @@
     // Guard against concurrent re-renders triggered by overlapping events.
     let _refreshing = false;
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     onAuth(async (user, profile) => {
-      const main = document.getElementById("app-main");
       if (!user) { _activeUser = null; showAuthGate(main); return; }
       _activeUser = user;
       showLoading(main);
@@ -65,7 +62,6 @@
         const currentVersion = await fetchLeaderboardVersion();
         if (currentVersion !== cachedVersion) {
           _clubDataCache = null;
-          const main = document.getElementById("app-main");
           if (main) await renderClubPage(main, _activeUser);
         }
       } catch {} finally {

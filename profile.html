@@ -22,19 +22,16 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth } from "./js/auth.js";
+    import { onAuth } from "./js/auth.js";
     import { SEASON, BEST_N_EVENTS, tourLabelFull } from "./js/config.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
 
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     onAuth(async (user, profile) => {
-      const main = document.getElementById("app-main");
       if (!user) {
         showAuthGate(main);
         return;

@@ -103,10 +103,10 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth } from "./js/auth.js";
+    import { onAuth } from "./js/auth.js";
     import { SEASON } from "./js/config.js";
     import { getEvents, getSurfers } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml } from "./js/ui.js";
+    import { bootstrapPage, showAuthGate, showLoading, locationForEvent, escapeHtml } from "./js/ui.js";
 
     let activeSubPage = "location";  // "location" (Results) | "popularity"
     let activeTour = "mens";          // "mens" | "womens"
@@ -218,12 +218,9 @@
       }
     }
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     onAuth(async (user, profile) => {
-      const main = document.getElementById("app-main");
       if (!user) {
         showAuthGate(main);
         return;

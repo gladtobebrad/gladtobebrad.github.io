@@ -22,19 +22,16 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAuth } from "./js/auth.js";
+    import { requireAuth } from "./js/auth.js";
     import { SEASON } from "./js/config.js";
     import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
+    import { bootstrapPage, showLoading, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
 
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     requireAuth().then(async (user) => {
-      const main = document.getElementById("app-main");
       showLoading(main);
 
       const params = new URLSearchParams(window.location.search);

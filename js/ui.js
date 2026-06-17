@@ -1,4 +1,4 @@
-import { signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
+import { initAuth, signIn, signOut, onAuth, signInWithEmail, registerWithEmail, resetPassword } from "./auth.js";
 import { SEASON } from "./config.js";
 
 // ── Security helpers ─────────────────────────────────
@@ -391,6 +391,21 @@ export function renderFooter() {
       <p class="footer-sub">Not affiliated with the World Surf League.</p>
     </div>
   `;
+}
+
+/**
+ * The universal page preamble: initialise auth, render the shared header and
+ * footer, and hand back the #app-main element. Every page calls this first, so
+ * the three setup calls + the main lookup live in one place; each page keeps its
+ * own visible auth dispatch (onAuth / requireAuth / requireAdmin) with `main`
+ * already in scope.
+ * @returns {HTMLElement} the #app-main content container
+ */
+export function bootstrapPage() {
+  initAuth();
+  renderHeader();
+  renderFooter();
+  return document.getElementById("app-main");
 }
 
 // ── Formatting Helpers ───────────────────────────────

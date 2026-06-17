@@ -22,7 +22,7 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAdmin } from "./js/auth.js";
+    import { requireAdmin } from "./js/auth.js";
     import { SEASON, TOURS, tourLabel, tourLabelFull, tourAbbr } from "./js/config.js";
     import {
       getAllSurfers, saveSurfer, deleteSurfer,
@@ -35,7 +35,7 @@
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints, getMaxFinishPosition, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
@@ -49,12 +49,9 @@
     let activeTab = "events";
     let activeSurferTour = "mens";
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     requireAdmin().then(async (user) => {
-      const main = document.getElementById("app-main");
       showLoading(main);
       await loadAdmin(main);
     });
