@@ -396,8 +396,8 @@ export function formatDate(val) {
 
 // ── Short event names (surf venue) ───────────────────────
 // Maps full WSL event names ("Lexus Pipe Pro") to the short venue label
-// ("Pipeline") used for compact column headers. Shared by data.html,
-// surfers.html, standings.html, and club.html.
+// ("Pipeline") used for compact column headers. Shared by surfers.html,
+// standings.html, and club.html.
 const LOCATION_MAP = {
   "Lexus Pipe Pro":                          "Pipeline",
   "Billabong Pro Pipeline":                  "Pipeline",

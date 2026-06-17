@@ -16,6 +16,7 @@
 - 2026-06-17 — **Wave 0 (in-repo parts) done.** Authored `firestore.rules` / `storage.rules` / `firebase.json` / `firestore.indexes.json` / `.firebaserc` from the real data model. Added canonical `escapeHtml()`+`safeUrl()` to `js/ui.js` and escaped every user/remote `innerHTML` sink across all 10 pages + the live-status banner; avatar URLs validated on save. Added `test/security-helpers.test.mjs` (17/17 pass). Full repo passes `node --check`. Remaining Wave 0 items need Firebase access → see [firebase-deploy-handoff.md](firebase-deploy-handoff.md). Branch: `wave0-security-hardening`.
 - 2026-06-17 — Wave 1 underway (config / color tokens / a11y / dead-code + batch-chunking). **writeBatch chunking (F-61):** added `commitInChunks` (retries transients, reports partial-write count, sets-before-deletes, idempotent re-run). Owner accepted the brief-but-recoverable partial window over reverting to a single atomic batch; the single-doc-per-tour leaderboard (fully atomic, no 500-op cap) is recorded in Wave 2 as the escape hatch if zero-partial-state or >500-user scale is later required.
 - 2026-06-17 — **Wave 1 complete** (all 7 items) and pushed across 6 commits: config module, semantic color tokens, accessibility bundle, dead-code/asset cleanup, writeBatch chunking, themed danger confirm-modals + type-to-confirm. Node now installed; `test/security-helpers.test.mjs` green throughout. Up next: Wave 2 (structural refactors).
+- 2026-06-17 — **Wave 2 started** (branch `wave2-refactors`). Chunk 1: deleted the orphan `data.html` instead of extracting a shared loader — `surfers.html` (Data Vault) already supersedes it and nothing links to `data.html`. Removed the F-44 duplication + ~600 dead lines; fixed the stale `ui.js` comment + a dead `.place-badge` inline rule in surfers.html.
 
 ---
 
@@ -65,7 +66,7 @@ These recur across dimensions and matter more than any single finding.
 ### Wave 2 — Structural refactors (medium/large; sequence by payoff)
 
 - [ ] Extract shared `renderStandingsTable` + `buildRankProgression` + `bestNOf` into `scoring.js`/`ui.js` (drive sticky offsets from a `playerColWidth` param) _(F-28, F-29, F-47)_
-- [ ] Extract `js/wsl-history.js` (locations + loader + indices) shared by data/surfers — keep the two `placeBadge` renderers separate _(F-44)_
+- [x] ~~Extract `js/wsl-history.js` shared by data/surfers~~ → **Resolved by deletion (2026-06-17):** `data.html` was an unreachable orphan superseded by `surfers.html` (Data Vault) — deleted it (~600 lines), so the loader/indices have a single home and the F-44 duplication is gone; no shared module needed. _(F-44 + the data.html-orphan finding)_
 - [ ] Lift `splitName`/`nameLabelHtml`/`avatarTile`/`renderRankSparkline`/`tourLabel` into `ui.js`
 - [ ] Add a `bootstrapPage()` helper for the 8-page preamble
 - [ ] Have `pricing.js` consume cap/roster via `getTeamRules()` _(F-21)_
