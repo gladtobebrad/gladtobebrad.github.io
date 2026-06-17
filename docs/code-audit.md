@@ -12,7 +12,8 @@
 
 ### Progress log
 
-- 2026-06-17 — Audit generated and committed to repo. Nothing actioned yet.
+- 2026-06-17 — Audit generated and committed to repo.
+- 2026-06-17 — **Wave 0 (in-repo parts) done.** Authored `firestore.rules` / `storage.rules` / `firebase.json` / `firestore.indexes.json` / `.firebaserc` from the real data model. Added canonical `escapeHtml()`+`safeUrl()` to `js/ui.js` and escaped every user/remote `innerHTML` sink across all 10 pages + the live-status banner; avatar URLs validated on save. Added `test/security-helpers.test.mjs` (17/17 pass). Full repo passes `node --check`. Remaining Wave 0 items need Firebase access → see [firebase-deploy-handoff.md](firebase-deploy-handoff.md). Branch: `wave0-security-hardening`.
 
 ---
 
@@ -43,11 +44,11 @@ These recur across dimensions and matter more than any single finding.
 
 ### Wave 0 — Security & integrity (before any monetization; non-negotiable)
 
-- [ ] Commit `firestore.rules` + `firebase.json` + `storage.rules`; lock `teams` writes to `uid` + `tradingOpen==true`, make `isAdmin` client-immutable, gate `surfers/events/results/leaderboard/config` to admins, scope `avatars/{uid}` _(F-53, F-60, F-56, F-55)_
-- [ ] Promote `escapeHtml` to `ui.js`; escape every user/remote string at `innerHTML` sinks; validate `avatarUrl` is `https://` _(F-54)_
-- [ ] Make `isAdmin` admin-only / migrate to Firebase custom auth claims _(F-56)_
-- [ ] Restrict Firebase API key (HTTP-referrer) + enable App Check
-- [ ] Validate scraped `statusColor` + escape live-status fields _(F-57)_
+- [x] **Authored** `firestore.rules` + `firebase.json` + `storage.rules`: `teams` writes locked to `uid` + `tradingOpen==true`, `isAdmin` client-immutable, `surfers/events/results/leaderboard/config/meta` admin-only, `avatars/{uid}` scoped. _(F-53, F-60, F-56, F-55)_ → **deploy pending collaborator** ([firebase-deploy-handoff.md](firebase-deploy-handoff.md))
+- [x] Promoted `escapeHtml` + `safeUrl` to `ui.js`; escaped every user/remote `innerHTML` sink across all pages; `avatarUrl` validated on save. _(F-54)_
+- [x] `isAdmin` made client-immutable in `firestore.rules` (self-elevation closed). Custom-claims migration is optional/defense-in-depth → collaborator. _(F-56)_
+- [ ] Restrict Firebase API key (HTTP-referrer) + enable App Check → **collaborator** (Console/GCP only)
+- [x] Scraped `statusColor` validated to a hex pattern + live-status fields escaped in `renderLiveStatusBanner`. _(F-57)_
 
 ### Wave 1 — High-leverage quick wins (trivial/small effort, real payoff)
 

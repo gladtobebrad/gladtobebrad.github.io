@@ -35,7 +35,7 @@
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -78,7 +78,7 @@
           <h1 class="page-title">Fantasy Surf League</h1>
           <div class="card">
             <p class="text-muted">Unable to load data. Make sure Firebase is configured in <code>js/firebase-config.js</code>.</p>
-            <p class="text-muted text-sm mt-1">${err.message}</p>
+            <p class="text-muted text-sm mt-1">${escapeHtml(err.message)}</p>
           </div>
         `;
         return;
@@ -125,8 +125,8 @@
       const nameLabelHtml = (fullName) => {
         const { first, last } = splitName(fullName);
         return `<span class="team-row__name">
-          ${first ? `<span class="team-row__firstname">${first}</span>` : ""}
-          <span class="team-row__lastname">${last || fullName}</span>
+          ${first ? `<span class="team-row__firstname">${escapeHtml(first)}</span>` : ""}
+          <span class="team-row__lastname">${escapeHtml(last || fullName)}</span>
         </span>`;
       };
 
@@ -146,7 +146,7 @@
             const data = surferMap[s.surferId] || {};
             const name = data.name || s.surferId.replace(/-/g, " ");
             const photo = data.photoUrl
-              ? `<img src="${data.photoUrl}" class="team-row__photo" alt="">`
+              ? `<img src="${escapeHtml(safeUrl(data.photoUrl))}" class="team-row__photo" alt="">`
               : `<div class="team-row__photo team-row__photo--empty">${name[0]}</div>`;
             surferTiles.push(`<div class="team-row__surfer">${photo}${nameLabelHtml(name)}</div>`);
           } else {
@@ -158,7 +158,7 @@
           const d = surferMap[team.alternate.surferId] || {};
           const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
           const p = d.photoUrl
-            ? `<img src="${d.photoUrl}" class="team-row__photo team-row__photo--alt" alt="">`
+            ? `<img src="${escapeHtml(safeUrl(d.photoUrl))}" class="team-row__photo team-row__photo--alt" alt="">`
             : `<div class="team-row__photo team-row__photo--empty team-row__photo--alt">${altName[0]}</div>`;
           altTile = `<div class="team-row__surfer">${p}${nameLabelHtml(altName)}<span class="team-row__alt-label">ALT</span></div>`;
         } else {
@@ -173,7 +173,7 @@
         const editLink = `<a href="team.html${tourQuery}" class="btn btn--outline btn--sm">Edit Team →</a>`;
         const eventInfo = event
           ? `<div class="text-sm text-muted" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem">
-              <span>${event.name}</span>
+              <span>${escapeHtml(event.name)}</span>
               ${statusBadge(event.status)} ${tradingBadge(event.tradingOpen)}
               ${(() => {
                 const dl = getDeadlineMs(event);
@@ -357,7 +357,7 @@
                 <div class="surfer-row surfer-row--wrap">
                   <span class="surfer-row__rank">${e.eventNumber}</span>
                   <span class="surfer-row__name">
-                    ${e.status !== "upcoming" ? `<a href="event.html?id=${e.id}" style="color:inherit;text-decoration:none">${e.name}</a>` : e.name}
+                    ${e.status !== "upcoming" ? `<a href="event.html?id=${encodeURIComponent(e.id)}" style="color:inherit;text-decoration:none">${escapeHtml(e.name)}</a>` : escapeHtml(e.name)}
                   </span>
                   ${statusBadge(e.status)}
                 </div>

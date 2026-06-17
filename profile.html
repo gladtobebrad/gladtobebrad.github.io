@@ -25,7 +25,7 @@
     import { initAuth, onAuth } from "./js/auth.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -211,14 +211,14 @@
                 const d = surferMap[slot.s.surferId] || {};
                 const altName = d.name || slot.s.surferId.replace(/-/g, " ");
                 const p = d.photoUrl
-                  ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.8" alt="">`
+                  ? `<img src="${escapeHtml(safeUrl(d.photoUrl))}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.8" alt="">`
                   : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.8">${altName[0]}</div>`;
                 return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
                   <div style="position:relative;width:${photoSize};height:${photoSize}">
                     ${p}
                     <span style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:0.5rem;font-weight:700;color:var(--color-warm-gray);background:rgba(255,255,255,0.85);border-radius:4px;padding:0 3px;line-height:1.4;white-space:nowrap">ALT${score?.alternateUsed ? "✓" : ""}</span>
                   </div>
-                  <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-warm-brown)">${shortName(altName)}</span>
+                  <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-warm-brown)">${escapeHtml(shortName(altName))}</span>
                 </div>`;
               }
               // type === "surfer"
@@ -226,11 +226,11 @@
               const sc = score?.surferScores?.[slot.i];
               const name = data.name || slot.s.surferId.replace(/-/g, " ");
               const photo = data.photoUrl
-                ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
+                ? `<img src="${escapeHtml(safeUrl(data.photoUrl))}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
                 : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
               return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
                 ${photo}
-                <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>
+                <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${escapeHtml(shortName(name))}</span>
                 ${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}
               </div>`;
             }).join("");
@@ -244,11 +244,11 @@
             const sc = score?.surferScores?.[i];
             const name = data.name || s.surferId.replace(/-/g, " ");
             const photo = data.photoUrl
-              ? `<img src="${data.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
+              ? `<img src="${escapeHtml(safeUrl(data.photoUrl))}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px solid var(--color-beige)" alt="">`
               : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown)">${name[0]}</div>`;
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">
               ${photo}
-              <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${shortName(name)}</span>
+              <span style="font-size:0.62rem;text-align:center;max-width:${surferWidth};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-dark)">${escapeHtml(shortName(name))}</span>
               ${sc ? `<span style="font-size:0.62rem;color:var(--color-sage);font-weight:600">${sc.points}pt</span>` : ""}
             </div>`;
           }).join("");
@@ -256,7 +256,7 @@
             const d = surferMap[team.alternate.surferId] || {};
             const altName = d.name || team.alternate.surferId.replace(/-/g, " ");
             const p = d.photoUrl
-              ? `<img src="${d.photoUrl}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.75" alt="">`
+              ? `<img src="${escapeHtml(safeUrl(d.photoUrl))}" style="width:${photoSize};height:${photoSize};border-radius:50%;object-fit:cover;object-position:top center;border:2px dashed var(--color-warm-gray);opacity:0.75" alt="">`
               : `<div style="width:${photoSize};height:${photoSize};border-radius:50%;background:var(--color-beige);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-warm-brown);opacity:0.75">${altName[0]}</div>`;
             return `<div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;width:${surferWidth}">${p}<span style="font-size:0.62rem;color:var(--color-warm-brown)">ALT${score?.alternateUsed ? "✓" : ""}</span></div>`;
           })() : "";
@@ -267,7 +267,7 @@
         const renderEventCard = (event, team, score, projected = false) => `
           <div class="card mb-3">
             <div class="card__header">
-              <span class="card__title" style="font-size:0.9rem">${event.name}</span>
+              <span class="card__title" style="font-size:0.9rem">${escapeHtml(event.name)}</span>
               <span class="text-sm" style="font-weight:600"${projected ? ` title="Projected (live) — guaranteed minimum, final can only rise"` : ""}>
                 ${score ? `${projected ? "~" : ""}${score.totalPoints} pts` : statusBadge(event.status)}
               </span>
@@ -298,13 +298,13 @@
           <div class="flex gap-2 mb-4" style="align-items:center">
             <div style="display:flex;flex-direction:column;align-items:center;gap:0.4rem;flex-shrink:0">
               ${avatarUrl
-                ? `<img src="${avatarUrl}" alt="" class="avatar-lg" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                ? `<img src="${escapeHtml(safeUrl(avatarUrl))}" alt="" class="avatar-lg" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
                 : `<div class="avatar-lg avatar-lg--empty">${(displayName || "?")[0]}</div>`}
               ${currentUser?.uid === userId ? `<a href="index.html" class="btn btn--outline btn--sm" style="font-size:0.72rem;padding:0.2rem 0.6rem;white-space:nowrap">Edit Profile</a>` : ""}
             </div>
             <div>
-              <h1 class="page-title" style="margin-bottom:0">${teamName}</h1>
-              ${teamName !== displayName ? `<p class="text-muted">${displayName}</p>` : ""}
+              <h1 class="page-title" style="margin-bottom:0">${escapeHtml(teamName)}</h1>
+              ${teamName !== displayName ? `<p class="text-muted">${escapeHtml(displayName)}</p>` : ""}
               <span class="ads-coin-badge" style="margin-top:0.4rem">🪙 ${adsCoins} ADScoin</span>
             </div>
           </div>
@@ -320,7 +320,7 @@
                 <div class="card mb-3">
                   <div class="card__header">
                     <span class="card__title">Current Roster</span>
-                    <span class="text-sm text-muted">${mensEvent.name}</span>
+                    <span class="text-sm text-muted">${escapeHtml(mensEvent.name)}</span>
                   </div>
                   ${!isOwn && !mensLocked
                     ? `<p class="text-sm text-muted" style="padding:0.5rem 0">Roster hidden until trading closes.</p>`
@@ -338,7 +338,7 @@
                 <div class="card mb-3">
                   <div class="card__header">
                     <span class="card__title">Current Roster</span>
-                    <span class="text-sm text-muted">${womensEvent.name}</span>
+                    <span class="text-sm text-muted">${escapeHtml(womensEvent.name)}</span>
                   </div>
                   ${!isOwn && !womensLocked
                     ? `<p class="text-sm text-muted" style="padding:0.5rem 0">Roster hidden until trading closes.</p>`
@@ -357,7 +357,7 @@
       } catch (err) {
         container.innerHTML = `
           <h1 class="page-title">Error</h1>
-          <div class="card"><p class="text-muted">${err.message}</p></div>
+          <div class="card"><p class="text-muted">${escapeHtml(err.message)}</p></div>
         `;
       }
     }

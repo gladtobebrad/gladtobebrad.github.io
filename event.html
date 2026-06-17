@@ -25,7 +25,7 @@
     import { initAuth, requireAuth } from "./js/auth.js";
     import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatDate, statusBadge } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
 
     const SEASON = 2026;
 
@@ -101,10 +101,10 @@
 
         main.innerHTML = `
           <div class="flex-between mb-2">
-            <h1 class="page-title" style="margin-bottom:0">${event.name}</h1>
+            <h1 class="page-title" style="margin-bottom:0">${escapeHtml(event.name)}</h1>
             ${statusBadge(event.status)}
           </div>
-          <p class="text-muted mb-1">${event.location || ""}</p>
+          <p class="text-muted mb-1">${escapeHtml(event.location || "")}</p>
           <p class="text-sm text-muted mb-3">${formatDate(event.startDate)} — ${formatDate(event.endDate)}</p>
 
           <div class="grid grid--sidebar">
@@ -124,8 +124,8 @@
                         const s = surferMap[r.surferId] || {};
                         return `<tr class="${userSurferIds.has(r.surferId) ? "highlight" : ""}">
                           <td class="text-center"><strong>${r.finish}</strong></td>
-                          <td>${s.name || r.surferId.replace(/-/g, " ")}</td>
-                          <td class="text-muted">${s.country || ""}</td>
+                          <td>${escapeHtml(s.name || r.surferId.replace(/-/g, " "))}</td>
+                          <td class="text-muted">${escapeHtml(s.country || "")}</td>
                           <td class="text-right">${r.points || getPoints(r.finish, tour)}</td>
                         </tr>`;
                       }).join("")}
@@ -155,7 +155,7 @@
                       const s = surferMap[ss.surferId] || {};
                       return `<div class="surfer-row">
                         <span class="surfer-row__name">
-                          ${s.name || ss.surferId.replace(/-/g, " ")}
+                          ${escapeHtml(s.name || ss.surferId.replace(/-/g, " "))}
                           ${ss.isAlternate ? `<span class="text-xs text-muted"> ALT</span>` : ""}
                           ${ss.didNotCompete ? `<span class="text-xs text-muted"> DNP</span>` : ""}
                           ${ss.projected ? `<span class="text-xs text-muted" title="Still competing — guaranteed-minimum (floor) points"> · still in</span>` : ""}
@@ -184,7 +184,7 @@
           </div>
         `;
       } catch (err) {
-        main.innerHTML = `<h1 class="page-title">Error</h1><div class="card"><p class="text-muted">${err.message}</p></div>`;
+        main.innerHTML = `<h1 class="page-title">Error</h1><div class="card"><p class="text-muted">${escapeHtml(err.message)}</p></div>`;
       }
     });
   </script>

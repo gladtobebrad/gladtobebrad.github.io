@@ -26,7 +26,7 @@
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml } from "./js/ui.js";
 
     const SEASON = 2026;
     let clubScoringMode = "best9";
@@ -350,20 +350,20 @@
       const clubTabsHtml = allUserClubs.length > 1 ? `
         <div class="tour-tabs mb-3">
           ${allUserClubs.map((c) => `
-            <a href="club.html?id=${c.id}" class="tour-tab ${c.id === club.id ? "tour-tab--active" : ""}">${c.name}</a>
+            <a href="club.html?id=${c.id}" class="tour-tab ${c.id === club.id ? "tour-tab--active" : ""}">${escapeHtml(c.name)}</a>
           `).join("")}
         </div>
       ` : "";
 
       container.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-          <h1 class="page-title" style="margin:0">${club.name}</h1>
+          <h1 class="page-title" style="margin:0">${escapeHtml(club.name)}</h1>
           <button class="btn btn--outline btn--sm" id="btn-leave-club" style="color:var(--color-error,#c0392b);border-color:var(--color-error,#c0392b)">
             ${isOwner ? "Delete Club" : "Leave Club"}
           </button>
         </div>
         ${clubTabsHtml}
-        <p class="text-muted text-sm mb-3">${club.memberIds.length} member${club.memberIds.length === 1 ? "" : "s"} &nbsp;·&nbsp; Invite code: <strong>${club.inviteCode}</strong></p>
+        <p class="text-muted text-sm mb-3">${club.memberIds.length} member${club.memberIds.length === 1 ? "" : "s"} &nbsp;·&nbsp; Invite code: <strong>${escapeHtml(club.inviteCode)}</strong></p>
 
 
         <!-- Event-by-Event Scores -->
@@ -398,8 +398,8 @@
                             <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                           </th>
                           ${tourEvents.map((e) => `
-                            <th class="text-center sortable-col evt-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${e.name}">
-                              <div>${locationForEvent(e.name)}</div>
+                            <th class="text-center sortable-col evt-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${escapeHtml(e.name)}">
+                              <div>${escapeHtml(locationForEvent(e.name))}</div>
                               <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                             </th>
                           `).join("")}
@@ -412,7 +412,7 @@
                             <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center;color:var(--color-warm-brown);font-size:0.8rem">${i + 1}</td>
                             <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                               <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
-                                ${entry.teamName || entry.displayName || "—"}
+                                ${escapeHtml(entry.teamName || entry.displayName || "—")}
                               </a>
                             </td>
                             <td class="text-center" data-total="${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}" style="position:sticky;left:196px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-weight:600;border-right:2px solid var(--color-beige)">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
@@ -441,7 +441,7 @@
 
         <!-- Club rank progression chart -->
         <div class="card mb-3">
-          <div class="card__header"><span class="card__title">${club.name} Standings</span></div>
+          <div class="card__header"><span class="card__title">${escapeHtml(club.name)} Standings</span></div>
           ${clubChartHtml}
         </div>
 

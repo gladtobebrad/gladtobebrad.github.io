@@ -1,0 +1,134 @@
+rules_version = '2';
+
+// =============================================================================
+// Fantasy Surf League — Firestore security rules
+// -----------------------------------------------------------------------------
+// PROPOSAL authored from the client data model (js/db.js, js/auth.js). Review,
+// then deploy with:  firebase deploy --only firestore:rules
+//
+// Design goals (Wave 0 of docs/code-audit.md):
+//   1. Game data (surfers/events/results/leaderboard/config/meta) is ADMIN-only
+//      to write — closes "any user can corrupt the league".
+//   2. A roster (teams/) is writable ONLY by its owner and ONLY while that
+//      event's trading is open and the team isn't locked — closes "edit a
+//      winning roster after results are public".
+//   3. users.isAdmin and users.email are immutable from the client — closes
+//      "self-elevate to admin" and "rewrite my own email".
+//   4. Everything else defaults to deny (rules_version 2).
+//
+// KNOWN LIMITATIONS (documented for follow-up, not blockers):
+//   - Cap/roster-size invariants are NOT fully validated here; the trading-open
+//     gate is the integrity-critical control. Full validation can be added in
+//     rules or a Cloud Function later.
+//   - clubs.memberIds / users.clubIds can be changed by any signed-in user
+//     (needed for join/leave/owner-delete denormalization). Worst case is
+//     tampering with club membership — low severity. Tighten via a Cloud
+//     Function or by not denormalizing clubIds.
+//   - adsCoins is currently set server-side only at signup; if an "ads" reward
+//     flow is added, gate that field (or move it to a Cloud Function).
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    function eventTradingOpen(eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId))
+        && get(/databases/$(database)/documents/events/$(eventId)).data.tradingOpen == true;
+    }
+    // Only the clubIds field is changing (used by join/leave/owner-delete).
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ── Public game data — anyone may read, only admins may write ──
+    // Reads are public so the logged-out landing/countdown banners work. They
+    // can be tightened to `isSignedIn()` if the landing page never needs them.
+    match /surfers/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /events/{id}      { allow read: if true; allow write: if isAdmin(); }
+    match /results/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /leaderboard/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /config/{id}      { allow read: if true; allow write: if isAdmin(); }
+    // meta/{events,leaderboard,players}: version docs + the player directory
+    // (directory carries only id/displayName/teamName/avatarUrl — no email).
+    match /meta/{id}        { allow read: if true; allow write: if isAdmin(); }
+
+    // ── Users ────────────────────────────────────────────
+    match /users/{userId} {
+      // get: any signed-in user (public profiles: teamName/avatar/displayName).
+      // list: admin only — blocks bulk email harvesting via a collection query.
+      allow get:  if isSignedIn();
+      allow list: if isAdmin();
+
+      // Create only your own doc, and only as a non-admin.
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.isAdmin == false;
+
+      // Update: admin (anything) OR self (but isAdmin & email frozen) OR any
+      // signed-in user touching ONLY clubIds (club join/leave/owner-delete).
+      allow update: if isAdmin()
+        || (request.auth.uid == userId
+            && request.resource.data.isAdmin == resource.data.isAdmin
+            && request.resource.data.email == resource.data.email)
+        || (isSignedIn() && onlyChanges(['clubIds']));
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Teams (rosters) — teams/{userId}_{eventId} ───────
+    match /teams/{teamId} {
+      // get: any signed-in user (profile pages render others' rosters).
+      // list: admin only (leaderboard recalc / carry-forward enumerate teams).
+      allow get:  if isSignedIn();
+      allow list: if isAdmin();
+
+      // Owner may create/update ONLY their own roster, ONLY while trading is
+      // open and the team isn't locked. The doc-id prefix and the userId field
+      // must both equal the caller's uid (UIDs contain no underscore).
+      allow create: if isAdmin() || (
+        isSignedIn()
+        && request.auth.uid == teamId.split('_')[0]
+        && request.resource.data.userId == request.auth.uid
+        && eventTradingOpen(request.resource.data.eventId)
+      );
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && request.auth.uid == teamId.split('_')[0]
+        && request.resource.data.userId == request.auth.uid
+        && resource.data.userId == request.auth.uid
+        && resource.data.locked != true
+        && eventTradingOpen(resource.data.eventId)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── Clubs ────────────────────────────────────────────
+    match /clubs/{clubId} {
+      // list is required: getClubByInviteCode() scans the collection.
+      allow get, list: if isSignedIn();
+
+      // Create your own club (you are the sole initial member & owner).
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      // Owner edits the club; any member-list change (join/leave) is allowed for
+      // signed-in users. (See KNOWN LIMITATIONS — membership writes are coarse.)
+      allow update: if isAdmin()
+        || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+        || (isSignedIn() && onlyChanges(['memberIds']));
+
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+    }
+  }
+}
