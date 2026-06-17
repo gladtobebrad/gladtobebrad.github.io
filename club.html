@@ -27,7 +27,8 @@
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml, confirmModal } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, escapeHtml, confirmModal } from "./js/ui.js";
+    import { renderStandingsTable, wireStandingsTables } from "./js/standings-table.js";
 
     let clubScoringMode = "best9";
 
@@ -383,57 +384,22 @@
             const tourEvents = eventColumns.filter((e) => (e.tour || "mens") === tour);
             const sortKey = clubScoringMode === "all" ? "allEventsTotal" : "bestNineTotal";
             const entries = (tour === "mens" ? mensMemberEntries : womensMemberEntries)
-              .slice().sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
+              .slice().sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0))
+              .map((e, i) => ({
+                id: e.userId,
+                rank: i + 1,
+                displayName: e.displayName || "Anonymous",
+                teamName: e.teamName || e.displayName || "—",
+                avatarUrl: e.avatarUrl || "",
+                bestNineTotal: e.bestNineTotal || 0,
+                allEventsTotal: e.allEventsTotal || 0,
+                eventScores: eventScores[e.userId] || {},
+              }));
             return `
               <div class="ebe-panel" data-ebe-panel="${tour}" style="${tour === "womens" ? "display:none" : ""}">
-                ${tourEvents.length > 0 ? `
-                  <div style="overflow-x:auto;position:relative">
-                    <table class="data-table scroll-table">
-                      <thead>
-                        <tr>
-                          <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
-                          <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
-                          <th class="text-center sortable-col" data-col="total" style="position:sticky;left:196px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)" title="Sort by ${clubScoringMode === "all" ? "All Events" : "Best 9"} total">
-                            <div>${clubScoringMode === "all" ? "All Events" : "Best 9"}</div>
-                            <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                          </th>
-                          ${tourEvents.map((e) => `
-                            <th class="text-center sortable-col evt-col" data-event-id="${e.id}" style="font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none" title="Sort by ${escapeHtml(e.name)}">
-                              <div>${escapeHtml(locationForEvent(e.name))}</div>
-                              <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                            </th>
-                          `).join("")}
-                          <th class="scroll-spacer" aria-hidden="true"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${entries.map((entry, i) => `
-                          <tr class="${entry.userId === user.uid ? "highlight" : ""}" data-user-id="${entry.userId}">
-                            <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center;color:var(--color-warm-brown);font-size:0.8rem">${i + 1}</td>
-                            <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:140px;padding-left:0.5rem;padding-right:0.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                              <a href="profile.html?id=${entry.userId}" style="text-decoration:none;color:inherit">
-                                ${escapeHtml(entry.teamName || entry.displayName || "—")}
-                              </a>
-                            </td>
-                            <td class="text-center" data-total="${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}" style="position:sticky;left:196px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-weight:600;border-right:2px solid var(--color-beige)">${clubScoringMode === "all" ? (entry.allEventsTotal || 0) : (entry.bestNineTotal || 0)}</td>
-                            ${tourEvents.map((e) => {
-                              const live = projectedIds.has(e.id);
-                              const pts = eventScores[entry.userId]?.[e.id];
-                              const hasResults = e.status === "completed" || e.resultsEntered;
-                              const display = live
-                                ? (pts != null ? `<em title="Projected (live)">~${pts}</em>` : "·")
-                                : (hasResults ? (pts ?? "—") : "·");
-                              return `<td class="text-center" data-event-pts="${e.id}" data-pts="${pts != null && (hasResults || live) ? pts : -1}" style="${e.status !== "completed" ? "color:var(--color-warm-brown)" : ""}">
-                                ${display}
-                              </td>`;
-                            }).join("")}
-                            <td class="scroll-spacer"></td>
-                          </tr>
-                        `).join("")}
-                      </tbody>
-                    </table>
-                  </div>
-                ` : `<p class="text-muted text-sm">No events yet.</p>`}
+                ${tourEvents.length > 0
+                  ? renderStandingsTable({ players: entries, tourEvents, scoringMode: clubScoringMode, liveEventIds: projectedIds, highlightUserId: user.uid })
+                  : `<p class="text-muted text-sm">No events yet.</p>`}
               </div>
             `;
           }).join("")}
@@ -479,35 +445,7 @@
       });
 
       // Click-to-sort the total column and each event-by-event column
-      const sortState = {}; // tableKey → { key, dir }
-      const cellValue = (row, isTotal, eventId) => isTotal
-        ? parseInt(row.querySelector("[data-total]")?.dataset.total ?? -1, 10)
-        : parseInt(row.querySelector(`[data-event-pts="${eventId}"]`)?.dataset.pts ?? -1, 10);
-      document.querySelectorAll(".sortable-col").forEach((th) => {
-        th.addEventListener("click", () => {
-          const isTotal = th.dataset.col === "total";
-          const eventId = th.dataset.eventId;
-          const key = isTotal ? "total" : eventId;
-          const tbody = th.closest("table").querySelector("tbody");
-          const tableKey = th.closest("table").dataset.tourKey || th.closest("table");
-          const prev = sortState[tableKey] || {};
-          const dir = (prev.key === key && prev.dir === "desc") ? "asc" : "desc";
-          sortState[tableKey] = { key, dir };
-
-          // Update arrow indicators
-          th.closest("thead").querySelectorAll(".sort-arrow").forEach((a) => { a.textContent = "▲▼"; a.style.opacity = "0.4"; });
-          th.querySelector(".sort-arrow").textContent = dir === "desc" ? "▼" : "▲";
-          th.querySelector(".sort-arrow").style.opacity = "1";
-
-          const rows = [...tbody.querySelectorAll("tr")];
-          rows.sort((a, b) => {
-            const aVal = cellValue(a, isTotal, eventId);
-            const bVal = cellValue(b, isTotal, eventId);
-            return dir === "desc" ? bVal - aVal : aVal - bVal;
-          });
-          rows.forEach((r) => tbody.appendChild(r));
-        });
-      });
+      wireStandingsTables(container);
 
       document.getElementById("btn-leave-club")?.addEventListener("click", async () => {
         if (!(await confirmModal({
