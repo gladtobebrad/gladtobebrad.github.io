@@ -28,43 +28,40 @@
 // valuePrev/lastPricedEvent), so it never double-steps — robust to multiple
 // resolves, unlike a raw EMA.
 
+import { getTeamRules } from "./team.js";
+
 export const VALUE_STEP = 250_000;       // every price is a multiple of this
 export const WILDCARD_VALUE = 1_500_000; // wildcard price — the only value below
                                          // RANKED_FLOOR (nothing sits in between)
 export const RANKED_FLOOR = 3_000_000;   // lowest price for a ranked surfer: the
                                          // curve's pinned bottom endpoint (the
                                          // last rank lands here) and clamp floor
-export const MAX_VALUE = 12_500_000;     // absolute ceiling (clamp ceiling)
 export const ALPHA = 0.5;                // EMA smoothing factor — the one knob:
                                          // higher = faster/larger moves, lower = gentler
 export const MAX_CHANGE = 1_500_000;     // hard backstop on per-event movement
                                          // (rarely binds; α keeps moves gentle)
 
-// Per-tour curve context. `peak` is the rank-#1 target price (tuned so the top
-// ~5 sit in the $10M ±1M band; capped by MAX_VALUE). `poolFactor` scales the
-// target pool total: targetPool = cap·N/starters·factor (N = surfers actually
-// repriced), so at factor 1.0 an average-priced full squad costs exactly the
-// cap. Raise it to make the pool richer (cap bites harder, fewer stars
-// affordable); lower it to loosen. `starters` is the squad size that counts
-// against the cap (the alternate is excluded); `cap` matches TEAM_RULES in team.js.
-export const PRICING = {
-  mens:   { peak: 11_000_000, starters: 8, cap: 50_000_000, poolFactor: 1.0 },
-  womens: { peak: 11_000_000, starters: 5, cap: 35_000_000, poolFactor: 0.9 }, // <1.0 required: cap/starters ($7M) = the curve's mid-average, so 1.0 flattens the taper
+export const PEAK = 11_000_000;          // rank-#1 target & value ceiling (same both tours)
+export const POOL_FACTOR = {             // per-tour target-pool scaler; women's <1.0 (see docs)
+  mens:   1.0,
+  womens: 0.9,
 };
 
 const roundToStep = (v, step = VALUE_STEP) => Math.round(v / step) * step;
 
-/** Round to the price step and clamp to the ranked range [RANKED_FLOOR, MAX_VALUE].
- *  Wildcards sit at WILDCARD_VALUE, below this range, and are never repriced. */
+/** Round to the price step and floor at RANKED_FLOOR. No upper clamp is needed:
+ *  the curve tops out at `peak` and the EMA only converges toward its target, so
+ *  no value can exceed peak — the single ceiling (manual entry caps there too).
+ *  Wildcards sit at WILDCARD_VALUE, below the floor, and are never repriced. */
 export function clampValue(v) {
-  return Math.min(MAX_VALUE, Math.max(RANKED_FLOOR, roundToStep(v)));
+  return Math.max(RANKED_FLOOR, roundToStep(v));
 }
 
 /**
  * One EMA step: move `prevValue` a fraction α toward `target`, with a hard
  * backstop of MAX_CHANGE so even a big gap (e.g. a brand-new surfer, or a season
  * cold-start) can't lurch. An unpriced surfer (falsy prevValue) seeds straight
- * at the target. Result is rounded to the step and clamped to [RANKED_FLOOR, MAX_VALUE].
+ * at the target. Result is rounded to the step and floored at RANKED_FLOOR (peak is the ceiling).
  * @param {number} prevValue - the surfer's value before this step (falsy = unpriced)
  * @param {number} target - the rank-based target price (from anchorValueForRank)
  * @param {number} [alpha=ALPHA]
@@ -123,7 +120,8 @@ function solveDecayForPool(target, peak, floor, ranks, maxRank, iters = 60) {
  * @returns {{peak:number, floor:number, maxRank:number, decay:number, n:number, tour:string, targetPool:number, degenerate:boolean}}
  */
 export function buildCurve(tour, ranks) {
-  const p = PRICING[tour] || PRICING.mens;
+  const rules = getTeamRules(tour);
+  const p = { peak: PEAK, poolFactor: POOL_FACTOR[tour] ?? POOL_FACTOR.mens, cap: rules.salaryCap, starters: rules.rosterSize };
   const n = ranks.length;
   const maxRank = n ? Math.max(...ranks) : 1;
   const targetPool = (p.cap * n / p.starters) * p.poolFactor;
@@ -161,7 +159,8 @@ export function anchorValueForRank(rank, curve) {
  *   - targetPool      : the total the curve was solved to hit
  */
 export function tenabilityReport(values, tour = "mens") {
-  const p = PRICING[tour] || PRICING.mens;
+  const rules = getTeamRules(tour);
+  const p = { peak: PEAK, poolFactor: POOL_FACTOR[tour] ?? POOL_FACTOR.mens, cap: rules.salaryCap, starters: rules.rosterSize };
   const n = values.length;
   const desc = [...values].sort((a, b) => b - a);
   const asc = [...values].sort((a, b) => a - b);

@@ -40,7 +40,7 @@
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, MAX_VALUE, VALUE_STEP, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, PEAK, VALUE_STEP, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
     let surfers = [];
     let events = [];
@@ -1225,8 +1225,9 @@
           toast(`Surfers are priced at $${WILDCARD_VALUE / 1_000_000}M (wildcard) or $${RANKED_FLOOR / 1_000_000}M+ — nothing in between.`, "error");
           return;
         }
-        if (data.value > MAX_VALUE) {
-          toast(`Value can't exceed the $${MAX_VALUE / 1_000_000}M ceiling.`, "error");
+        const peakCeiling = PEAK;
+        if (data.value > peakCeiling) {
+          toast(`Value can't exceed the $${peakCeiling / 1_000_000}M ceiling (the #1 curve value).`, "error");
           return;
         }
         // A manual value change re-baselines the EMA filter: clear the idempotency
@@ -1765,7 +1766,7 @@
             warnings.push(`No event with results for ${tour} yet — nothing to step from.`);
           }
           if (curve.degenerate) {
-            warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust PRICING.${tour} in pricing.js.`);
+            warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust POOL_FACTOR.${tour} (or PEAK) in pricing.js.`);
           }
           // Two of OUR surfers sharing a name-key both resolve to the same WSL
           // rank+price and double-count in the curve — flag for cleanup.
