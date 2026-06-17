@@ -248,7 +248,7 @@
 
   <script type="module">
     import { initAuth, requireAuth } from "./js/auth.js";
-    import { SEASON } from "./js/config.js";
+    import { SEASON, tourLabelFull } from "./js/config.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
@@ -459,7 +459,7 @@
 
         if (!currentEvent) {
           renderTourTabs(container);
-          container.innerHTML += `<div class="card"><p class="text-muted">No current ${activeTour === "womens" ? "Women's" : "Men's"} CT event. Check back when the season schedule is posted.</p></div>`;
+          container.innerHTML += `<div class="card"><p class="text-muted">No current ${tourLabelFull(activeTour)} event. Check back when the season schedule is posted.</p></div>`;
           wireTourTabs(container, user);
           return;
         }

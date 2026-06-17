@@ -23,7 +23,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { SEASON, BEST_N_EVENTS } from "./js/config.js";
+    import { SEASON, BEST_N_EVENTS, tourLabelFull } from "./js/config.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
@@ -315,7 +315,7 @@
             <!-- LHS: Men's CT -->
             <div>
               <h2 class="mb-3">Men's CT</h2>
-              ${renderStandings("Men's CT", mensStandings)}
+              ${renderStandings(tourLabelFull("mens"), mensStandings)}
               ${mensEvent ? `
                 <div class="card mb-3">
                   <div class="card__header">
@@ -333,7 +333,7 @@
             <!-- RHS: Women's CT -->
             <div>
               <h2 class="mb-3">Women's CT</h2>
-              ${renderStandings("Women's CT", womensStandings)}
+              ${renderStandings(tourLabelFull("womens"), womensStandings)}
               ${womensEvent ? `
                 <div class="card mb-3">
                   <div class="card__header">

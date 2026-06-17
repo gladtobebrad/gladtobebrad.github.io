@@ -23,7 +23,7 @@
 
   <script type="module">
     import { initAuth, requireAdmin } from "./js/auth.js";
-    import { SEASON, TOURS } from "./js/config.js";
+    import { SEASON, TOURS, tourLabel, tourLabelFull, tourAbbr } from "./js/config.js";
     import {
       getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
@@ -136,7 +136,7 @@
                         <tr>
                           <td>${e.eventNumber}</td>
                           <td>${escapeHtml(e.name)}</td>
-                          <td>${e.tour === "womens" ? "W" : "M"}</td>
+                          <td>${tourAbbr(e.tour)}</td>
                           <td>
                             <select class="inline-select inline-select--status" data-status-event="${e.id}" data-current="${e.status}">
                               <option value="upcoming"${e.status === "upcoming" ? " selected" : ""}>Upcoming</option>
@@ -379,7 +379,7 @@
               <label class="form-label">Select Event</label>
               <select class="form-select" id="results-event-select">
                 <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"} (${e.status})</option>`).join("")}
+                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${tourLabel(e.tour)} (${e.status})</option>`).join("")}
               </select>
             </div>
             <div id="results-form-container"></div>
@@ -391,7 +391,7 @@
               <select class="form-select" id="clear-results-event-select">
                 <option value="">Choose an event...</option>
                 ${events.filter((e) => e.resultsEntered).map((e) =>
-                  `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
+                  `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${tourLabel(e.tour)}</option>`
                 ).join("")}
               </select>
             </div>
@@ -573,7 +573,7 @@
         });
       } else {
         countdownPreview.style.color = "var(--color-charcoal)";
-        countdownPreview.title = `Source: ${state.event.name} (${state.tour === "womens" ? "Women's" : "Men's"}) · deadline from ${state.deadlineSource}`;
+        countdownPreview.title = `Source: ${state.event.name} (${tourLabel(state.tour)}) · deadline from ${state.deadlineSource}`;
         window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
         setBannerToggleState(countdownToggle, { state: "available", savedShown: cdSavedShown });
       }
@@ -777,7 +777,7 @@
           .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0)); // newest first
         return {
           tour,
-          label: tour === "womens" ? "Women's CT" : "Men's CT",
+          label: tourLabelFull(tour),
           count: evs.length,
           current: evs[0] || null,
           last: evs[1] || null,
@@ -837,11 +837,10 @@
       events = freshEvents;
       users = freshUsers;
 
-      const labelOf = (t) => (t === "womens" ? "Women's" : "Men's");
       const parts = outcomes.map((o) => {
-        if (o.status === "updated") return `${labelOf(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
-        if (o.status === "skipped") return `${labelOf(o.tour)} skipped (${o.reason})`;
-        return `${labelOf(o.tour)} FAILED: ${o.reason} — re-running Update is safe and completes it`;
+        if (o.status === "updated") return `${tourLabel(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
+        if (o.status === "skipped") return `${tourLabel(o.tour)} skipped (${o.reason})`;
+        return `${tourLabel(o.tour)} FAILED: ${o.reason} — re-running Update is safe and completes it`;
       });
       const anyFailed = outcomes.some((o) => o.status === "failed");
       const anyUpdated = outcomes.some((o) => o.status === "updated");
@@ -991,8 +990,8 @@
           const locking = wasOpen; // open → click means lock; locked → means open
           const evName = ev?.name || eventId;
           const evTour = ev?.tour || "mens";
-          const tourLabel = evTour === "womens" ? "Women's" : "Men's";
-          const evNumLabel = ev?.eventNumber ? `${tourLabel} Event ${ev.eventNumber}` : tourLabel;
+          const tourName = tourLabel(evTour);
+          const evNumLabel = ev?.eventNumber ? `${tourName} Event ${ev.eventNumber}` : tourName;
           // Synchronous check (events already loaded): is there an earlier locked
           // event on the same tour that carry-forward could pull from? If not,
           // skip the second confirm — nothing to carry.
@@ -1338,7 +1337,7 @@
       function renderScrapeSummary(byTour, warnings) {
         const sections = TOURS.map((tour) => {
           const g = byTour[tour];
-          const label = tour === "mens" ? "Men's" : "Women's";
+          const label = tourLabel(tour);
           if (!g) {
             return `<div style="flex:1;min-width:260px"><h4 style="margin:0 0 0.4rem">${label}</h4><p class="text-muted text-sm">No data scraped.</p></div>`;
           }
@@ -1515,7 +1514,7 @@
                   const g = scrapedByTour[tour];
                   overwriteTours.push({
                     tour,
-                    label: tour === "womens" ? "Women's" : "Men's",
+                    label: tourLabel(tour),
                     eventName: g?.localEvent?.name || "this event",
                   });
                 }
@@ -1805,7 +1804,7 @@
         valueUpdateBtn?.addEventListener("click", async () => {
           if (!valueUpdateSection || !valueUpdateModal) return;
           const tour = activeSurferTour;
-          const label = tour === "womens" ? "Women's" : "Men's";
+          const label = tourLabel(tour);
           const modalTitle = valueUpdateModal.querySelector(".modal__title");
           if (modalTitle) modalTitle.textContent = `Update ${label} Values`;
 

@@ -34,7 +34,7 @@
 
   <script type="module">
     import { initAuth, onAuth } from "./js/auth.js";
-    import { SEASON } from "./js/config.js";
+    import { SEASON, tourLabelFull } from "./js/config.js";
     import { buildRankProgression } from "./js/scoring.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
     import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
@@ -337,8 +337,8 @@
             ${coinBadge}
           </div>
 
-          ${renderTeamCard("Men's CT", mensEvent, mensTeam, "mens")}
-          ${renderTeamCard("Women's CT", womensEvent, womensTeam, "womens")}
+          ${renderTeamCard(tourLabelFull("mens"), mensEvent, mensTeam, "mens")}
+          ${renderTeamCard(tourLabelFull("womens"), womensEvent, womensTeam, "womens")}
 
           <div class="dash-grid-2 dash-grid-2--stretch mt-3">
             <div class="card" style="display:flex;flex-direction:column">
