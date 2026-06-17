@@ -27,7 +27,7 @@
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, toast, locationForEvent, escapeHtml, confirmModal } from "./js/ui.js";
 
     let clubScoringMode = "best9";
 
@@ -510,7 +510,14 @@
       });
 
       document.getElementById("btn-leave-club")?.addEventListener("click", async () => {
-        if (!confirm(`Are you sure you want to ${isOwner ? "delete this club" : "leave"}?`)) return;
+        if (!(await confirmModal({
+          title: isOwner ? "Delete club?" : "Leave club?",
+          bodyHtml: isOwner
+            ? "<p>This deletes the club and removes all members. This cannot be undone.</p>"
+            : "<p>Are you sure you want to leave this club?</p>",
+          confirmLabel: isOwner ? "Delete club" : "Leave club",
+          confirmTone: "danger",
+        }))) return;
         const btn = document.getElementById("btn-leave-club");
         btn.disabled = true;
         try {

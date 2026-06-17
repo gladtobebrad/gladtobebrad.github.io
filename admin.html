@@ -936,7 +936,12 @@
 
       container.querySelectorAll("[data-delete-event]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          if (!confirm("Delete this event? This cannot be undone.")) return;
+          if (!(await confirmModal({
+            title: "Delete event?",
+            bodyHtml: "<p>This permanently deletes the event. This cannot be undone.</p>",
+            confirmLabel: "Delete event",
+            confirmTone: "danger",
+          }))) return;
           await deleteEvent(btn.dataset.deleteEvent);
           try { await touchEventsVersion(); } catch {}
           toast("Event deleted.", "info");
@@ -1249,7 +1254,12 @@
 
       container.querySelectorAll("[data-delete-surfer]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          if (!confirm("Delete this surfer?")) return;
+          if (!(await confirmModal({
+            title: "Delete surfer?",
+            bodyHtml: "<p>This permanently deletes the surfer.</p>",
+            confirmLabel: "Delete surfer",
+            confirmTone: "danger",
+          }))) return;
           await deleteSurfer(btn.dataset.deleteSurfer);
           toast("Surfer deleted.", "info");
           surfers = await getAllSurfers();
@@ -1279,7 +1289,12 @@
         btn.addEventListener("click", async () => {
           const clubId = btn.dataset.deleteClub;
           const memberIds = JSON.parse(btn.dataset.clubMembers || "[]");
-          if (!confirm(`Delete this club and remove all ${memberIds.length} member(s)? This cannot be undone.`)) return;
+          if (!(await confirmModal({
+            title: "Delete club?",
+            bodyHtml: `<p>This deletes the club and removes all ${memberIds.length} member(s). This cannot be undone.</p>`,
+            confirmLabel: "Delete club",
+            confirmTone: "danger",
+          }))) return;
           try {
             await deleteClub(clubId, memberIds);
             toast("Club deleted.", "info");
@@ -1680,7 +1695,12 @@
         const eventId = document.getElementById("clear-results-event-select").value;
         if (!eventId) { toast("Select an event first.", "error"); return; }
         const ev = events.find((e) => e.id === eventId);
-        if (!confirm(`Clear ALL results for ${ev?.name || eventId}? This cannot be undone.`)) return;
+        if (!(await confirmModal({
+          title: "Clear all results?",
+          bodyHtml: `<p>This clears <strong>ALL results</strong> for ${escapeHtml(ev?.name || eventId)} and unsets resultsEntered. This cannot be undone.</p>`,
+          confirmLabel: "Clear results",
+          confirmTone: "danger",
+        }))) return;
         try {
           await clearResults(eventId);
           await saveEvent(eventId, { resultsEntered: false });
@@ -1917,7 +1937,13 @@
 
       // ── REFRESH PLAYER DIRECTORY + RESET ALL TEAMS ──
       document.getElementById("btn-reset-teams")?.addEventListener("click", async () => {
-        if (!confirm("This will delete ALL team rosters for every user and event. This cannot be undone. Are you sure?")) return;
+        if (!(await confirmModal({
+          title: "Reset ALL teams?",
+          bodyHtml: "<p>This permanently deletes <strong>every team roster for every user and event</strong>. This cannot be undone.</p>",
+          confirmLabel: "Delete all rosters",
+          confirmTone: "danger",
+          requireText: "RESET",
+        }))) return;
         try {
           const count = await clearAllTeams();
           toast(`All teams cleared (${count} rosters deleted).`, "success");

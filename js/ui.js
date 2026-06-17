@@ -539,7 +539,8 @@ export function confirmModal({
   cancelLabel = "Cancel",
   confirmTone = "primary",
   steps = null,        // array of step labels, e.g. ["Lock trading", "Carry forward", "Popularity"]
-  currentStep = 1      // 1-based index into `steps`
+  currentStep = 1,     // 1-based index into `steps`
+  requireText = null   // if set, the user must type this exact text before Confirm enables
 }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -562,6 +563,13 @@ export function confirmModal({
       }).join("")}</ol>`;
     }
 
+    const requireHtml = requireText
+      ? `<div class="confirm-modal__require">
+          <label class="form-label" for="confirm-require-input">Type <strong>${escapeHtml(requireText)}</strong> to confirm</label>
+          <input type="text" class="search-input" id="confirm-require-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${escapeHtml(requireText)}">
+        </div>`
+      : "";
+
     overlay.innerHTML = `
       <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         <div class="modal__header">
@@ -570,12 +578,17 @@ export function confirmModal({
         </div>
         ${stepsHtml}
         <div class="confirm-modal__body">${bodyHtml}</div>
+        ${requireHtml}
         <div class="confirm-modal__actions">
           <button class="btn btn--outline" data-confirm-action="cancel">${cancelLabel}</button>
-          <button class="btn btn--${confirmTone}" data-confirm-action="confirm">${confirmLabel}</button>
+          <button class="btn btn--${confirmTone}" data-confirm-action="confirm"${requireText ? " disabled" : ""}>${confirmLabel}</button>
         </div>
       </div>
     `;
+
+    const confirmBtn = overlay.querySelector('[data-confirm-action="confirm"]');
+    const reqInput = overlay.querySelector("#confirm-require-input");
+    const textMatches = () => !requireText || (reqInput?.value.trim() === requireText);
 
     const previouslyFocused = document.activeElement;
     function close(result) {
@@ -588,19 +601,21 @@ export function confirmModal({
     }
     function onKey(e) {
       if (e.key === "Escape") { e.preventDefault(); close(false); }
-      else if (e.key === "Enter") { e.preventDefault(); close(true); }
+      else if (e.key === "Enter") { e.preventDefault(); if (textMatches()) close(true); }
     }
 
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) { close(false); return; }
       const action = e.target.closest("[data-confirm-action]")?.dataset.confirmAction;
       if (action === "cancel") close(false);
-      else if (action === "confirm") close(true);
+      else if (action === "confirm" && textMatches()) close(true);
     });
+
+    if (reqInput) reqInput.addEventListener("input", () => { confirmBtn.disabled = !textMatches(); });
 
     document.addEventListener("keydown", onKey);
     document.body.appendChild(overlay);
-    overlay.querySelector('[data-confirm-action="confirm"]')?.focus();
+    (reqInput || confirmBtn)?.focus();
   });
 }
 
