@@ -66,19 +66,18 @@ mid-pack. Approximate shapes today (peak $11M, floor $3M):
   last $ 3.00M                            $ 3.00M
 ```
 
-## Tunables (`PRICING` + constants in `pricing.js`)
+## Tunables (constants in `pricing.js`)
 
 | Constant | Value | Meaning |
 |---|---|---|
 | `ALPHA` | 0.5 | EMA smoothing — the main knob (move size / convergence speed) |
-| `peak` | $11M (both) | rank-#1 target (top-5 land ~$10M ±1M) |
+| `PEAK` | $11M (both tours) | rank-#1 target **and the value ceiling** (top-5 land ~$10M ±1M) |
 | `RANKED_FLOOR` | $3M | last-ranked surfer's price (curve's pinned bottom) |
 | `WILDCARD_VALUE` | $1.5M | wildcard price — the **only** value below the floor |
-| `MAX_VALUE` | $12.5M | absolute ceiling |
 | `MAX_CHANGE` | $1.5M | hard backstop on a single event's move |
 | `VALUE_STEP` | $250K | all prices are multiples of this |
-| `poolFactor` | 1.0 men / **0.9 women** | scales the target pool (see gotchas) |
-| `cap` / `starters` | $50M/8, $35M/5 | salary cap and squad size (alt excluded) |
+| `POOL_FACTOR` | 1.0 men / **0.9 women** | the one per-tour knob — scales the target pool (see gotchas) |
+| `cap` / `starters` | $50M/8, $35M/5 | salary cap & squad size — from `getTeamRules()` in `team.js`, not duplicated (alt excluded) |
 
 ## Invariants
 

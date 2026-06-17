@@ -491,6 +491,25 @@ img { max-width: 100%; }
   padding: 0;
 }
 
+/* Horizontal-scroll affordance — a right-edge fade that appears only when more
+   event columns are scrollable off-screen (auto-hides where the table fits).
+   Toggled by wireStandingsTables() in js/standings-table.js. */
+.scroll-shadow { position: relative; }
+.scroll-shadow::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 32px;
+  background: linear-gradient(to left, var(--color-warm-white), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 3;
+}
+.scroll-shadow.can-scroll-right::after { opacity: 1; }
+
 /* ── Salary Cap Bar ───────────────────────────────── */
 
 .salary-bar {

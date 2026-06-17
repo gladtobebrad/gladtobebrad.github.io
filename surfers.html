@@ -11,15 +11,6 @@
   <link rel="icon" type="image/png" href="img/Fsurf_logo.png">
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
   <style>
-    .place-badge {
-      display: inline-block;
-      min-width: 2.5rem;
-      padding: 0.15rem 0.4rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-align: center;
-    }
     /* Plain rank cells — no color bands. Cleaner, less visual noise;
        the table title makes the meaning of the numbers clear. */
     .rank-cell {
@@ -112,10 +103,10 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth } from "./js/auth.js";
+    import { onAuth } from "./js/auth.js";
     import { SEASON } from "./js/config.js";
     import { getEvents, getSurfers } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml } from "./js/ui.js";
+    import { bootstrapPage, showAuthGate, showLoading, locationForEvent, escapeHtml } from "./js/ui.js";
 
     let activeSubPage = "location";  // "location" (Results) | "popularity"
     let activeTour = "mens";          // "mens" | "womens"
@@ -227,12 +218,9 @@
       }
     }
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     onAuth(async (user, profile) => {
-      const main = document.getElementById("app-main");
       if (!user) {
         showAuthGate(main);
         return;

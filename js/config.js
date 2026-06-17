@@ -17,3 +17,23 @@ export const BEST_N_EVENTS = 9;
 // The tours the league runs. Prefer importing TOURS over re-typing the
 // ["mens", "womens"] array literal.
 export const TOURS = ["mens", "womens"];
+
+
+// ── Tour display labels ──────────────────────────────
+// The display projection of the TOURS ids. Convention: anything not "womens"
+// reads as men's (matches the `tour || "mens"` default used across the app).
+
+/** Bare tour label → "Women's" / "Men's". */
+export function tourLabel(tour) {
+  return tour === "womens" ? "Women's" : "Men's";
+}
+
+/** Tour label with the Championship-Tour suffix → "Women's CT" / "Men's CT". */
+export function tourLabelFull(tour) {
+  return tour === "womens" ? "Women's CT" : "Men's CT";
+}
+
+/** Single-char tour code for tight cells → "W" / "M". */
+export function tourAbbr(tour) {
+  return tour === "womens" ? "W" : "M";
+}

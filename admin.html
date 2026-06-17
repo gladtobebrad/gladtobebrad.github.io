@@ -22,8 +22,8 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, requireAdmin } from "./js/auth.js";
-    import { SEASON, TOURS } from "./js/config.js";
+    import { requireAdmin } from "./js/auth.js";
+    import { SEASON, TOURS, tourLabel, tourLabelFull, tourAbbr } from "./js/config.js";
     import {
       getAllSurfers, saveSurfer, deleteSurfer,
       getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
@@ -35,12 +35,12 @@
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints, getMaxFinishPosition, calculateSeasonStandings } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { collection, doc, getDocs, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender, fetchSeasonRankings } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions, nameToKey } from "./js/wsl-resolve.js";
-    import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, MAX_VALUE, VALUE_STEP, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
+    import { buildCurve, anchorValueForRank, emaStep, tenabilityReport, ALPHA, MAX_CHANGE, PEAK, VALUE_STEP, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
 
     let surfers = [];
     let events = [];
@@ -49,12 +49,9 @@
     let activeTab = "events";
     let activeSurferTour = "mens";
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     requireAdmin().then(async (user) => {
-      const main = document.getElementById("app-main");
       showLoading(main);
       await loadAdmin(main);
     });
@@ -136,7 +133,7 @@
                         <tr>
                           <td>${e.eventNumber}</td>
                           <td>${escapeHtml(e.name)}</td>
-                          <td>${e.tour === "womens" ? "W" : "M"}</td>
+                          <td>${tourAbbr(e.tour)}</td>
                           <td>
                             <select class="inline-select inline-select--status" data-status-event="${e.id}" data-current="${e.status}">
                               <option value="upcoming"${e.status === "upcoming" ? " selected" : ""}>Upcoming</option>
@@ -379,7 +376,7 @@
               <label class="form-label">Select Event</label>
               <select class="form-select" id="results-event-select">
                 <option value="">Choose an event...</option>
-                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"} (${e.status})</option>`).join("")}
+                ${events.map((e) => `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${tourLabel(e.tour)} (${e.status})</option>`).join("")}
               </select>
             </div>
             <div id="results-form-container"></div>
@@ -391,7 +388,7 @@
               <select class="form-select" id="clear-results-event-select">
                 <option value="">Choose an event...</option>
                 ${events.filter((e) => e.resultsEntered).map((e) =>
-                  `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${e.tour === "womens" ? "Women's" : "Men's"}</option>`
+                  `<option value="${e.id}">${e.eventNumber}. ${escapeHtml(e.name)} — ${tourLabel(e.tour)}</option>`
                 ).join("")}
               </select>
             </div>
@@ -573,7 +570,7 @@
         });
       } else {
         countdownPreview.style.color = "var(--color-charcoal)";
-        countdownPreview.title = `Source: ${state.event.name} (${state.tour === "womens" ? "Women's" : "Men's"}) · deadline from ${state.deadlineSource}`;
+        countdownPreview.title = `Source: ${state.event.name} (${tourLabel(state.tour)}) · deadline from ${state.deadlineSource}`;
         window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
         setBannerToggleState(countdownToggle, { state: "available", savedShown: cdSavedShown });
       }
@@ -720,6 +717,7 @@
           tour,
           displayName: entry.displayName,
           teamName: entry.teamName,
+          avatarUrl: entry.avatarUrl || "",
           eventScores: entry.eventScores,
           bestNineTotal: entry.bestNineTotal,
           allEventsTotal: entry.allEventsTotal,
@@ -776,7 +774,7 @@
           .sort((a, b) => (b.eventNumber || 0) - (a.eventNumber || 0)); // newest first
         return {
           tour,
-          label: tour === "womens" ? "Women's CT" : "Men's CT",
+          label: tourLabelFull(tour),
           count: evs.length,
           current: evs[0] || null,
           last: evs[1] || null,
@@ -836,11 +834,10 @@
       events = freshEvents;
       users = freshUsers;
 
-      const labelOf = (t) => (t === "womens" ? "Women's" : "Men's");
       const parts = outcomes.map((o) => {
-        if (o.status === "updated") return `${labelOf(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
-        if (o.status === "skipped") return `${labelOf(o.tour)} skipped (${o.reason})`;
-        return `${labelOf(o.tour)} FAILED: ${o.reason} — re-running Update is safe and completes it`;
+        if (o.status === "updated") return `${tourLabel(o.tour)} updated (${o.players} player${o.players === 1 ? "" : "s"}, ${o.eventsUsed} event${o.eventsUsed === 1 ? "" : "s"})`;
+        if (o.status === "skipped") return `${tourLabel(o.tour)} skipped (${o.reason})`;
+        return `${tourLabel(o.tour)} FAILED: ${o.reason} — re-running Update is safe and completes it`;
       });
       const anyFailed = outcomes.some((o) => o.status === "failed");
       const anyUpdated = outcomes.some((o) => o.status === "updated");
@@ -990,8 +987,8 @@
           const locking = wasOpen; // open → click means lock; locked → means open
           const evName = ev?.name || eventId;
           const evTour = ev?.tour || "mens";
-          const tourLabel = evTour === "womens" ? "Women's" : "Men's";
-          const evNumLabel = ev?.eventNumber ? `${tourLabel} Event ${ev.eventNumber}` : tourLabel;
+          const tourName = tourLabel(evTour);
+          const evNumLabel = ev?.eventNumber ? `${tourName} Event ${ev.eventNumber}` : tourName;
           // Synchronous check (events already loaded): is there an earlier locked
           // event on the same tour that carry-forward could pull from? If not,
           // skip the second confirm — nothing to carry.
@@ -1224,8 +1221,9 @@
           toast(`Surfers are priced at $${WILDCARD_VALUE / 1_000_000}M (wildcard) or $${RANKED_FLOOR / 1_000_000}M+ — nothing in between.`, "error");
           return;
         }
-        if (data.value > MAX_VALUE) {
-          toast(`Value can't exceed the $${MAX_VALUE / 1_000_000}M ceiling.`, "error");
+        const peakCeiling = PEAK;
+        if (data.value > peakCeiling) {
+          toast(`Value can't exceed the $${peakCeiling / 1_000_000}M ceiling (the #1 curve value).`, "error");
           return;
         }
         // A manual value change re-baselines the EMA filter: clear the idempotency
@@ -1336,7 +1334,7 @@
       function renderScrapeSummary(byTour, warnings) {
         const sections = TOURS.map((tour) => {
           const g = byTour[tour];
-          const label = tour === "mens" ? "Men's" : "Women's";
+          const label = tourLabel(tour);
           if (!g) {
             return `<div style="flex:1;min-width:260px"><h4 style="margin:0 0 0.4rem">${label}</h4><p class="text-muted text-sm">No data scraped.</p></div>`;
           }
@@ -1513,7 +1511,7 @@
                   const g = scrapedByTour[tour];
                   overwriteTours.push({
                     tour,
-                    label: tour === "womens" ? "Women's" : "Men's",
+                    label: tourLabel(tour),
                     eventName: g?.localEvent?.name || "this event",
                   });
                 }
@@ -1764,7 +1762,7 @@
             warnings.push(`No event with results for ${tour} yet — nothing to step from.`);
           }
           if (curve.degenerate) {
-            warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust PRICING.${tour} in pricing.js.`);
+            warnings.push(`Pricing curve hit a calibration bound — it's near-linear (the ${tour} target pool is unreachable for the current peak/poolFactor). Adjust POOL_FACTOR.${tour} (or PEAK) in pricing.js.`);
           }
           // Two of OUR surfers sharing a name-key both resolve to the same WSL
           // rank+price and double-count in the curve — flag for cleanup.
@@ -1803,7 +1801,7 @@
         valueUpdateBtn?.addEventListener("click", async () => {
           if (!valueUpdateSection || !valueUpdateModal) return;
           const tour = activeSurferTour;
-          const label = tour === "womens" ? "Women's" : "Men's";
+          const label = tourLabel(tour);
           const modalTitle = valueUpdateModal.querySelector(".modal__title");
           if (modalTitle) modalTitle.textContent = `Update ${label} Values`;
 

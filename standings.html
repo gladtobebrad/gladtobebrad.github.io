@@ -22,32 +22,36 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { initAuth, onAuth } from "./js/auth.js";
+    import { onAuth } from "./js/auth.js";
     import { SEASON } from "./js/config.js";
     import { getLeaderboard, getEvents, getPlayerDirectory } from "./js/db.js";
     import { isInProgress } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, locationForEvent, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, showAuthGate, showLoading, escapeHtml } from "./js/ui.js";
+    import { renderStandingsTable, wireStandingsTables } from "./js/standings-table.js";
 
     let scoringMode = "best9"; // "best9" or "all"
 
-    initAuth();
-    renderHeader();
-    renderFooter();
+    const main = bootstrapPage();
 
     onAuth(async (user, profile) => {
-      const main = document.getElementById("app-main");
       if (!user) { showAuthGate(main); return; }
       showLoading(main);
-      await renderPage(main);
+      await renderPage(main, user);
     });
 
-    async function renderPage(container) {
+    async function renderPage(container, user) {
       try {
-        const [mensLb, womensLb, events] = await Promise.all([
+        const [mensLb, womensLb, events, directory] = await Promise.all([
           getLeaderboard(SEASON, "mens"),
           getLeaderboard(SEASON, "womens"),
-          getEvents(SEASON)
+          getEvents(SEASON),
+          getPlayerDirectory()
         ]);
+        // Avatars live in the player directory (1 cached read), not the
+        // leaderboard snapshot — map them in so standings shows real photos
+        // (first preference, initial fallback) like the clubhouse table.
+        const dirAvatars = {};
+        for (const u of directory) if (u.avatarUrl) dirAvatars[u.id] = u.avatarUrl;
 
         // All season events per tour, sorted by eventNumber (upcoming events
         // show as empty columns, matching the clubhouse event-by-event table)
@@ -58,12 +62,8 @@
           .filter(e => (e.tour || "") === "womens")
           .sort((a, b) => a.eventNumber - b.eventNumber);
 
-        // If no leaderboard data yet, fall back to player directory (pre-season)
-        // getPlayerDirectory() reads a single meta doc (1 read) cached by admin
-        let allUsers = null;
-        if (!mensLb.length && !womensLb.length) {
-          allUsers = await getPlayerDirectory();
-        }
+        // Pre-season (no leaderboard yet): the directory roster is the fallback.
+        const allUsers = directory;
 
         // The leaderboard already stores projected scores for in-progress
         // events (the admin recalc uses projectTeam for live events); we only
@@ -82,7 +82,7 @@
               rank: i + 1,
               displayName: entry.displayName || "Anonymous",
               teamName: entry.teamName || entry.displayName || "—",
-              avatarUrl: entry.avatarUrl || "",
+              avatarUrl: dirAvatars[entry.userId] || entry.avatarUrl || "",
               bestNineTotal: entry.bestNineTotal || 0,
               allEventsTotal: entry.allEventsTotal || 0,
               eventsPlayed: entry.eventsPlayed || 0,
@@ -103,66 +103,6 @@
           }));
         }
 
-        function standingsTable(players, tourEvents, tableId) {
-          if (!players.length) return `<p class="text-muted">No players yet.</p>`;
-          return `
-            <div style="overflow-x:auto;position:relative">
-              <table class="data-table scroll-table" id="${tableId}">
-                <thead><tr>
-                  <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
-                  <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
-                  <th class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:232px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
-                    <div>${scoringMode === "all" ? "All Events" : "Best 9"}</div>
-                    <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                  </th>
-                  ${tourEvents.map(e => `
-                    <th class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${escapeHtml(e.name)}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
-                      <div>${escapeHtml(locationForEvent(e.name))}</div>
-                      <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
-                    </th>
-                  `).join("")}
-                  <th class="scroll-spacer" aria-hidden="true"></th>
-                </tr></thead>
-                <tbody>
-                  ${players.map(p => `
-                    <tr style="cursor:pointer" onclick="window.location.href='profile.html?id=${encodeURIComponent(p.id)}'"
-                      data-score="${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}"
-                      data-search="${escapeHtml((p.teamName + " " + p.displayName).toLowerCase())}"
-                      ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
-                      <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
-                      <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:176px;padding-left:0.5rem;padding-right:0.5rem">
-                        <div class="flex gap-1" style="align-items:center;min-width:0">
-                          ${p.avatarUrl
-                            ? `<img src="${escapeHtml(safeUrl(p.avatarUrl))}" alt="" class="avatar-sm" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-                            : `<div class="avatar-sm avatar-sm--empty">${(p.displayName || "?")[0]}</div>`}
-                          <div style="min-width:0;overflow:hidden">
-                            <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.teamName)}</strong>
-                            ${p.teamName !== p.displayName ? `<div class="text-xs text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.displayName)}</div>` : ""}
-                          </div>
-                        </div>
-                      </td>
-                      <td class="text-center" style="position:sticky;left:232px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;border-right:2px solid var(--color-beige)"><strong>${scoringMode === "all" ? p.allEventsTotal : p.bestNineTotal}</strong></td>
-                      ${tourEvents.map(e => {
-                        const pts = p.eventScores[e.id];
-                        const live = inProgressIds.has(e.id);
-                        const hasResults = e.status === "completed" || e.resultsEntered;
-                        if (live) {
-                          return pts != null
-                            ? `<td class="text-center" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
-                            : `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
-                        }
-                        if (!hasResults) return `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
-                        return `<td class="text-center">${pts ?? "—"}</td>`;
-                      }).join("")}
-                      <td class="scroll-spacer"></td>
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
-            </div>
-          `;
-        }
-
         const mensPlayers = buildStandings(mensLb);
         const womensPlayers = buildStandings(womensLb);
 
@@ -180,48 +120,14 @@
             </div>
           </div>
           <div id="panel-mens" class="card mb-3">
-            ${standingsTable(mensPlayers, mensEvents, "table-mens")}
+            ${renderStandingsTable({ players: mensPlayers, tourEvents: mensEvents, scoringMode, liveEventIds: inProgressIds, highlightUserId: user.uid, tableId: "table-mens" })}
           </div>
           <div id="panel-womens" class="card mb-3" style="display:none">
-            ${standingsTable(womensPlayers, womensEvents, "table-womens")}
+            ${renderStandingsTable({ players: womensPlayers, tourEvents: womensEvents, scoringMode, liveEventIds: inProgressIds, highlightUserId: user.uid, tableId: "table-womens" })}
           </div>
         `;
 
-        // Wire up sortable column headers
-        container.querySelectorAll(".sortable-col").forEach((th) => {
-          th.addEventListener("click", () => {
-            const col = th.dataset.col;
-            const table = th.closest("table");
-            const tbody = table.querySelector("tbody");
-            const prev = th.dataset.dir;
-            const dir = prev === "asc" ? "desc" : "asc";
-
-            table.querySelectorAll(".sortable-col").forEach((h) => {
-              h.dataset.dir = "";
-              h.querySelector(".sort-arrow").textContent = "▲▼";
-              h.querySelector(".sort-arrow").style.opacity = "0.4";
-            });
-            th.dataset.dir = dir;
-            th.querySelector(".sort-arrow").textContent = dir === "asc" ? "▲" : "▼";
-            th.querySelector(".sort-arrow").style.opacity = "1";
-
-            const rows = [...tbody.querySelectorAll("tr")];
-            rows.sort((a, b) => {
-              let av, bv;
-              if (col.startsWith("evt_")) {
-                const evtId = col.slice(4);
-                av = parseFloat(a.dataset[`evt-${evtId}`] ?? a.getAttribute(`data-evt-${evtId}`) ?? -1);
-                bv = parseFloat(b.dataset[`evt-${evtId}`] ?? b.getAttribute(`data-evt-${evtId}`) ?? -1);
-              } else {
-                // score column ("Best 9" / "All Events")
-                av = parseFloat(a.dataset.score ?? 0);
-                bv = parseFloat(b.dataset.score ?? 0);
-              }
-              return dir === "asc" ? av - bv : bv - av;
-            });
-            rows.forEach(r => tbody.appendChild(r));
-          });
-        });
+        wireStandingsTables(container);
 
         // Tour toggle
         const btnMens = document.getElementById("toggle-mens");
@@ -243,7 +149,7 @@
         container.querySelectorAll(".scoring-toggle").forEach((btn) => {
           btn.addEventListener("click", () => {
             scoringMode = btn.dataset.mode;
-            renderPage(container);
+            renderPage(container, user);
           });
         });
 
