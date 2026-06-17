@@ -30,6 +30,28 @@ export function safeUrl(url) {
   return s; // scheme-less → relative path, same origin
 }
 
+// ── Surfer-name rendering ────────────────────────────
+
+// Split a full name into { first, last } — the last word is the surname, the
+// rest the given name(s). Internal helper for the two-line surfer-tile labels.
+function splitName(fullName) {
+  const parts = (fullName || "").trim().split(/\s+/);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: "", last: parts[0] };
+  const last = parts.pop();
+  return { first: parts.join(" "), last };
+}
+
+// Two-line surfer-tile name label: small given name over a larger surname.
+// Shared by the dashboard (index) and My Team roster strips.
+export function nameLabelHtml(fullName) {
+  const { first, last } = splitName(fullName);
+  return `<span class="team-row__name">
+    ${first ? `<span class="team-row__firstname">${escapeHtml(first)}</span>` : ""}
+    <span class="team-row__lastname">${escapeHtml(last || fullName)}</span>
+  </span>`;
+}
+
 // ── Navigation ───────────────────────────────────────
 
 const NAV_ITEMS = [

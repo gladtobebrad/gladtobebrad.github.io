@@ -36,7 +36,7 @@
     import { initAuth, onAuth } from "./js/auth.js";
     import { SEASON, BEST_N_EVENTS } from "./js/config.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
-    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
+    import { renderHeader, renderFooter, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
 
     initAuth();
@@ -114,22 +114,6 @@
 
       // ── Helpers ───────────────────────────────────────
       // Split a full name into first/last for two-line display.
-      const splitName = (fullName) => {
-        const parts = (fullName || "").trim().split(/\s+/);
-        if (parts.length === 0) return { first: "", last: "" };
-        if (parts.length === 1) return { first: "", last: parts[0] };
-        const last = parts.pop();
-        return { first: parts.join(" "), last };
-      };
-
-      const nameLabelHtml = (fullName) => {
-        const { first, last } = splitName(fullName);
-        return `<span class="team-row__name">
-          ${first ? `<span class="team-row__firstname">${escapeHtml(first)}</span>` : ""}
-          <span class="team-row__lastname">${escapeHtml(last || fullName)}</span>
-        </span>`;
-      };
-
       // Render a team as a single horizontal row of surfer tiles + alternate.
       // Position-aware: sparse-saved teams (with gaps) render at their
       // stored team_position. Legacy compact saves fall back to array index.

@@ -252,7 +252,7 @@
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
-    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl } from "./js/ui.js";
+    import { renderHeader, renderFooter, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
 
     // Working state
@@ -288,20 +288,6 @@
     const findSlotByName = (sparse, surferId) => sparse.findIndex((s) => s && s.surferId === surferId);
 
     // ── Name-split helpers (mirror dashboard) ───────────
-    const splitName = (fullName) => {
-      const parts = (fullName || "").trim().split(/\s+/);
-      if (parts.length === 0) return { first: "", last: "" };
-      if (parts.length === 1) return { first: "", last: parts[0] };
-      const last = parts.pop();
-      return { first: parts.join(" "), last };
-    };
-    const nameLabelHtml = (fullName) => {
-      const { first, last } = splitName(fullName);
-      return `<span class="team-row__name">
-        ${first ? `<span class="team-row__firstname">${escapeHtml(first)}</span>` : ""}
-        <span class="team-row__lastname">${escapeHtml(last || fullName)}</span>
-      </span>`;
-    };
 
     // Render a saved team as a single-row strip of surfer tiles + alternate.
     // Reuses the dashboard's .team-row CSS for consistency. Position-aware
