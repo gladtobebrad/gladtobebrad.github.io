@@ -357,9 +357,9 @@
             <table class="data-table" id="event-table" style="margin:0">
               <thead>
                 <tr>
-                  <th class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
-                  <th class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
-                  ${displayYears.map(y => `<th class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
+                  <th scope="col" class="sortable" data-sort="name">Surfer ${sortArrow("name")}</th>
+                  <th scope="col" class="sortable text-center" data-sort="avg">Avg ${sortArrow("avg")}</th>
+                  ${displayYears.map(y => `<th scope="col" class="sortable text-center" data-sort="${y}">${y} ${sortArrow(String(y))}</th>`).join("")}
                 </tr>
               </thead>
               <tbody>${eventRows}</tbody>
@@ -383,17 +383,17 @@
             <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
               <table class="data-table" id="surfers-table" style="margin:0">
                 <thead><tr>
-                  <th class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
+                  <th scope="col" class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">
                     Surfer <span class="sort-arrow" style="font-size:0.6rem;opacity:1">▲</span>
                   </th>
-                  <th class="sortable-col text-right" data-col="rank" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                  <th scope="col" class="sortable-col text-right" data-col="rank" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
                     Rank <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                   </th>
-                  <th class="sortable-col text-right" data-col="value" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
+                  <th scope="col" class="sortable-col text-right" data-col="value" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap">
                     Value <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                   </th>
                   ${tourEvents.map((e, i) => `
-                    <th class="sortable-col text-right" data-col="${i + 3}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.8rem">
+                    <th scope="col" class="sortable-col text-right" data-col="${i + 3}" data-dir="" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:0.8rem">
                       Ev ${e.eventNumber} <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
                     </th>
                   `).join("")}

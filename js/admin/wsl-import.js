@@ -50,7 +50,7 @@ export function wireWslImport(ctx) {
               <p class="text-sm text-muted" style="margin:0 0 0.4rem">${g.resolvedResults.length} placements${g.unmatched.length ? ` · ${g.unmatched.length} unmatched` : ""}</p>
               <div style="max-height:280px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff">
                 <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
-                  <thead><tr style="background:var(--color-cream);position:sticky;top:0"><th style="padding:0.3rem 0.4rem;text-align:right">#</th><th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th><th style="padding:0.3rem 0.4rem;text-align:right">Heat</th><th style="padding:0.3rem 0.4rem;text-align:right">Pts</th></tr></thead>
+                  <thead><tr style="background:var(--color-cream);position:sticky;top:0"><th scope="col" style="padding:0.3rem 0.4rem;text-align:right">#</th><th scope="col" style="padding:0.3rem 0.4rem;text-align:left">Surfer</th><th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Heat</th><th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Pts</th></tr></thead>
                   <tbody>${rows || `<tr><td colspan="4" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No completed rounds yet.</td></tr>`}</tbody>
                 </table>
               </div>

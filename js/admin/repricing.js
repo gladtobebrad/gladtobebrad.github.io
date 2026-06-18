@@ -185,12 +185,12 @@ export function wireRepricing(ctx) {
             <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:360px;overflow-y:auto">
               <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
                 <thead><tr style="background:var(--color-cream);position:sticky;top:0">
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Target $</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">New $</th>
-                  <th style="padding:0.3rem 0.4rem;text-align:right">Δ</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Rank</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:left">Surfer</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Current $</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Target $</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">New $</th>
+                  <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Δ</th>
                 </tr></thead>
                 <tbody>${rows || `<tr><td colspan="6" style="padding:0.5rem;text-align:center;color:var(--color-warm-gray)">No matched surfers.</td></tr>`}</tbody>
               </table>
