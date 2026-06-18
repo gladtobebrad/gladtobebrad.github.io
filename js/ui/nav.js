@@ -198,18 +198,23 @@ export function bootstrapPage() {
 // ── Profile Edit Modal ───────────────────────────────
 
 /**
- * Downscale + JPEG-re-encode an avatar file before upload. Avatars never render
- * larger than ~72px, so a 320px cap is visually lossless yet turns a multi-MB
- * phone photo into a ~20–40 KB file (~50–100× smaller) — the same PNG→JPG win
- * as the landing page, applied automatically to every user upload.
+ * Prepare an avatar file for upload. Decodes the image FIRST — which also
+ * proves it can be displayed — then downscales + JPEG-re-encodes it. Avatars
+ * never render larger than ~72px, so a 320px cap is visually lossless yet turns
+ * a multi-MB phone photo into a ~20–40 KB file (~50–100× smaller) — the same
+ * PNG→JPG win as the landing page.
  *
- * Falls back to the original file if anything goes wrong (decode/encode) or if
- * re-encoding wouldn't actually save bytes, so the upload never silently breaks.
- * Returns the original `file` reference on fallback (caller checks identity to
- * pick the right contentType).
+ * Returns:
+ *   • a JPEG Blob — the normal compressed result;
+ *   • the original `file` — when it's already small, or re-encoding wouldn't
+ *     save bytes (both are valid, displayable images);
+ *   • null — when the file can't be decoded (e.g. a HEIC mislabelled `.jpg`).
+ *     It wouldn't render in an <img> anyway, so the caller rejects it rather
+ *     than store a large, undisplayable blob.
+ * The caller checks `=== file` to pick the contentType and `== null` to reject.
  */
 async function compressAvatar(file, { maxSize = 320, quality = 0.82 } = {}) {
-  if (file.size <= 64 * 1024) return file; // already small enough — skip lossy round-trip
+  let img;
   try {
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -217,12 +222,17 @@ async function compressAvatar(file, { maxSize = 320, quality = 0.82 } = {}) {
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     });
-    const img = await new Promise((resolve, reject) => {
+    img = await new Promise((resolve, reject) => {
       const i = new Image();
       i.onload = () => resolve(i);
       i.onerror = () => reject(new Error("decode failed"));
       i.src = dataUrl;
     });
+  } catch {
+    return null; // undecodable -> won't display anywhere -> caller rejects
+  }
+  if (file.size <= 64 * 1024) return file; // small + decodable -> skip lossy round-trip
+  try {
     const scale = Math.min(1, maxSize / Math.max(img.width, img.height)); // never upscale
     const w = Math.max(1, Math.round(img.width * scale));
     const h = Math.max(1, Math.round(img.height * scale));
@@ -236,7 +246,7 @@ async function compressAvatar(file, { maxSize = 320, quality = 0.82 } = {}) {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
     return blob && blob.size < file.size ? blob : file;
   } catch {
-    return file;
+    return file; // decoded fine; encode hiccup -> original is still displayable
   }
 }
 
@@ -273,9 +283,9 @@ export function openProfileEditModal(user, profile) {
             <div id="pe-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
               <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
                 Choose File
-                <input type="file" id="pe-file" accept="image/*" style="display:none">
+                <input type="file" id="pe-file" accept="image/jpeg,image/png" style="display:none">
               </label>
-              <span class="text-xs text-muted" id="pe-file-name">or drag &amp; drop here</span>
+              <span class="text-xs text-muted" id="pe-file-name">JPG or PNG — or drag &amp; drop</span>
             </div>
             <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${escapeHtml(urlValue)}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
           </div>
@@ -304,15 +314,28 @@ export function openProfileEditModal(user, profile) {
   document.body.appendChild(overlay);
 
   // ── File / URL / drag-drop handlers ──
+  const fileInput = document.getElementById("pe-file");
+  const fileNameEl = document.getElementById("pe-file-name");
+  const FILE_HINT = "JPG or PNG — or drag & drop";
+  // Only JPG/PNG: anything else (HEIC, GIF, WEBP…) either won't display in an
+  // <img> on every browser or can't be decoded for compression, so we reject it
+  // up front rather than store a large, undisplayable blob.
   const applyFile = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    document.getElementById("pe-file-name").textContent = file.name;
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png"].includes(file.type) || /\.(jpe?g|png)$/i.test(file.name);
+    if (!allowed) {
+      toast("Please choose a JPG or PNG image.", "error");
+      if (fileInput) fileInput.value = "";       // drop the rejected native selection
+      if (fileNameEl) fileNameEl.textContent = FILE_HINT;
+      return;
+    }
+    fileNameEl.textContent = file.name;
     document.getElementById("pe-url").value = "";
     const preview = document.getElementById("pe-avatar-preview");
     if (preview && preview.tagName === "IMG") preview.src = URL.createObjectURL(file);
     const dt = new DataTransfer();
     dt.items.add(file);
-    document.getElementById("pe-file").files = dt.files;
+    fileInput.files = dt.files;
   };
   document.getElementById("pe-file")?.addEventListener("change", (e) => applyFile(e.target.files[0]));
 
@@ -342,13 +365,17 @@ export function openProfileEditModal(user, profile) {
     let finalUrl = urlInput || profile?.avatarUrl || "";
 
     if (file) {
-      toast("Uploading photo…", "info");
       try {
+        const upload = await compressAvatar(file);
+        if (!upload) {
+          toast("That image couldn't be read — please use a standard JPG or PNG.", "error");
+          return;
+        }
+        toast("Uploading photo…", "info");
         const { storage } = await import("../firebase-config.js");
         const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js");
-        const upload = await compressAvatar(file);
-        // On success `upload` is a JPEG blob; on fallback it's the original
-        // file — let uploadBytes infer its type, as before.
+        // Compressed result is a JPEG blob; the original-file fallback keeps its
+        // own type — let uploadBytes infer it.
         const metadata = upload === file ? undefined : { contentType: "image/jpeg" };
         const storageRef = ref(storage, `avatars/${user.uid}`);
         await uploadBytes(storageRef, upload, metadata);
