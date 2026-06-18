@@ -25,23 +25,21 @@
     import { requireAdmin } from "./js/auth.js";
     import { SEASON, TOURS, tourLabel, tourAbbr } from "./js/config.js";
     import {
-      getAllSurfers, saveSurfer, deleteSurfer,
-      getEvents, getCurrentEventForTour, saveEvent, deleteEvent,
+      getAllSurfers,
+      getEvents, saveEvent, deleteEvent,
       getResults, saveResultsBatch, clearResults,
-      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
+      getTeamsForEvent, lockTeamsForEvent, carryForwardTeams,
       touchEventsVersion,
-      savePlayerDirectory, getAllUsers,
+      getAllUsers,
       getAllClubs,
-      getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { getPoints, getMaxFinishPosition } from "./js/scoring.js";
-    import { bootstrapPage, showLoading, toast, formatSalary, formatDate, confirmModal, resolveCountdownState, startCountdownTimer, fetchLiveStatusCached, renderLiveStatusBanner, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, showLoading, toast, formatSalary, formatDate, confirmModal, escapeHtml } from "./js/ui.js";
     import { db } from "./js/firebase-config.js";
     import { doc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions } from "./js/wsl-resolve.js";
-    import { PEAK, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
-    import { wireRepricing, promptUpdateLeaderboard, wireClubs } from "./js/admin.js";
+    import { wireRepricing, promptUpdateLeaderboard, wireClubs, wirePlayers, wireBanners, wireSurfers } from "./js/admin.js";
 
     let surfers = [];
     let events = [];
@@ -505,161 +503,8 @@
       wireAdminEvents(container);
     }
 
-    // Apply a tri-state to a banner toggle: "available" (Shown/Hidden, clickable),
-    // "unavailable" (locked + greyed; preserves the user's saved preference for
-    // when content reappears), or "checking" (locked + greyed while a fetch is
-    // in flight). The saved checkbox value is preserved across states so the
-    // toggle restores correctly when content becomes eligible again.
-    function setBannerToggleState(toggleEl, { state, savedShown, reason }) {
-      const checkbox = toggleEl.querySelector("input");
-      const label = toggleEl.querySelector(".toggle__label");
-      checkbox.checked = savedShown;
-      if (state === "available") {
-        checkbox.disabled = false;
-        label.textContent = savedShown ? "Shown" : "Hidden";
-        toggleEl.style.opacity = "";
-        toggleEl.style.cursor = "";
-        toggleEl.removeAttribute("title");
-      } else {
-        checkbox.disabled = true;
-        label.textContent = state === "checking" ? "Checking…" : "Unavailable";
-        toggleEl.style.opacity = "0.5";
-        toggleEl.style.cursor = "not-allowed";
-        if (reason) toggleEl.title = reason;
-      }
-    }
+    // ── SITE BANNERS → js/admin/banners.js ──
 
-    async function wireCountdownBanner() {
-      const countdownPreview = document.getElementById("countdown-preview");
-      const countdownToggle = document.getElementById("toggle-banner");
-      const liveStatusPreview = document.getElementById("live-status-preview");
-      const liveStatusToggle = document.getElementById("toggle-live-status");
-      if (!countdownPreview || !countdownToggle || !liveStatusPreview || !liveStatusToggle) return;
-
-      // Phase 1: load only the fast/local inputs (Firestore). Anything that
-      // depends on WSL goes into Phase 2 below so a WSL outage cannot brick
-      // the toggles or the countdown preview.
-      let siteConfig = {};
-      let mensEv = null, womensEv = null;
-      try {
-        [siteConfig, mensEv, womensEv] = await Promise.all([
-          getSiteConfig(),
-          getCurrentEventForTour("mens", SEASON),
-          getCurrentEventForTour("womens", SEASON),
-        ]);
-      } catch (err) {
-        countdownPreview.textContent = "Could not load banner state.";
-        return;
-      }
-
-      // ── Live status row: preview placeholder + toggle in "Checking…" state ──
-      // The toggle starts locked because we don't yet know if WSL has an
-      // active event to display. Phase 2 below transitions it to either
-      // "available" (when WSL returns content) or "unavailable".
-      const liveSavedShown = siteConfig.showLiveStatus !== false;
-      liveStatusPreview.style.color = "var(--color-warm-gray)";
-      liveStatusPreview.removeAttribute("title");
-      liveStatusPreview.textContent = "Checking WSL…";
-      liveStatusPreview.style.display = "";
-      setBannerToggleState(liveStatusToggle, { state: "checking", savedShown: liveSavedShown });
-
-      const liveCheckbox = liveStatusToggle.querySelector("input");
-      liveCheckbox.addEventListener("change", async () => {
-        // Native disabled prevents firing in "checking"/"unavailable" states.
-        const shown = liveCheckbox.checked;
-        const liveLabel = liveStatusToggle.querySelector(".toggle__label");
-        liveLabel.textContent = shown ? "Shown" : "Hidden";
-        try {
-          await saveSiteConfig({ showLiveStatus: shown });
-          toast(`Live status banner ${shown ? "shown" : "hidden"}.`, "success");
-        } catch (err) {
-          toast("Error saving banner state: " + err.message, "error");
-          liveCheckbox.checked = !shown;
-          liveLabel.textContent = !shown ? "Shown" : "Hidden";
-        }
-      });
-
-      // ── Countdown row: preview + toggle ──
-      // Wired entirely from local data; never blocks on WSL.
-      const cdSavedShown = siteConfig.showCountdown !== false;
-      const state = resolveCountdownState({ mensEv, womensEv });
-      if (!state) {
-        countdownPreview.textContent = "Nothing — no tour has open trading with a start date.";
-        countdownPreview.style.color = "var(--color-warm-gray)";
-        countdownPreview.removeAttribute("title");
-        setBannerToggleState(countdownToggle, {
-          state: "unavailable",
-          savedShown: cdSavedShown,
-          reason: "No tour has open trading with a start date.",
-        });
-      } else {
-        countdownPreview.style.color = "var(--color-charcoal)";
-        countdownPreview.title = `Source: ${state.event.name} (${tourLabel(state.tour)}) · deadline from ${state.deadlineSource}`;
-        window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
-        setBannerToggleState(countdownToggle, { state: "available", savedShown: cdSavedShown });
-      }
-
-      const cdCheckbox = countdownToggle.querySelector("input");
-      cdCheckbox.addEventListener("change", async () => {
-        const shown = cdCheckbox.checked;
-        const cdLabel = countdownToggle.querySelector(".toggle__label");
-        cdLabel.textContent = shown ? "Shown" : "Hidden";
-        try {
-          await saveSiteConfig({ showCountdown: shown });
-          toast(`Countdown banner ${shown ? "shown" : "hidden"}.`, "success");
-        } catch (err) {
-          toast("Error saving banner state: " + err.message, "error");
-          cdCheckbox.checked = !shown;
-          cdLabel.textContent = !shown ? "Shown" : "Hidden";
-        }
-      });
-
-      // Phase 2: fetch live status in the background. Resolves the toggle's
-      // state (available vs unavailable) once we know what WSL returned.
-      fetchLiveStatusCached(SEASON).then((liveStatus) => {
-        if (!document.body.contains(liveStatusPreview)) return;
-        if (liveStatus) {
-          liveStatusPreview.style.color = "var(--color-charcoal)";
-          liveStatusPreview.title = `Source: WSL /events/${SEASON}/ct (cached ~60s)`;
-          renderLiveStatusBanner(liveStatusPreview, liveStatus);
-          liveStatusPreview.style.display = "";
-          setBannerToggleState(liveStatusToggle, { state: "available", savedShown: liveSavedShown });
-        } else {
-          liveStatusPreview.style.color = "var(--color-warm-gray)";
-          liveStatusPreview.removeAttribute("title");
-          liveStatusPreview.style.display = "";
-          // Distinguish "WSL says no active event" from "WSL unreachable" by
-          // peeking at the cache's fail-TTL stamp.
-          let failed = false;
-          try {
-            const cached = JSON.parse(sessionStorage.getItem("wsl_live_status") || "null");
-            failed = cached && cached.data === null && cached.ttl < 30_000;
-          } catch {}
-          liveStatusPreview.textContent = failed
-            ? "WSL unreachable — banner will retry automatically."
-            : "Nothing — WSL has no active event right now.";
-          setBannerToggleState(liveStatusToggle, {
-            state: "unavailable",
-            savedShown: liveSavedShown,
-            reason: failed
-              ? "WSL is currently unreachable."
-              : "WSL has no active event right now.",
-          });
-        }
-      });
-    }
-
-    // ── LEADERBOARD RECALC (hardened) ──────────────────
-    //
-    // Integrity contract (see memory: feedback-scoring-integrity):
-    //  1. Compute the entire new leaderboard in memory before touching Firestore.
-    //  2. Pre-flight: skip a tour entirely if it has no events with results
-    //     entered — never overwrite a real leaderboard with empties.
-    //  3. Writes are chunked to <=450 ops (Firestore caps a batch at 500) so a
-    //     tour past ~500 users still commits. Sets run before deletes, so a
-    //     partial failure leaves entries stale-but-present (never missing).
-    //  4. Per-tour try/catch so one tour's failure cannot corrupt the other.
-    //  5. User team rosters (teams/) are read-only here — never written.
     // ── Leaderboard recalc + Update dialog → js/admin/leaderboard.js ──
 
     function wireAdminEvents(container) {
@@ -672,7 +517,7 @@
       });
 
       // ── COUNTDOWN BANNER PREVIEW + TOGGLE ──
-      if (activeTab === "events") wireCountdownBanner();
+      if (activeTab === "events") wireBanners();
 
       // ── EVENT MODAL ──
       const eventModal = document.getElementById("event-modal");
@@ -969,135 +814,8 @@
         });
       });
 
-      // ── SURFER TOUR SUB-TABS ──
-      container.querySelectorAll("[data-surfer-tour]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          activeSurferTour = btn.dataset.surferTour;
-          renderAdmin(container);
-        });
-      });
-
-      // ── SURFER MODAL ──
-      const surferModal = document.getElementById("surfer-modal");
-      const openSurferModal = (s) => {
-        const preview = document.getElementById("surfer-photo-preview");
-        if (s) {
-          document.getElementById("surfer-edit-id").value = s.id;
-          document.getElementById("surfer-id").value = s.id;
-          document.getElementById("surfer-id").disabled = true;
-          document.getElementById("surfer-name").value = s.name || "";
-          document.getElementById("surfer-country").value = s.country || "";
-          document.getElementById("surfer-rank").value = s.rank || "";
-          document.getElementById("surfer-value").value = s.value || 0;
-          document.getElementById("surfer-tour").value = s.tour || "mens";
-          document.getElementById("surfer-stance").value = s.stance || "";
-          document.getElementById("surfer-photo").value = s.photoUrl || "";
-          preview.innerHTML = s.photoUrl ? `<img src="${escapeHtml(safeUrl(s.photoUrl))}" class="surfer-photo--sm" alt="">` : "";
-          document.getElementById("surfer-form-title").textContent = "Edit Surfer";
-        } else {
-          document.getElementById("surfer-form").reset();
-          document.getElementById("surfer-edit-id").value = "";
-          document.getElementById("surfer-id").disabled = false;
-          preview.innerHTML = "";
-          document.getElementById("surfer-form-title").textContent = "Add Surfer";
-        }
-        surferModal.style.display = "flex";
-      };
-      const closeSurferModal = () => { surferModal.style.display = "none"; };
-
-      document.getElementById("btn-add-surfer")?.addEventListener("click", () => openSurferModal(null));
-      document.getElementById("surfer-modal-close")?.addEventListener("click", closeSurferModal);
-      document.getElementById("surfer-modal-cancel")?.addEventListener("click", closeSurferModal);
-      surferModal?.addEventListener("click", (e) => { if (e.target === surferModal) closeSurferModal(); });
-
-      document.getElementById("surfer-form")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const editId = document.getElementById("surfer-edit-id").value;
-        const id = editId || document.getElementById("surfer-id").value.trim();
-        if (!id) return;
-        const value = parseInt(document.getElementById("surfer-value").value, 10) || 0;
-        const data = {
-          name: document.getElementById("surfer-name").value.trim(),
-          country: document.getElementById("surfer-country").value.trim().toUpperCase(),
-          rank: parseInt(document.getElementById("surfer-rank").value, 10) || null,
-          value,
-          tour: document.getElementById("surfer-tour").value,
-          stance: document.getElementById("surfer-stance").value || null,
-          photoUrl: document.getElementById("surfer-photo").value.trim() || null
-        };
-        // For new surfers, set defaults for fields managed via inline selects
-        if (!editId) {
-          data.status = "active";
-          data.active = true;
-        }
-        if (data.value % 250000 !== 0) {
-          toast(`Value must be a multiple of $250,000 (e.g. $${(Math.round(data.value / 250000) * 250000).toLocaleString()})`, "error");
-          return;
-        }
-        if (data.value !== WILDCARD_VALUE && data.value < RANKED_FLOOR) {
-          toast(`Surfers are priced at $${WILDCARD_VALUE / 1_000_000}M (wildcard) or $${RANKED_FLOOR / 1_000_000}M+ — nothing in between.`, "error");
-          return;
-        }
-        const peakCeiling = PEAK;
-        if (data.value > peakCeiling) {
-          toast(`Value can't exceed the $${peakCeiling / 1_000_000}M ceiling (the #1 curve value).`, "error");
-          return;
-        }
-        // A manual value change re-baselines the EMA filter: clear the idempotency
-        // stamp so the next reprice steps from this hand-set value (not the stored
-        // pre-event baseline of an already-priced event).
-        const prevSurfer = editId ? surfers.find((x) => x.id === editId) : null;
-        if (!prevSurfer || prevSurfer.value !== data.value) data.lastPricedEvent = null;
-        try {
-          await saveSurfer(id, data);
-          toast("Surfer saved!", "success");
-          closeSurferModal();
-          surfers = await getAllSurfers();
-          renderAdmin(container);
-        } catch (err) {
-          toast("Error: " + err.message, "error");
-        }
-      });
-
-      container.querySelectorAll("[data-edit-surfer]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const s = surfers.find((x) => x.id === btn.dataset.editSurfer);
-          if (!s) return;
-          openSurferModal(s);
-        });
-      });
-
-      container.querySelectorAll("[data-delete-surfer]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          if (!(await confirmModal({
-            title: "Delete surfer?",
-            bodyHtml: "<p>This permanently deletes the surfer.</p>",
-            confirmLabel: "Delete surfer",
-            confirmTone: "danger",
-          }))) return;
-          await deleteSurfer(btn.dataset.deleteSurfer);
-          toast("Surfer deleted.", "info");
-          surfers = await getAllSurfers();
-          renderAdmin(container);
-        });
-      });
-
-      // ── INLINE SURFER STATUS SELECT ──
-      container.querySelectorAll("[data-status-surfer]").forEach((sel) => {
-        sel.addEventListener("change", async () => {
-          const surferId = sel.dataset.statusSurfer;
-          const prev = sel.dataset.current;
-          try {
-            await saveSurfer(surferId, { status: sel.value, active: sel.value !== "inactive" });
-            toast(`Status updated to "${sel.value}".`, "success");
-            surfers = await getAllSurfers();
-            renderAdmin(container);
-          } catch (err) {
-            toast("Error: " + err.message, "error");
-            sel.value = prev;
-          }
-        });
-      });
+      // ── SURFERS → js/admin/surfers.js ──
+      wireSurfers(ctx());
 
       // ── CLUBS → js/admin/clubs.js ──
       wireClubs(ctx());
@@ -1510,33 +1228,8 @@
       // ── UPDATE VALUES (post-event repricing) — js/admin/repricing.js ──
       wireRepricing(ctx());
 
-      // ── REFRESH PLAYER DIRECTORY + RESET ALL TEAMS ──
-      document.getElementById("btn-reset-teams")?.addEventListener("click", async () => {
-        if (!(await confirmModal({
-          title: "Reset ALL teams?",
-          bodyHtml: "<p>This permanently deletes <strong>every team roster for every user and event</strong>. This cannot be undone.</p>",
-          confirmLabel: "Delete all rosters",
-          confirmTone: "danger",
-          requireText: "RESET",
-        }))) return;
-        try {
-          const count = await clearAllTeams();
-          toast(`All teams cleared (${count} rosters deleted).`, "success");
-        } catch (err) { toast("Reset failed (" + err.message + "). Re-running is safe — it deletes whatever remains.", "error"); }
-      });
-
-      document.getElementById("btn-refresh-directory")?.addEventListener("click", async () => {
-        try {
-          const snapshot = users.map(u => ({
-            id: u.id,
-            displayName: u.displayName || "Anonymous",
-            teamName: u.teamName || "",
-            avatarUrl: u.avatarUrl || u.photoUrl || ""
-          }));
-          await savePlayerDirectory(snapshot);
-          toast(`Player directory updated (${snapshot.length} players).`, "success");
-        } catch (err) { toast("Error: " + err.message, "error"); }
-      });
+      // ── PLAYERS → js/admin/players.js ──
+      wirePlayers(ctx());
     }
   </script>
 </body>
