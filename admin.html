@@ -31,7 +31,7 @@
       getTeamsForEvent, lockTeamsForEvent, carryForwardTeams, clearAllTeams,
       touchEventsVersion,
       savePlayerDirectory, getAllUsers,
-      getAllClubs, deleteClub,
+      getAllClubs,
       getSiteConfig, saveSiteConfig
     } from "./js/db.js";
     import { getPoints, getMaxFinishPosition } from "./js/scoring.js";
@@ -41,7 +41,7 @@
     import { fetchSchedule, pickTargetVenue, discoverGenders, scrapeEventForGender } from "./js/wsl-scrape.js";
     import { buildSurferIndex, resolveSurfer, computeFinishPositions } from "./js/wsl-resolve.js";
     import { PEAK, WILDCARD_VALUE, RANKED_FLOOR } from "./js/pricing.js";
-    import { wireRepricing, promptUpdateLeaderboard } from "./js/admin.js";
+    import { wireRepricing, promptUpdateLeaderboard, wireClubs } from "./js/admin.js";
 
     let surfers = [];
     let events = [];
@@ -1099,27 +1099,8 @@
         });
       });
 
-      // ── CLUBS ──
-      container.querySelectorAll("[data-delete-club]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const clubId = btn.dataset.deleteClub;
-          const memberIds = JSON.parse(btn.dataset.clubMembers || "[]");
-          if (!(await confirmModal({
-            title: "Delete club?",
-            bodyHtml: `<p>This deletes the club and removes all ${memberIds.length} member(s). This cannot be undone.</p>`,
-            confirmLabel: "Delete club",
-            confirmTone: "danger",
-          }))) return;
-          try {
-            await deleteClub(clubId, memberIds);
-            toast("Club deleted.", "info");
-            clubs = await getAllClubs();
-            renderAdmin(container);
-          } catch (err) {
-            toast("Error: " + err.message, "error");
-          }
-        });
-      });
+      // ── CLUBS → js/admin/clubs.js ──
+      wireClubs(ctx());
 
       // ── WSL FETCH & UPDATE RESULTS ──
       const wslFetchBtn = document.getElementById("btn-fetch-results");

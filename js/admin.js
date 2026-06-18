@@ -3,3 +3,4 @@
 // added one at a time as admin.html is decomposed. Explicit named re-exports.
 export { wireRepricing } from "./admin/repricing.js";
 export { promptUpdateLeaderboard } from "./admin/leaderboard.js";
+export { wireClubs } from "./admin/clubs.js";
