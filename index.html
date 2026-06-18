@@ -53,7 +53,7 @@
         ]);
         // The getEvents() / getCurrentEventForTour() pair is sessionStorage-cached,
         // so tradingOpen / status flips made via admin won't show until the cache
-        // expires. Re-fetch the picked events fresh so the badges + countdown
+        // expires. Re-fetch the picked events fresh so the badges
         // reflect the live Firestore state.
         const [mensFresh, womensFresh] = await Promise.all([
           mensEvent ? getEventFresh(mensEvent.id) : null,
@@ -146,12 +146,7 @@
         const eventInfo = event
           ? `<div class="text-sm text-muted" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem">
               <span>${escapeHtml(event.name)}</span>
-              ${statusBadge(event.status)} ${tradingBadge(event.tradingOpen)}
-              ${(() => {
-                const dl = getDeadlineMs(event);
-                if (!dl) return "";
-                return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;padding:0.15rem 0.45rem;font-size:0.7rem;font-variant-numeric:tabular-nums;white-space:nowrap" data-deadline="${dl}"><span class="countdown-text">—</span> until lock</span>`;
-              })()}
+              ${tradingBadge(event.tradingOpen)}
             </div>`
           : `<div class="text-sm text-muted" style="margin-top:0.25rem">No active event.</div>`;
         return `
@@ -166,30 +161,6 @@
             ${renderTeamRow(team, tour)}
           </div>`;
       };
-
-      // ── Countdown helpers ─────────────────────────────
-      function getDeadlineMs(ev) {
-        if (!ev || !ev.tradingCloseTime || !ev.tradingCloseTimezone || ev.tradingOpen === false) return null;
-        const offset = parseInt(ev.tradingCloseTimezone, 10);
-        if (isNaN(offset)) return null;
-        const sign = offset >= 0 ? "+" : "-";
-        const absH = String(Math.abs(offset)).padStart(2, "0");
-        const isoStr = `${ev.tradingCloseTime}:00${sign}${absH}:00`;
-        const ms = new Date(isoStr).getTime();
-        return isNaN(ms) ? null : ms;
-      }
-
-      function formatCountdown(ms) {
-        if (ms <= 0) return "Closing soon";
-        const s = Math.floor(ms / 1000);
-        const d = Math.floor(s / 86400);
-        const h = Math.floor((s % 86400) / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        const sec = s % 60;
-        if (d > 0) return `${d}d ${h}h ${m}m`;
-        if (h > 0) return `${h}h ${m}m ${sec}s`;
-        return `${m}m ${sec}s`;
-      }
 
       // ── Rank progression chart ──────────────────────────
       const mensCompletedEvents = events
@@ -345,23 +316,6 @@
             </div>
           </div>
         `;
-
-        // ── Countdown tick ──
-        clearInterval(window._countdownInterval);
-        const cdEls = container.querySelectorAll("[data-deadline]");
-        if (cdEls.length) {
-          const tick = () => {
-            const now = Date.now();
-            cdEls.forEach((el) => {
-              const dl = parseInt(el.dataset.deadline, 10);
-              const span = el.querySelector(".countdown-text");
-              if (span) span.textContent = formatCountdown(dl - now);
-            });
-          };
-          tick();
-          window._countdownInterval = setInterval(tick, 1000);
-        }
-
       }
 
       render();
