@@ -6,6 +6,15 @@
 > parts that require Firebase Console / CLI access. Nothing here changes the
 > static site — it only enforces server-side authorization.
 
+---
+
+## ✅ Status — updated 2026-06-18
+
+- **Step 1 — Deploy the rules: DONE & verified live.** `firestore.rules` + `storage.rules` are deployed on project `fantasysurfer` and confirmed **byte-identical to this repo** (`firebase deploy` reported both rulesets "already up to date"). **The critical server-side-authorization gap is now closed.**
+- **Step 2 — Custom-claims admin:** optional; **recommend deferring** — self-elevation is already closed by the `isAdmin`-immutable rule.
+- **Step 3 — Restrict the web API key:** **delegated to the GCP project admin (2026-06-18).** Requires Cloud-Console **IAM** access — *Firebase* "Editor" access is **not** sufficient (Firebase editors hit `resourcemanager.projects.get (Missing)` and can't open Credentials). Instructions inlined in Step 3 below.
+- **Step 4 — App Check:** optional; deferred until monetization (needs a client snippet — ping me).
+
 ## Why this matters (one paragraph)
 
 Until these rules are deployed, **every integrity rule lives only in the browser
@@ -28,7 +37,10 @@ one blocker before the site can safely take money/ads.
 
 ## What YOU need to do (requires Firebase access)
 
-### 1. Deploy the rules  ← the critical step
+### 1. Deploy the rules  ← ✅ DONE (2026-06-18)
+
+**Completed 2026-06-18** via `firebase deploy --only firestore:rules,storage` — both rulesets compiled, released, and verified identical to the repo. Commands retained below for reference / re-deploy.
+
 ```bash
 # one-time, on your machine:
 npm install -g firebase-tools
@@ -56,17 +68,38 @@ Optional — not required for Wave 0. If you skip it, the `isAdmin`-immutable ru
 is the safeguard; set the initial admin's `users/{uid}.isAdmin` to `true`
 manually in the Console once.
 
-### 3. (Recommended) Restrict the web API key
+> **2026-06-18 — recommend deferring indefinitely.** The `isAdmin`-immutable rule
+> already closes self-elevation (the real threat); custom claims is a multi-part
+> migration (Admin-SDK service-account key + rules + client changes + token
+> refresh) for marginal defense-in-depth. Revisit only with a concrete reason.
+
+### 3. (Recommended) Restrict the web API key  ← delegated to GCP admin (2026-06-18)
+
+> **Access note:** this is a **Google Cloud Console** task requiring a **GCP IAM
+> role** (`API Keys Admin` + `Browser`, or Editor/Owner). *Firebase* "Editor"
+> access is **not** enough — a Firebase editor gets `resourcemanager.projects.get
+> (Missing)` and can't open Credentials. As of 2026-06-18 this is handed to the
+> project's GCP admin/Owner (instructions shared).
+
 **Google Cloud Console → APIs & Services → Credentials → the Browser key** →
-add an **HTTP-referrer restriction** for `gladtobebrad.github.io` (and
-`*.firebaseapp.com`). The key in `js/firebase-config.js` is safe to expose, but
-referrer-locking blunts scripted abuse.
+**Application restrictions → HTTP referrers (web sites)** → add
+`https://gladtobebrad.github.io/*` and `https://*.firebaseapp.com/*` → **Save**.
+The key in `js/firebase-config.js` is safe to expose; referrer-locking just blunts
+scripted abuse of the key/quota and does **not** affect the deployed rules. After
+saving, load `gladtobebrad.github.io` in incognito and confirm sign-in + reads
+still work. (Local dev over `localhost` won't match these referrers — add
+`http://localhost:8000/*` if you test locally, or test against the live site.)
 
 ### 4. (Optional, for monetization) Enable App Check
 Register the site with **App Check** (reCAPTCHA v3 provider) and enforce it on
 Firestore + Storage. This stops non-browser clients from hitting your data even
 when signed in. Requires a small client snippet in `firebase-config.js` — ping
 me and I'll add it once you've registered the site key.
+
+> **2026-06-18 — deferred until monetization.** Rollout discipline when you do it:
+> register the reCAPTCHA v3 key + App Check, add the client snippet, run in
+> **monitor** mode first to confirm real traffic sends valid tokens, *then* flip
+> to **enforce** — enforcing before the client sends tokens locks the app out.
 
 ## Pre-deploy review checklist (for the reviewer)
 
