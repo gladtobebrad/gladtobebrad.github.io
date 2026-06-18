@@ -21,6 +21,7 @@
   --color-sage-dark: #7D8975;
   --color-sage-deep: #637059;   /* AA: white text passes 4.5:1 */
   --color-terracotta: #C97A60;
+  --color-terracotta-dark: #b36a52;   /* hover shade — mirrors the sage/sage-dark pair */
   --color-warm-brown: #6a6055;
   --color-warm-gray: #C9C5BE;
   --color-dark: var(--color-charcoal);
@@ -346,8 +347,8 @@ img { max-width: 100%; }
   border-color: var(--color-terracotta);
 }
 .btn--secondary:hover:not(:disabled) {
-  background: #b36a52;
-  border-color: #b36a52;
+  background: var(--color-terracotta-dark);
+  border-color: var(--color-terracotta-dark);
   color: #fff;
 }
 
