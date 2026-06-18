@@ -34,9 +34,9 @@
 
   <script type="module">
     import { SEASON, tourLabelFull } from "./js/config.js";
-    import { buildRankProgression } from "./js/scoring.js";
+    import { buildRankProgression, isInProgress } from "./js/scoring.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
-    import { bootstrapPage, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
+    import { bootstrapPage, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
 
     bootstrapPage({ auth: "user", render: ({ main, user, profile }) => renderDashboard(main, user, profile) });
@@ -268,22 +268,72 @@
         });
         const leagueLegend = renderRankLegend();
 
-        // Schedule list — single shared schedule (men's tour events represent the shared venues)
-        const scheduleEvents = events
+        // Results list — one row per shared venue (men's tour events are the
+        // canonical venue list); each row shows the viewer's men's + women's
+        // team score for that event, read from the season leaderboards the
+        // dashboard already loaded. A women's event pairs to its men's row by
+        // eventNumber (a "both"-tour event is stored as two docs sharing it).
+        const resultEvents = events
           .filter(e => (e.tour || "mens") === "mens")
           .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0));
-        const scheduleHtml = scheduleEvents.length === 0
+        const womensByNumber = {};
+        events
+          .filter(e => (e.tour || "") === "womens")
+          .forEach(e => { womensByNumber[e.eventNumber] = e; });
+
+        // Event columns whose leaderboard scores are live projections — styled
+        // as estimates (italic "~"), mirroring the standings table. The recalc
+        // already stores projectTeam() values for these.
+        const inProgressIds = new Set(
+          events.filter(e => isInProgress(e) && e.resultsEntered).map(e => e.id)
+        );
+
+        // The viewer's per-event scores per tour (leaderboard entry keyed by
+        // userId; eventScores keyed by event id). No entry → empty → all blanks.
+        const mensScores = (mensLeaderboard.find(e => e.userId === user.uid) || {}).eventScores || {};
+        const womensScores = (womensLeaderboard.find(e => e.userId === user.uid) || {}).eventScores || {};
+
+        // One source of truth for the score-column geometry so the M/W header
+        // labels line up exactly over their columns.
+        const SCORE_W = "min-width:2.6rem;text-align:center;flex-shrink:0";
+        const cell = `${SCORE_W};font-variant-numeric:tabular-nums;font-size:0.85rem`;
+        // A single venue's score cell for one tour. Mirrors standings-table.js:
+        // "~N" italic = live projection, "·" = no contest yet, "—" = contested
+        // but the viewer scored nothing (or had no team).
+        const renderScore = (pts, ev, color) => {
+          if (!ev) return `<span style="${cell};color:var(--color-warm-gray);opacity:0.4">·</span>`;
+          const live = inProgressIds.has(ev.id);
+          const hasResults = ev.status === "completed" || ev.resultsEntered;
+          if (live) {
+            return pts != null
+              ? `<span style="${cell};font-weight:600;color:${color};font-style:italic" title="Projected (live)">~${pts}</span>`
+              : `<span style="${cell};color:var(--color-warm-gray)">·</span>`;
+          }
+          if (!hasResults) return `<span style="${cell};color:var(--color-warm-gray)">·</span>`;
+          return `<span style="${cell};font-weight:600;color:${color}">${pts ?? "—"}</span>`;
+        };
+
+        const resultsHtml = resultEvents.length === 0
           ? `<p class="text-muted">No events scheduled yet.</p>`
-          : `<div class="surfer-list">
-              ${scheduleEvents.map(e => `
+          : `<div style="display:flex;align-items:center;gap:0.5rem;padding:0 calc(0.5rem + 1px) 0.3rem;font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">
+              <span style="min-width:28px"></span>
+              <span style="flex:1"></span>
+              <span style="${SCORE_W};color:${MENS_LINE_COLOR}" title="Your Men's CT score">M</span>
+              <span style="${SCORE_W};color:${WOMENS_LINE_COLOR}" title="Your Women's CT score">W</span>
+            </div>
+            <div class="surfer-list">
+              ${resultEvents.map(e => {
+                const wEv = womensByNumber[e.eventNumber];
+                return `
                 <div class="surfer-row surfer-row--wrap">
                   <span class="surfer-row__rank">${e.eventNumber}</span>
                   <span class="surfer-row__name">
                     ${e.status !== "upcoming" ? `<a href="event.html?id=${encodeURIComponent(e.id)}" style="color:inherit;text-decoration:none">${escapeHtml(e.name)}</a>` : escapeHtml(e.name)}
                   </span>
-                  ${statusBadge(e.status)}
-                </div>
-              `).join("")}
+                  ${renderScore(mensScores[e.id], e, MENS_LINE_COLOR)}
+                  ${renderScore(wEv ? womensScores[wEv.id] : undefined, wEv, WOMENS_LINE_COLOR)}
+                </div>`;
+              }).join("")}
             </div>`;
 
         container.innerHTML = `
@@ -311,8 +361,8 @@
               </div>
             </div>
             <div class="card">
-              <div class="card__header"><span class="card__title">${SEASON} Schedule</span></div>
-              ${scheduleHtml}
+              <div class="card__header"><span class="card__title">${SEASON} Results</span></div>
+              ${resultsHtml}
             </div>
           </div>
         `;
