@@ -48,14 +48,14 @@ export function renderStandingsTable({
       <div class="scroll-wrap" style="overflow-x:auto;position:relative">
         <table class="data-table scroll-table"${tableId ? ` id="${tableId}"` : ""}>
           <thead><tr>
-            <th style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
-            <th style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
-            <th class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:${scoreLeft}px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
+            <th scope="col" style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
+            <th scope="col" style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
+            <th scope="col" class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:${scoreLeft}px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
               <div>${scoringMode === "all" ? "All Events" : "Best 9"}</div>
               <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
             </th>
             ${tourEvents.map(e => `
-              <th class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${escapeHtml(e.name)}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
+              <th scope="col" class="text-center sortable-col evt-col" data-col="evt_${e.id}" data-dir="" title="${escapeHtml(e.name)}" style="cursor:pointer;user-select:none;font-size:0.65rem;line-height:1.15;vertical-align:bottom">
                 <div>${escapeHtml(locationForEvent(e.name))}</div>
                 <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
               </th>

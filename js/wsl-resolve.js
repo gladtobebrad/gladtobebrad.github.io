@@ -60,9 +60,9 @@ export function resolveSurfer(displayName, index) {
 //
 // Algorithm — walk rounds high → low. For each fully-completed round:
 //   - Final: place 1 = winner, place 2 = loser.
-//   - Other: losers (eliminated) sorted by heat total descending, with random
-//     tiebreak on exact ties (flagged). Starting place = (count distinct
-//     athletes appearing in any round > R) + 1.
+//   - Other: losers (eliminated) sorted by heat total descending, with a
+//     deterministic wslId tiebreak on exact ties (still flagged). Starting
+//     place = (count distinct athletes appearing in any round > R) + 1.
 //
 // Rounds that are not fully completed are skipped — losers there don't get
 // a final place yet because heat-total tiebreaks aren't valid until every
@@ -139,7 +139,7 @@ export function computeFinishPositions(heats, totalRounds = null) {
       }
     }
 
-    // Flag exact-tie groups before shuffling so the admin knows to verify.
+    // Flag exact-tie groups so the admin knows to verify the (arbitrary) order.
     const byScore = new Map();
     for (const l of losers) {
       const k = l.heatTotal;
@@ -149,7 +149,7 @@ export function computeFinishPositions(heats, totalRounds = null) {
     for (const [score, group] of byScore) {
       if (group.length > 1 && score != null) {
         warnings.push(
-          `R${R} heat-total tie at ${score.toFixed(2)}: ${group.map((l) => l.displayName).join(", ")} — order picked randomly; verify and swap if needed.`,
+          `R${R} heat-total tie at ${score.toFixed(2)}: ${group.map((l) => l.displayName).join(", ")} — order is arbitrary (tied); verify and swap if needed.`,
         );
       }
     }
@@ -158,7 +158,12 @@ export function computeFinishPositions(heats, totalRounds = null) {
       const at = a.heatTotal ?? -Infinity;
       const bt = b.heatTotal ?? -Infinity;
       if (at !== bt) return bt - at;
-      return Math.random() - 0.5;
+      // Deterministic tiebreak on exact heat-total ties: order by the stable
+      // wslId so re-running the scrape yields identical placements (idempotent)
+      // instead of reshuffling tied surfers between runs. The tie is still
+      // flagged for admin review, so this order is arbitrary — it just must
+      // not churn run-to-run.
+      return String(a.wslId).localeCompare(String(b.wslId));
     });
 
     const startingPlace = athletesAboveCount(R) + 1;

@@ -1,6 +1,6 @@
-// Extract the REAL escapeHtml/safeUrl source from js/ui.js and unit-test it.
+// Extract the REAL escapeHtml/safeUrl source from js/ui/escape.js and unit-test it.
 import { readFileSync } from "node:fs";
-const src = readFileSync("js/ui.js", "utf8");
+const src = readFileSync("js/ui/escape.js", "utf8");
 const grab = (name) => {
   const m = src.match(new RegExp(`export function ${name}\\s*\\([\\s\\S]*?\\n\\}`, "m"));
   if (!m) throw new Error(`could not extract ${name}`);
