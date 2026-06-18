@@ -318,17 +318,17 @@
   <script type="module">
     import { bootstrapPage } from "./js/ui.js";
 
-    bootstrapPage();
-
-    // Tab switching
-    document.querySelectorAll(".about-tab").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".about-tab").forEach(t => t.classList.remove("active"));
-        document.querySelectorAll(".about-panel").forEach(p => p.classList.remove("active"));
-        btn.classList.add("active");
-        document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+    // Static page — no auth gate; just wire the tab switcher once.
+    bootstrapPage({ auth: "static", render: () => {
+      document.querySelectorAll(".about-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".about-tab").forEach(t => t.classList.remove("active"));
+          document.querySelectorAll(".about-panel").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+        });
       });
-    });
+    }});
   </script>
 
 </body>

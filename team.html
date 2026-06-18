@@ -247,7 +247,6 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { requireAuth } from "./js/auth.js";
     import { SEASON, tourLabelFull } from "./js/config.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
     import { validateTeam, calculateRemaining, getTeamRules, altEligibleIds, ALT_CAP } from "./js/team.js";
@@ -432,12 +431,7 @@
       return rows.filter(Boolean);
     }
 
-    const main = bootstrapPage();
-
-    requireAuth().then(async (user) => {
-      showLoading(main);
-      await loadTeamPage(main, user);
-    });
+    const main = bootstrapPage({ auth: "user", onUnauth: "redirect", render: ({ main, user }) => loadTeamPage(main, user) });
 
     async function loadTeamPage(container, user) {
       try {

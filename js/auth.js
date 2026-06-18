@@ -116,6 +116,13 @@ export function onAuth(callback) {
   }
 }
 
+// Synchronous read of the cached profile (populated by initAuth's
+// ensureUserProfile once auth resolves). For callers that run only after a guard
+// has resolved — e.g. bootstrapPage's admin/redirect render paths.
+export function currentProfile() {
+  return currentUserProfile;
+}
+
 // Create or update user profile doc on sign-in
 async function ensureUserProfile(user) {
   const ref = doc(db, "users", user.uid);

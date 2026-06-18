@@ -33,23 +33,13 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { onAuth } from "./js/auth.js";
     import { SEASON, tourLabelFull } from "./js/config.js";
     import { buildRankProgression } from "./js/scoring.js";
     import { getCurrentEventForTour, getLeaderboard, getTeam, getEvents, getEventFresh, getSurfers, getPreviousTeam } from "./js/db.js";
-    import { bootstrapPage, showAuthGate, showLoading, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
+    import { bootstrapPage, statusBadge, tradingBadge, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
 
-    const main = bootstrapPage();
-
-    onAuth(async (user, profile) => {
-      if (!user) {
-        showAuthGate(main);
-        return;
-      }
-      showLoading(main);
-      await renderDashboard(main, user, profile);
-    });
+    bootstrapPage({ auth: "user", render: ({ main, user, profile }) => renderDashboard(main, user, profile) });
 
     async function renderDashboard(container, user, profile) {
       let mensEvent, womensEvent, mensLeaderboard, womensLeaderboard, events;

@@ -2,8 +2,9 @@
 // and the profile-edit modal opened from the nav menu.
 import { escapeHtml, safeUrl } from "./escape.js";
 import { resolveCountdownState, fetchLiveStatusCached, renderLiveStatusBanner, startCountdownTimer } from "./banners.js";
-import { toast } from "./modals.js";
-import { initAuth, signIn, signOut, onAuth } from "../auth.js";
+import { toast, showAuthGate } from "./modals.js";
+import { showLoading } from "./format.js";
+import { initAuth, signIn, signOut, onAuth, requireAuth, requireAdmin, currentProfile } from "../auth.js";
 import { SEASON } from "../config.js";
 
 // ── Navigation ───────────────────────────────────────
@@ -181,18 +182,76 @@ export function renderFooter() {
 }
 
 /**
- * The universal page preamble: initialise auth, render the shared header and
- * footer, and hand back the #app-main element. Every page calls this first, so
- * the three setup calls + the main lookup live in one place; each page keeps its
- * own visible auth dispatch (onAuth / requireAuth / requireAdmin) with `main`
- * already in scope.
+ * The universal page preamble + (optional) auth dispatch. Initialises auth,
+ * renders the shared header/footer, and returns the #app-main element.
+ *
+ * Called with NO argument it is the original minimal preamble — the page owns its
+ * own auth dispatch (onAuth / requireAuth / requireAdmin) with `main` in scope.
+ *
+ * Called with a config it ALSO owns the gate:
+ *   bootstrapPage({ auth, render, onUnauth, onGate })
+ *     auth:     "static" | "user" (default) | "admin"
+ *     render:   ({ main, user, profile }) => void|Promise   (static gets just { main })
+ *     onUnauth: "gate" (default — showAuthGate in place) | "redirect" (→ index.html)
+ *     onGate:   optional () => void, fired when the gate is shown on sign-out
+ *
+ * "user" semantics: render on a sign-in transition, re-gate/redirect on sign-out,
+ * and IGNORE no-op same-user refires (e.g. the ~hourly token refresh) so a page's
+ * own in-render re-render loop is never double-fired. "admin" delegates to
+ * requireAdmin (fresh isAdmin re-fetch + redirect-on-fail) and renders once.
+ *
  * @returns {HTMLElement} the #app-main content container
  */
-export function bootstrapPage() {
+export function bootstrapPage(config) {
   initAuth();
   renderHeader();
   renderFooter();
-  return document.getElementById("app-main");
+  const main = document.getElementById("app-main");
+  if (!config) return main; // legacy: page owns its own auth dispatch
+
+  const { auth = "user", render, onUnauth = "gate", onGate } = config;
+
+  // Static: no gating — render once, independent of auth state.
+  if (auth === "static") {
+    render?.({ main });
+    return main;
+  }
+
+  // Admin: requireAdmin owns the redirect-on-fail + fresh isAdmin re-fetch; once.
+  if (auth === "admin") {
+    requireAdmin().then((user) => {
+      showLoading(main);
+      render?.({ main, user, profile: currentProfile() });
+    });
+    return main;
+  }
+
+  // User + redirect: requireAuth owns the redirect-to-index for signed-out; once.
+  if (onUnauth === "redirect") {
+    requireAuth().then((user) => {
+      showLoading(main);
+      render?.({ main, user, profile: currentProfile() });
+    });
+    return main;
+  }
+
+  // User + inline gate: show the sign-in card when signed out; render on a
+  // sign-in transition only (skip no-op same-user refires so the page's own
+  // re-render loop isn't double-fired). onGate fires on each sign-out.
+  let renderedUid = null;
+  onAuth(async (user, profile) => {
+    if (!user) {
+      renderedUid = null;
+      onGate?.();
+      showAuthGate(main);
+      return;
+    }
+    if (user.uid === renderedUid) return;
+    renderedUid = user.uid;
+    showLoading(main);
+    await render?.({ main, user, profile });
+  });
+  return main;
 }
 
 // ── Profile Edit Modal ───────────────────────────────
