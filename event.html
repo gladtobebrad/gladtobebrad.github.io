@@ -22,17 +22,13 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { requireAuth } from "./js/auth.js";
     import { SEASON } from "./js/config.js";
     import { getEvent, getResults, getTeam, getSurfers, getLeaderboard } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress, getPoints } from "./js/scoring.js";
-    import { bootstrapPage, showLoading, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
+    import { bootstrapPage, formatDate, statusBadge, escapeHtml } from "./js/ui.js";
 
 
-    const main = bootstrapPage();
-
-    requireAuth().then(async (user) => {
-      showLoading(main);
+    bootstrapPage({ auth: "user", onUnauth: "redirect", render: async ({ main, user }) => {
 
       const params = new URLSearchParams(window.location.search);
       const eventId = params.get("id");
@@ -183,7 +179,7 @@
       } catch (err) {
         main.innerHTML = `<h1 class="page-title">Error</h1><div class="card"><p class="text-muted">${escapeHtml(err.message)}</p></div>`;
       }
-    });
+    }});
   </script>
 </body>
 </html>
