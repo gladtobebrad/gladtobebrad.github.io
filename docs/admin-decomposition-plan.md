@@ -1,8 +1,11 @@
 # admin.html decomposition — working plan
 
-**Status:** Deferred from Wave 2 (a CT event was starting; `admin.html` is live-critical and
-there is no CI). This branch (`admin-decomposition`, off post-merge `main`) is where the work
-resumes. Tracks audit item **F-20** (docs/code-audit.md §3, "Decompose `admin.html`").
+**Status:** ✅ **COMPLETE (2026-06-18).** All 9 steps landed — `admin.html` is now a 532-line
+shell + 9 controllers under `js/admin/` behind the `js/admin.js` barrel. The plan/recipe below is
+retained as the historical record of how it was done. Steps 1–8 were committed on branch
+`admin-decomposition`; the final events.js step went straight to `main`. Tracks audit item
+**F-20** (docs/code-audit.md §3) — now checked off there. The optional `renderAdmin → render.js`
+move (noted under Goal) was **not** taken; the template stays in the shell by design.
 
 The design below was produced and adversarially verified by a mapping workflow (119 items
 mapped across the file; ordering, leaderboard-integrity, and the first step all checked
