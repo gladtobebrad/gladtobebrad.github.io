@@ -886,6 +886,17 @@ img { max-width: 100%; }
 
 /* ── Responsive ───────────────────────────────────── */
 
+/* Breakpoint legend — canonical widths are 1024 (tablet) and 768 (mobile),
+   plus a 600/420 phone tier. A few off-canonical values are INTENTIONAL and
+   load-bearing — do not "round" them to the scale:
+     • 1000px  (.dash-grid-2 dashboard grid; .team-row roster row) — kept just
+       BELOW 1024 so iPad-landscape (exactly 1024px wide) keeps the two-column
+       layout; collapsing to 1024 would flip iPad-landscape to the stacked one.
+     • 900px   (team.html .athlete-grid) — tablet tile-density step (→6 cols).
+     • 700px   (surfers.html heatmap) — sticky first-column trigger.
+   Prefer 1024/768/600/420 for new rules; if a component truly needs its own
+   step, add it above and note why here. */
+
 @media (max-width: 1024px) {
   .grid--sidebar { grid-template-columns: 1fr; }
   .grid--2 { grid-template-columns: 1fr; }
