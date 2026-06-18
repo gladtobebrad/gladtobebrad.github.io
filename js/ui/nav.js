@@ -198,6 +198,49 @@ export function bootstrapPage() {
 // ── Profile Edit Modal ───────────────────────────────
 
 /**
+ * Downscale + JPEG-re-encode an avatar file before upload. Avatars never render
+ * larger than ~72px, so a 320px cap is visually lossless yet turns a multi-MB
+ * phone photo into a ~20–40 KB file (~50–100× smaller) — the same PNG→JPG win
+ * as the landing page, applied automatically to every user upload.
+ *
+ * Falls back to the original file if anything goes wrong (decode/encode) or if
+ * re-encoding wouldn't actually save bytes, so the upload never silently breaks.
+ * Returns the original `file` reference on fallback (caller checks identity to
+ * pick the right contentType).
+ */
+async function compressAvatar(file, { maxSize = 320, quality = 0.82 } = {}) {
+  if (file.size <= 64 * 1024) return file; // already small enough — skip lossy round-trip
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("decode failed"));
+      i.src = dataUrl;
+    });
+    const scale = Math.min(1, maxSize / Math.max(img.width, img.height)); // never upscale
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; // flatten transparency — JPEG has no alpha channel
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    return blob && blob.size < file.size ? blob : file;
+  } catch {
+    return file;
+  }
+}
+
+/**
  * Open a modal dialog to edit the current user's profile (team name + avatar).
  * Called from the nav-user dropdown ("Profile" item). Reloads page on save.
  */
@@ -303,8 +346,12 @@ export function openProfileEditModal(user, profile) {
       try {
         const { storage } = await import("../firebase-config.js");
         const { ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js");
+        const upload = await compressAvatar(file);
+        // On success `upload` is a JPEG blob; on fallback it's the original
+        // file — let uploadBytes infer its type, as before.
+        const metadata = upload === file ? undefined : { contentType: "image/jpeg" };
         const storageRef = ref(storage, `avatars/${user.uid}`);
-        await uploadBytes(storageRef, file);
+        await uploadBytes(storageRef, upload, metadata);
         finalUrl = await getDownloadURL(storageRef);
       } catch (err) {
         toast("Upload failed: " + err.message, "error");
