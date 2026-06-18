@@ -22,23 +22,13 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { onAuth } from "./js/auth.js";
     import { SEASON, BEST_N_EVENTS, tourLabelFull } from "./js/config.js";
     import { getUser, getLeaderboard, getEvents, getSurfers, getResults, getCurrentEventForTour, getTeam, getPreviousTeam } from "./js/db.js";
     import { scoreTeam, projectTeam, isInProgress } from "./js/scoring.js";
-    import { bootstrapPage, showAuthGate, showLoading, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
+    import { bootstrapPage, statusBadge, escapeHtml, safeUrl } from "./js/ui.js";
 
 
-    const main = bootstrapPage();
-
-    onAuth(async (user, profile) => {
-      if (!user) {
-        showAuthGate(main);
-        return;
-      }
-      showLoading(main);
-      await renderProfile(main, user);
-    });
+    bootstrapPage({ auth: "user", render: ({ main, user }) => renderProfile(main, user) });
 
     async function renderProfile(container, currentUser) {
       const params = new URLSearchParams(window.location.search);
