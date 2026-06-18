@@ -1580,7 +1580,7 @@ img { max-width: 100%; }
 }
 .modal {
   background: var(--color-warm-white);
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg);
   padding: 2rem;
   width: 90%;
   max-width: 540px;
