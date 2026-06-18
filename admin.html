@@ -22,10 +22,9 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { requireAdmin } from "./js/auth.js";
     import { SEASON, tourLabel, tourAbbr } from "./js/config.js";
     import { getAllSurfers, getEvents, getAllUsers, getAllClubs } from "./js/db.js";
-    import { bootstrapPage, showLoading, formatSalary, formatDate, escapeHtml } from "./js/ui.js";
+    import { bootstrapPage, formatSalary, formatDate, escapeHtml } from "./js/ui.js";
     import { wireRepricing, wireClubs, wirePlayers, wireBanners, wireSurfers, wireResults, wireWslImport, wireEvents } from "./js/admin.js";
 
     let surfers = [];
@@ -35,7 +34,7 @@
     let activeTab = "events";
     let activeSurferTour = "mens";
 
-    const main = bootstrapPage();
+    const main = bootstrapPage({ auth: "admin", render: ({ main }) => loadAdmin(main) });
 
     // Context handed to extracted js/admin/* controllers: current state snapshots +
     // callbacks. The shell keeps owning the state vars + renderAdmin; controllers read
@@ -58,11 +57,6 @@
         if ("activeTab" in patch) activeTab = patch.activeTab;
         if ("activeSurferTour" in patch) activeSurferTour = patch.activeSurferTour;
       },
-    });
-
-    requireAdmin().then(async (user) => {
-      showLoading(main);
-      await loadAdmin(main);
     });
 
     async function loadAdmin(container) {
