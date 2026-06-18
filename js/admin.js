@@ -8,3 +8,4 @@ export { wirePlayers } from "./admin/players.js";
 export { wireBanners } from "./admin/banners.js";
 export { wireSurfers } from "./admin/surfers.js";
 export { wireResults } from "./admin/results.js";
+export { wireWslImport } from "./admin/wsl-import.js";
