@@ -250,7 +250,7 @@
     import { requireAuth } from "./js/auth.js";
     import { SEASON, tourLabelFull } from "./js/config.js";
     import { getSurfers, getCurrentEventForTour, getTeam, saveTeam, getPreviousTeam, getEventFresh, getEvents, getResults } from "./js/db.js";
-    import { validateTeam, calculateRemaining, getTeamRules, ALT_CAP } from "./js/team.js";
+    import { validateTeam, calculateRemaining, getTeamRules, altEligibleIds, ALT_CAP } from "./js/team.js";
     import { scoreTeam } from "./js/scoring.js";
     import { bootstrapPage, showLoading, formatSalary, formatSalaryFull, statusBadge, tradingBadge, toast, padToSparseRoster, escapeHtml, safeUrl, nameLabelHtml } from "./js/ui.js";
 
@@ -525,9 +525,9 @@
       const spent = rules.salaryCap - remaining;
       const pct = Math.min((spent / rules.salaryCap) * 100, 100);
       const overCap = remaining < 0;
-      const altCap = ALT_CAP;
       const altCapLabel = `$${ALT_CAP / 1_000_000}M`;
       const tour = currentEvent.tour || "mens";
+      const altEligible = altEligibleIds(allSurfers, tour);
 
       // Surfers on roster (by id) — only the filled slots
       const onRoster = new Set(compact.map((s) => s.surferId));
@@ -571,7 +571,7 @@
             </div>
             ${tradingOpen ? `
               <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:0.75rem;flex-wrap:wrap">
-                <p class="text-xs text-muted" style="margin:0;flex:1;min-width:200px">Alternate must be under ${altCapLabel} · excluded from cap. Revert loads your roster from the last completed event.</p>
+                <p class="text-xs text-muted" style="margin:0;flex:1;min-width:200px">Alternate must be ${altCapLabel} or under (or the cheapest surfer if none qualify).</p>
                 <div style="display:flex;gap:0.5rem">
                   <button class="btn btn--outline" id="btn-revert">Revert</button>
                   <button class="btn btn--primary" id="btn-save">Save Team</button>
@@ -584,7 +584,7 @@
           <div class="card">
             <div class="card__header"><span class="card__title">Available Surfers</span></div>
             <div class="surfer-list surfer-list--grid athlete-grid" id="available-list">
-              ${renderAvailable(available, onRoster, alternate?.surferId, remaining, altCap)}
+              ${renderAvailable(available, onRoster, alternate?.surferId, remaining, altEligible)}
             </div>
           </div>
 
@@ -615,7 +615,7 @@
       wireTourTabs(container, user);
     }
 
-    function renderAvailable(surfers, onRoster, altSurferId, remaining, altCap = ALT_CAP) {
+    function renderAvailable(surfers, onRoster, altSurferId, remaining, altEligible) {
       if (surfers.length === 0) return `<p class="text-muted text-sm">No surfers available.</p>`;
       return surfers.map((s) => {
         const isAlt = s.id === altSurferId;
@@ -633,16 +633,16 @@
               ? `<button class="overlay-btn overlay-btn--drop" data-drop="${s.id}">− Drop</button>`
               : isUnaffordable
                 ? `<button class="overlay-btn overlay-btn--cant" disabled>Can't Afford</button>
-                   ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
+                   ${altEligible.has(s.id) ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
                 : `<button class="overlay-btn overlay-btn--add" data-add="${s.id}" data-value="${s.value}">+ Add</button>
-                   ${s.value < altCap ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
+                   ${altEligible.has(s.id) ? `<button class="overlay-btn overlay-btn--alt" data-add-alt="${s.id}" data-value="${s.value}">+ ALT</button>` : ""}`
         );
         const isInjured = s.status === "injured";
         const cardAction = !tradingOpen ? "" : isAlt ? `data-card-drop-alt` : isOnRoster ? `data-card-drop="${s.id}"` : isUnaffordable ? "" : `data-card-add="${s.id}" data-card-value="${s.value}"`;
         // Alt-eligible surfers (under the alt cap) stay draggable even when
         // they're unaffordable for the regular roster, so the user can drag
         // them onto the ALT slot. The drop handlers enforce alt-cap rules.
-        const isAltEligible = !isSelected && s.value < altCap;
+        const isAltEligible = !isSelected && altEligible.has(s.id);
         const canDrag = tradingOpen && !isSelected && (!isUnaffordable || isAltEligible);
         return `
           <div class="surfer-row available-card${rowClass}"
@@ -917,8 +917,8 @@
             const { id, value } = JSON.parse(e.dataTransfer.getData("application/json"));
             // Alt-zone smart routing
             if (inAltZone(e)) {
-              if (parseInt(value) >= altCap) {
-                toast(`Alternate must be under ${altCapLabel}.`, "error");
+              if (!altEligible.has(id)) {
+                toast(`Alternate must be ${altCapLabel} or under (or the cheapest surfer if none qualify).`, "error");
                 return;
               }
               if (roster.some((s) => s && s.surferId === id)) return;
@@ -997,8 +997,8 @@
           if (!json) return;
           try {
             const { id, value } = JSON.parse(json);
-            if (parseInt(value) >= altCap) {
-              toast(`Alternate must be under ${altCapLabel}.`, "error");
+            if (!altEligible.has(id)) {
+              toast(`Alternate must be ${altCapLabel} or under (or the cheapest surfer if none qualify).`, "error");
               return;
             }
             if (roster.some((s) => s && s.surferId === id)) return;

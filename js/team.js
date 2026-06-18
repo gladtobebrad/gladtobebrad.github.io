@@ -12,6 +12,40 @@ const TEAM_RULES = {
 // to stash a star cap-free). Single source of truth; team.html imports it too.
 export const ALT_CAP = 4_000_000;
 
+// No "wildcard" flag exists in the data, so wildcards are identified by price: the
+// $1.5M tier (the only value below the $3M ranked floor — see pricing.js's
+// WILDCARD_VALUE). Inlined as a literal to avoid a team.js -> pricing.js import
+// cycle (pricing.js already imports getTeamRules from here).
+const WILDCARD_VALUE = 1_500_000;
+const isWildcard = (s) => (s.value || 0) <= WILDCARD_VALUE;
+
+/**
+ * Surfer IDs eligible to be picked as the alternate for a tour. Eligible =
+ *   • every surfer priced at or under ALT_CAP — this INCLUDES $1.5M wildcards; PLUS
+ *   • a cheapest-non-wildcard fallback: if NO non-wildcard surfer is at/under the
+ *     cap (e.g. early season, before the bottom of the field has filtered down
+ *     toward the $3M floor), the cheapest non-wildcard surfer(s) also become
+ *     eligible — so a team can always bench a real surfer, not just a wildcard.
+ * Tour-scoped and pure; never changes a value.
+ * @param {Object} surferMap - map of surferId -> surfer doc ({ id, value, tour })
+ * @param {"mens"|"womens"} tour
+ * @returns {Set<string>} eligible surfer ids
+ */
+export function altEligibleIds(surferMap, tour = "mens") {
+  const onTour = Object.values(surferMap || {}).filter((s) => s && (s.tour || "mens") === tour);
+  if (onTour.length === 0) return new Set();
+  // Everyone at or under the cap is eligible — wildcards ($1.5M) included.
+  const eligible = new Set(onTour.filter((s) => (s.value || 0) <= ALT_CAP).map((s) => s.id));
+  // Fallback: if NO non-wildcard is at/under the cap, also surface the cheapest
+  // non-wildcard(s), so the bench isn't forced to be a wildcard.
+  const nonWild = onTour.filter((s) => !isWildcard(s));
+  if (nonWild.length && !nonWild.some((s) => (s.value || 0) <= ALT_CAP)) {
+    const min = Math.min(...nonWild.map((s) => s.value || 0));
+    nonWild.filter((s) => (s.value || 0) === min).forEach((s) => eligible.add(s.id));
+  }
+  return eligible;
+}
+
 /**
  * Validate a team roster
  * @param {Object[]} surfers - array of { surferId, purchasePrice }
@@ -47,11 +81,12 @@ export function validateTeam(surfers, alternate, tour, surferData = {}) {
     errors.push(`Over salary cap by $${over.toLocaleString()}. Drop a surfer or trade down.`);
   }
 
-  // Alternate price ceiling (ALT_CAP — same for both tours).
+  // Alternate eligibility: at/under ALT_CAP, or the cheapest surfer when none
+  // qualify (the altEligibleIds fallback — same for both tours).
   if (alternate?.surferId) {
     const altData = surferData[alternate.surferId];
-    if (altData && (altData.value || 0) >= ALT_CAP) {
-      errors.push(`Alternate must be under $${ALT_CAP / 1_000_000}M. ${altData.name || alternate.surferId} costs ${altData.value ? "$" + (altData.value / 1_000_000).toFixed(2) + "M" : "unknown"}.`);
+    if (altData && !altEligibleIds(surferData, tour).has(alternate.surferId)) {
+      errors.push(`Alternate must be $${ALT_CAP / 1_000_000}M or under (or the cheapest surfer if none qualify). ${altData.name || alternate.surferId} costs ${altData.value ? "$" + (altData.value / 1_000_000).toFixed(2) + "M" : "unknown"}.`);
     }
   }
 
