@@ -22,12 +22,11 @@
   <footer class="app-footer" id="app-footer"></footer>
 
   <script type="module">
-    import { onAuth } from "./js/auth.js";
     import { SEASON, TOURS } from "./js/config.js";
     import { getUser, getClub, getClubByInviteCode, createClub, joinClub, leaveClub, deleteClub,
              getLeaderboard, getEvents, getUserClubIds, fetchLeaderboardVersion } from "./js/db.js";
     import { isInProgress, buildRankProgression } from "./js/scoring.js";
-    import { bootstrapPage, showAuthGate, showLoading, toast, escapeHtml, confirmModal } from "./js/ui.js";
+    import { bootstrapPage, toast, escapeHtml, confirmModal } from "./js/ui.js";
     import { renderStandingsTable, wireStandingsTables } from "./js/standings-table.js";
 
     let clubScoringMode = "best9";
@@ -39,13 +38,10 @@
     // Guard against concurrent re-renders triggered by overlapping events.
     let _refreshing = false;
 
-    const main = bootstrapPage();
-
-    onAuth(async (user, profile) => {
-      if (!user) { _activeUser = null; showAuthGate(main); return; }
-      _activeUser = user;
-      showLoading(main);
-      await renderClubPage(main, user);
+    const main = bootstrapPage({
+      auth: "user",
+      render: ({ main, user }) => { _activeUser = user; return renderClubPage(main, user); },
+      onGate: () => { _activeUser = null; },
     });
 
     // If the leaderboard version on the server has moved past what this tab
