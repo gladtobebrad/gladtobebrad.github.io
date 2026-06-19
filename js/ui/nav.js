@@ -6,6 +6,7 @@ import { toast, showAuthGate } from "./modals.js";
 import { showLoading } from "./format.js";
 import { initAuth, signIn, signOut, onAuth, requireAuth, requireAdmin, currentProfile } from "../auth.js";
 import { SEASON } from "../config.js";
+import { getStoredTheme, setTheme, reconcileTheme } from "../theme.js";
 
 // ── Navigation ───────────────────────────────────────
 
@@ -65,7 +66,8 @@ export function renderHeader() {
   header.innerHTML = `
     <div class="nav-inner">
       <a href="index.html" class="nav-brand" id="nav-brand-link">
-        <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:26px;display:block;">
+        <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" class="theme-logo theme-logo--light" style="height:26px">
+        <img src="img/Fsurf_logo_with_text_white.png" alt="Fantasy Surfer" class="theme-logo theme-logo--dark" style="height:26px">
       </a>
       <button class="nav-toggle" aria-label="Toggle menu">
         <span></span><span></span><span></span>
@@ -85,14 +87,14 @@ export function renderHeader() {
   if (!liveStatusEl) {
     liveStatusEl = document.createElement("div");
     liveStatusEl.id = "live-status-banner";
-    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--color-charcoal)";
+    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--banner-live-bg);font-size:0.85rem;color:var(--banner-live-text)";
     header.parentNode.insertBefore(liveStatusEl, header.nextSibling);
   }
   let countdownEl = document.getElementById("trading-countdown");
   if (!countdownEl) {
     countdownEl = document.createElement("div");
     countdownEl.id = "trading-countdown";
-    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--color-charcoal)";
+    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--text)";
     header.parentNode.insertBefore(countdownEl, liveStatusEl.nextSibling);
   }
 
@@ -105,6 +107,9 @@ export function renderHeader() {
 
   // Auth state UI
   onAuth(async (user, profile) => {
+    // Adopt the account's saved theme on login (only if this device has no
+    // explicit local choice — localStorage always wins first paint).
+    reconcileTheme(profile?.theme);
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
@@ -113,7 +118,7 @@ export function renderHeader() {
       const photoSrc = safeUrl(profile?.avatarUrl || user.photoURL);
       const photo = photoSrc
         ? `<img src="${escapeHtml(photoSrc)}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-        : `<div class="nav-avatar" style="background:var(--color-sage);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${escapeHtml((profile?.displayName || user.displayName || "?")[0])}</div>`;
+        : `<div class="nav-avatar" style="background:var(--color-sage);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${escapeHtml((profile?.displayName || user.displayName || "?")[0])}</div>`;
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
         : "";
@@ -339,7 +344,7 @@ export function openProfileEditModal(user, profile) {
           </div>
           <div class="form-group mb-1">
             <label class="form-label">Profile Photo</label>
-            <div id="pe-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
+            <div id="pe-drop-zone" style="border:2px dashed var(--border);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
               <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
                 Choose File
                 <input type="file" id="pe-file" accept="image/jpeg,image/png" style="display:none">
@@ -347,6 +352,14 @@ export function openProfileEditModal(user, profile) {
               <span class="text-xs text-muted" id="pe-file-name">JPG or PNG — or drag &amp; drop</span>
             </div>
             <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${escapeHtml(urlValue)}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
+          </div>
+          <div class="form-group mb-1">
+            <label class="form-label">Appearance</label>
+            <div class="theme-seg" role="radiogroup" aria-label="Theme">
+              <button type="button" class="theme-seg__opt" data-theme-pref="light" role="radio">Light</button>
+              <button type="button" class="theme-seg__opt" data-theme-pref="dark" role="radio">Dark</button>
+              <button type="button" class="theme-seg__opt" data-theme-pref="system" role="radio">System</button>
+            </div>
           </div>
         </div>
       </div>
@@ -371,6 +384,19 @@ export function openProfileEditModal(user, profile) {
   document.addEventListener("keydown", onKey);
 
   document.body.appendChild(overlay);
+
+  // ── Theme (Light / Dark / System) — applies instantly; persisted on Save ──
+  const themeSeg = overlay.querySelector(".theme-seg");
+  if (themeSeg) {
+    const markTheme = () => {
+      const cur = getStoredTheme();
+      themeSeg.querySelectorAll(".theme-seg__opt").forEach((btn) =>
+        btn.classList.toggle("is-active", btn.dataset.themePref === cur));
+    };
+    markTheme();
+    themeSeg.querySelectorAll(".theme-seg__opt").forEach((btn) =>
+      btn.addEventListener("click", () => { setTheme(btn.dataset.themePref); markTheme(); }));
+  }
 
   // ── File / URL / drag-drop handlers ──
   const fileInput = document.getElementById("pe-file");
@@ -447,7 +473,7 @@ export function openProfileEditModal(user, profile) {
 
     try {
       const { updateUser } = await import("../db.js");
-      await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl });
+      await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl, theme: getStoredTheme() });
       toast("Profile saved!", "success");
       setTimeout(() => location.reload(), 800);
     } catch (err) {

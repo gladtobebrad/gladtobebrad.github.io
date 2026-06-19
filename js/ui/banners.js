@@ -105,7 +105,7 @@ export function renderLiveStatusBanner(el, status) {
   // statusColor is scraped from WSL → only allow a bare hex color into the CSS context.
   const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(status.statusColor || "") ? status.statusColor : "#616161";
   const labelHtml = status.statusLabel
-    ? `<span style="display:inline-block;padding:0.1rem 0.6rem;border-radius:4px;background:${safeColor};color:#fff;font-weight:600;font-size:0.78rem;margin-right:0.6rem;vertical-align:middle">${escapeHtml(status.statusLabel)}</span>`
+    ? `<span class="status-badge" style="--badge-color:${safeColor}">${escapeHtml(status.statusLabel)}</span>`
     : "";
   const eventPrefix = status.eventName ? `<strong>${escapeHtml(status.eventName)}:</strong> ` : "";
   const msg = escapeHtml(status.statusMessage || "");

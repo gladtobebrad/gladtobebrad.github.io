@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>/* Theme: set data-theme before first paint to avoid a flash. Mirrors js/theme.js. */(function(){try{var t=localStorage.getItem("fsl-theme");var d=t==="dark"||((!t||t==="system")&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){}})();</script>
   <link rel="stylesheet" href="css/fantasy.css">
   <link rel="icon" type="image/png" href="img/Fsurf_logo.png">
+  <link rel="icon" type="image/png" href="img/Fsurf_logo_white.png" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
   <style>
     /* Plain rank cells — no color bands. Cleaner, less visual noise;
@@ -17,11 +19,11 @@
       display: inline-block;
       min-width: 1.5rem;
       font-weight: 500;
-      color: var(--color-charcoal);
+      color: var(--text);
       text-align: center;
     }
     .place-null { color: var(--color-warm-gray); }
-    .place-inj { color: #8B7E74; font-style: italic; font-size: 0.7rem; }
+    .place-inj { color: var(--text-muted); font-style: italic; font-size: 0.7rem; }
 
     /* Sticky surfer-name column at narrow widths so the heatmap can
        scroll horizontally while the surfer name stays in view. */
@@ -30,15 +32,15 @@
       #event-table tbody td:first-child {
         position: sticky;
         left: 0;
-        background: var(--color-warm-white);
-        box-shadow: 1px 0 0 var(--color-beige);
+        background: var(--surface);
+        box-shadow: 1px 0 0 var(--border);
         z-index: 2;
       }
     }
 
     .data-table td { vertical-align: middle; }
     .text-center { text-align: center; }
-    .avg-cell { font-weight: 500; color: var(--color-warm-black); }
+    .avg-cell { font-weight: 500; color: var(--text-heading); }
 
     /* Section header for the Results table: title on the left, location
        dropdown on the right. Wraps cleanly on narrow viewports. */
@@ -54,22 +56,22 @@
       margin: 0;
       font-size: 1.1rem;
       font-family: var(--font-heading);
-      color: var(--color-warm-black);
+      color: var(--text-heading);
     }
     .data-vault-loc {
       font-size: 0.85rem;
-      color: var(--color-warm-brown);
+      color: var(--text-muted);
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
     }
     .loc-select-main {
       padding: 0.3rem 0.6rem;
-      border: 1px solid var(--color-beige);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--color-warm-white);
+      background: var(--surface);
       font-size: 0.85rem;
-      color: var(--color-charcoal);
+      color: var(--text);
       cursor: pointer;
       font-family: inherit;
       min-width: 10rem;
@@ -77,7 +79,7 @@
     .loc-select-main:focus { border-color: var(--color-sage); outline: none; }
 
     .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-    .sortable:hover { color: var(--color-warm-black); }
+    .sortable:hover { color: var(--text-heading); }
     .sort-arrow { font-size: 0.65rem; margin-left: 0.2rem; }
 
     /* Sticky table headers (kept for #event-table and Popularity's
@@ -86,9 +88,9 @@
     #surfers-table thead th {
       position: sticky;
       top: 0;
-      background: var(--color-warm-white);
+      background: var(--surface);
       z-index: 1;
-      box-shadow: 0 1px 0 var(--color-beige);
+      box-shadow: 0 1px 0 var(--border);
     }
   </style>
 </head>
@@ -267,14 +269,14 @@
         { id: "popularity", label: "Popularity" },
       ];
       const subPageTabs = `
-        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
+        <div class="tab-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0">
           ${subPages.map(p => `
             <button data-subpage="${p.id}" style="
               padding:0.5rem 1rem;
               border:none;background:none;cursor:pointer;
               font-size:0.9rem;font-weight:${activeSubPage === p.id ? "600" : "400"};
-              color:${activeSubPage === p.id ? "var(--color-charcoal)" : "var(--color-sage)"};
-              border-bottom:2px solid ${activeSubPage === p.id ? "var(--color-charcoal)" : "transparent"};
+              color:${activeSubPage === p.id ? "var(--text)" : "var(--color-sage)"};
+              border-bottom:2px solid ${activeSubPage === p.id ? "var(--text)" : "transparent"};
               margin-bottom:-1px;
             ">${p.label}</button>
           `).join("")}
@@ -380,7 +382,7 @@
         pageContent = `
           <div class="card">
             <p class="text-muted">Percentage of teams that included each surfer, shown only after trading closes for each event.</p>
-            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--color-beige);border-radius:var(--radius-md)">
+            <div style="overflow-x:auto;max-height:540px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md)">
               <table class="data-table" id="surfers-table" style="margin:0">
                 <thead><tr>
                   <th scope="col" class="sortable-col" data-col="0" data-dir="asc" style="cursor:pointer;user-select:none;white-space:nowrap">

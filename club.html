@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>/* Theme: set data-theme before first paint to avoid a flash. Mirrors js/theme.js. */(function(){try{var t=localStorage.getItem("fsl-theme");var d=t==="dark"||((!t||t==="system")&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){}})();</script>
   <link rel="stylesheet" href="css/fantasy.css">
   <link rel="icon" type="image/png" href="img/Fsurf_logo.png">
+  <link rel="icon" type="image/png" href="img/Fsurf_logo_white.png" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
 </head>
 <body>
@@ -246,8 +248,8 @@
         .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
         .map(e => e.id);
 
-      const MENS_LINE_COLOR = "#7D8975";   // sage-dark
-      const WOMENS_LINE_COLOR = "#B0837A"; // muted dusty rose
+      const MENS_LINE_COLOR = "var(--chart-mens)";     // themed — see :root --chart-mens
+      const WOMENS_LINE_COLOR = "var(--chart-womens)"; // themed — see :root --chart-womens
 
       const renderRankChart = (mensRanks, womensRanks, totalPlayers) => {
         const maxEvents = Math.max(mensRanks.length, womensRanks.length);
@@ -350,8 +352,8 @@
               <button class="tour-tab ebe-tour-tab" data-ebe-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
             </div>
             <div style="display:inline-flex;border:1px solid var(--color-beige);border-radius:var(--radius-md);overflow:hidden;font-size:0.75rem">
-              <button class="club-scoring-toggle" data-mode="best9" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${clubScoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
-              <button class="club-scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${clubScoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
+              <button class="club-scoring-toggle" data-mode="best9" style="padding:0.25rem 0.6rem;border:none;cursor:pointer;font-family:inherit;${clubScoringMode === "best9" ? "background:var(--color-sage-deep);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
+              <button class="club-scoring-toggle" data-mode="all" style="padding:0.25rem 0.6rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${clubScoringMode === "all" ? "background:var(--color-sage-deep);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
             </div>
           </div>
           ${TOURS.map((tour) => {

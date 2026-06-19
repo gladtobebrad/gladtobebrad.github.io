@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════
    Fantasy Surf League — Japandi Theme
-   Matches Chapman Research Group site design system
    ═══════════════════════════════════════════════════ */
 
 /* ── Reset & Base ──────────────────────────────────── */
@@ -24,11 +23,41 @@
   --color-terracotta-dark: #b36a52;   /* hover shade — mirrors the sage/sage-dark pair */
   --color-warm-brown: #6a6055;
   --color-warm-gray: #C9C5BE;
-  --color-dark: var(--color-charcoal);
+  --color-dark: var(--text);
   --color-off-white: #f8f7f4;
 
   /* Page background — a hair darker than the surfaces so cards/panels lift. */
   --bg: #F6F5F3;
+
+  /* ── Semantic theme layer ──────────────────────────────────
+     Roles, not hues. Each light value aliases the palette above, so this is a
+     zero-visual-change indirection; the [data-theme="dark"] block at the end
+     of the file reflips them. Split out so the overloaded neutrals (surface
+     vs on-accent text, border vs fill) can diverge in dark mode. */
+  --surface: var(--color-warm-white);
+  --surface-raised: var(--athlete-tile-fill);
+  --text: var(--color-charcoal);
+  --text-heading: var(--color-warm-black);
+  --text-muted: var(--color-warm-brown);
+  --border: var(--color-beige);
+  --fill: var(--color-beige);
+  --on-accent: #fff;
+  --shadow-color: 15, 15, 15;
+  --chart-mens: #7D8975;        /* dashboard + club rank-progression line (men) */
+  --chart-womens: #B0837A;      /* (women) */
+  color-scheme: light;
+
+  /* Glass sign-in card (showAuthGate) — component-local; dark values in the dark block. */
+  --auth-card-bg: rgba(255, 255, 255, 0.88);
+  --auth-card-border: rgba(255, 255, 255, 0.3);
+  --auth-input-bg: rgba(255, 255, 255, 0.7);
+  --auth-input-border: rgba(0, 0, 0, 0.15);
+  --auth-divider: rgba(0, 0, 0, 0.12);
+
+  /* Live-status banner band + its text — own tokens, separate from
+     --color-success-bg. A light green band with dark text in both themes. */
+  --banner-live-bg: #dff5e3;
+  --banner-live-text: var(--text);
 
   /* Semantic state colors — foreground + tinted background (+ a warning
      border) per status. Use these instead of hardcoding success greens,
@@ -49,8 +78,8 @@
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
-  --shadow-sm: 0 1px 2px rgba(15, 15, 15, 0.03), 0 8px 20px -10px rgba(15, 15, 15, 0.12);
-  --shadow-md: 0 2px 4px rgba(15, 15, 15, 0.04), 0 14px 28px -12px rgba(15, 15, 15, 0.17);
+  --shadow-sm: 0 1px 2px rgba(var(--shadow-color), 0.03), 0 8px 20px -10px rgba(var(--shadow-color), 0.12);
+  --shadow-md: 0 2px 4px rgba(var(--shadow-color), 0.04), 0 14px 28px -12px rgba(var(--shadow-color), 0.17);
 
   --transition: 250ms ease;
   /* 984 = 920 (content panes) + 2 × 32 (app-main horizontal padding).
@@ -83,7 +112,7 @@ html {
 
 body {
   font-family: var(--font-body);
-  color: var(--color-charcoal);
+  color: var(--text);
   background: var(--bg);
   line-height: 1.6;
   min-height: 100vh;
@@ -93,7 +122,7 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
-  color: var(--color-warm-black);
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.25;
 }
@@ -115,9 +144,9 @@ img { max-width: 100%; }
 /* ── Header / Navigation ──────────────────────────── */
 
 .app-header {
-  background: var(--color-warm-white);
-  border-bottom: 1px solid var(--color-beige);
-  box-shadow: 0 1px 6px rgba(15, 15, 15, 0.04);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 6px rgba(var(--shadow-color), 0.04);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -139,10 +168,35 @@ img { max-width: 100%; }
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 1.25rem;
-  color: var(--color-warm-black);
+  color: var(--text-heading);
   white-space: nowrap;
 }
 .nav-brand:hover { color: var(--color-sage); }
+
+/* Theme-swapped wordmark (header + sign-in card): the light logo shows by
+   default; the white version replaces it under [data-theme="dark"]. Display is
+   controlled here (not inline) so the swap is pure-CSS and tracks the theme. */
+.theme-logo { display: inline-block; vertical-align: middle; }
+.theme-logo--dark { display: none; }
+[data-theme="dark"] .theme-logo--light { display: none; }
+[data-theme="dark"] .theme-logo--dark { display: inline-block; }
+
+/* Light / Dark / System segmented control (Edit Profile modal). */
+.theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.theme-seg__opt {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.theme-seg__opt:first-child { border-left: none; }
+.theme-seg__opt:hover { color: var(--text); }
+.theme-seg__opt.is-active { background: var(--color-sage-deep); color: var(--on-accent); font-weight: 600; }
 
 .nav-links {
   display: flex;
@@ -153,7 +207,7 @@ img { max-width: 100%; }
 }
 
 .nav-links a {
-  color: var(--color-charcoal);
+  color: var(--text);
   font-size: 0.9rem;
   font-weight: 500;
   padding: 0.25rem 0;
@@ -181,7 +235,7 @@ img { max-width: 100%; }
 
 .nav-user-name {
   font-size: 0.85rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 
 .nav-user-menu {
@@ -203,11 +257,11 @@ img { max-width: 100%; }
 }
 .nav-user-btn:hover {
   background: var(--color-cream);
-  border-color: var(--color-beige);
+  border-color: var(--border);
 }
 .nav-user-caret {
   font-size: 0.65rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   margin-left: 0.1rem;
 }
 .nav-user-dropdown {
@@ -215,8 +269,8 @@ img { max-width: 100%; }
   top: calc(100% + 0.35rem);
   right: 0;
   min-width: 160px;
-  background: var(--color-warm-white);
-  border: 1px solid var(--color-beige);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   z-index: 200;
@@ -234,7 +288,7 @@ img { max-width: 100%; }
   font-size: 0.9rem;
   padding: 0.5rem 1rem;
   cursor: pointer;
-  color: var(--color-charcoal);
+  color: var(--text);
 }
 .nav-user-dropdown button:hover { background: var(--color-cream); }
 
@@ -257,7 +311,7 @@ img { max-width: 100%; }
   display: block;
   width: 22px;
   height: 2px;
-  background: var(--color-charcoal);
+  background: var(--text);
   border-radius: 2px;
   transition: all var(--transition);
 }
@@ -279,8 +333,8 @@ img { max-width: 100%; }
 /* ── Cards ────────────────────────────────────────── */
 
 .card {
-  background: var(--color-warm-white);
-  border: 1px solid var(--color-beige);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
@@ -294,14 +348,14 @@ img { max-width: 100%; }
   justify-content: space-between;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--color-beige);
+  border-bottom: 1px solid var(--border);
 }
 
 .card__title {
   font-family: var(--font-heading);
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-warm-black);
+  color: var(--text-heading);
 }
 
 /* ── Grid Layout ──────────────────────────────────── */
@@ -338,7 +392,7 @@ img { max-width: 100%; }
 
 .btn--primary {
   background: var(--color-sage-deep);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--color-sage-deep);
 }
 .btn--primary:hover:not(:disabled) {
@@ -347,19 +401,19 @@ img { max-width: 100%; }
 
 .btn--secondary {
   background: var(--color-terracotta);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--color-terracotta);
 }
 .btn--secondary:hover:not(:disabled) {
   background: var(--color-terracotta-dark);
   border-color: var(--color-terracotta-dark);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn--outline {
   background: transparent;
-  color: var(--color-charcoal);
-  border-color: var(--color-beige);
+  color: var(--text);
+  border-color: var(--border);
 }
 .btn--outline:hover:not(:disabled) {
   border-color: var(--color-sage);
@@ -373,7 +427,7 @@ img { max-width: 100%; }
 }
 .btn--danger:hover:not(:disabled) {
   background: var(--color-error);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--color-error);
 }
 
@@ -408,15 +462,15 @@ img { max-width: 100%; }
 
 .badge--upcoming {
   background: var(--color-cream);
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 .badge--live {
   background: var(--color-success-bg);
   color: var(--color-success);
 }
 .badge--completed {
-  background: var(--color-beige);
-  color: var(--color-charcoal);
+  background: var(--fill);
+  color: var(--text);
 }
 .badge--open {
   background: var(--color-success-bg);
@@ -425,6 +479,21 @@ img { max-width: 100%; }
 .badge--locked {
   background: var(--color-error-bg);
   color: var(--color-error);
+}
+
+/* Live-status badge (renderLiveStatusBanner). --badge-color is the scraped WSL
+   status colour, set inline per-instance: raw in light, mellowed toward charcoal
+   in the dark override (the raw red reads too intense on the dark banner). */
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 4px;
+  background: var(--badge-color, var(--color-warm-gray));
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-right: 0.6rem;
+  vertical-align: middle;
 }
 
 /* ── Data Tables ──────────────────────────────────── */
@@ -441,14 +510,14 @@ img { max-width: 100%; }
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   padding: 0.75rem 1rem;
-  border-bottom: 2px solid var(--color-beige);
+  border-bottom: 2px solid var(--border);
 }
 
 .data-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-beige);
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -467,11 +536,18 @@ img { max-width: 100%; }
    the row edge to edge (it composites to the colour the event cells show), and
    deepen it on hover so the row still reads as interactive. */
 .scroll-table .highlight td {
-  background-color: var(--color-warm-white) !important;
+  background-color: var(--surface) !important;
   background-image: linear-gradient(rgba(156, 168, 152, 0.08), rgba(156, 168, 152, 0.08)) !important;
 }
 .scroll-table .highlight:hover td {
   background-image: linear-gradient(rgba(156, 168, 152, 0.16), rgba(156, 168, 152, 0.16)) !important;
+}
+/* Row hover must shade the WHOLE row, including the sticky Rank/Player/Total
+   cells — their opaque inline background masks the <tr>:hover tint, so re-assert
+   it on every cell (matches the highlight technique above). The .highlight:hover
+   rule out-specifies this, so a highlighted row keeps its sage tint on hover. */
+.scroll-table tbody tr:hover td {
+  background: var(--color-cream) !important;
 }
 
 .data-table .text-right {
@@ -520,7 +596,7 @@ img { max-width: 100%; }
   right: 0;
   bottom: 0;
   width: 32px;
-  background: linear-gradient(to left, var(--color-warm-white), transparent);
+  background: linear-gradient(to left, var(--surface), transparent);
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--transition);
@@ -539,12 +615,12 @@ img { max-width: 100%; }
   justify-content: space-between;
   font-size: 0.85rem;
   margin-bottom: 0.5rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 
 .salary-bar__track {
   height: 12px;
-  background: var(--color-beige);
+  background: var(--fill);
   border-radius: 100px;
   overflow: hidden;
 }
@@ -583,9 +659,9 @@ img { max-width: 100%; }
   align-items: center;
   gap: 0.5rem;
   padding: 0.2rem 0.5rem;
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--color-warm-white);
+  background: var(--surface);
   transition: all var(--transition);
 }
 .surfer-row:hover {
@@ -628,7 +704,7 @@ img { max-width: 100%; }
 .surfer-row__value {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-charcoal);
+  color: var(--text);
   min-width: 65px;
   text-align: right;
 }
@@ -644,12 +720,12 @@ img { max-width: 100%; }
 .search-input {
   flex: 1;
   padding: 0.625rem 1rem;
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 0.9rem;
-  background: var(--color-warm-white);
-  color: var(--color-charcoal);
+  background: var(--surface);
+  color: var(--text);
   transition: border-color var(--transition);
 }
 .search-input:focus:not(:focus-visible) {
@@ -662,12 +738,12 @@ img { max-width: 100%; }
 
 .filter-select {
   padding: 0.625rem 1rem;
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 0.9rem;
-  background: var(--color-warm-white);
-  color: var(--color-charcoal);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
 }
 .filter-select:focus:not(:focus-visible) {
@@ -685,7 +761,7 @@ img { max-width: 100%; }
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   margin-bottom: 0.375rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -696,12 +772,12 @@ img { max-width: 100%; }
 .form-textarea {
   width: 100%;
   padding: 0.625rem 1rem;
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 0.9rem;
-  background: var(--color-warm-white);
-  color: var(--color-charcoal);
+  background: var(--surface);
+  color: var(--text);
   transition: border-color var(--transition);
 }
 .form-input:focus:not(:focus-visible),
@@ -740,7 +816,7 @@ img { max-width: 100%; }
 }
 
 .auth-gate p {
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   margin-bottom: 2rem;
   max-width: 500px;
   margin-left: auto;
@@ -766,20 +842,20 @@ img { max-width: 100%; }
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 1.1rem;
-  color: var(--color-warm-black);
+  color: var(--text-heading);
   min-width: 36px;
   text-align: center;
 }
 
 .leaderboard-rank--1 { color: var(--color-terracotta); }
 .leaderboard-rank--2 { color: var(--color-sage-dark); }
-.leaderboard-rank--3 { color: var(--color-warm-brown); }
+.leaderboard-rank--3 { color: var(--text-muted); }
 
 /* ── Footer ───────────────────────────────────────── */
 
 .app-footer {
   background: var(--color-cream);
-  border-top: 1px solid var(--color-beige);
+  border-top: 1px solid var(--border);
   padding: 2rem;
   margin-top: auto;
 }
@@ -789,12 +865,12 @@ img { max-width: 100%; }
   margin: 0 auto;
   text-align: center;
   font-size: 0.85rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 
 .footer-sub {
   font-size: 0.8rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   margin-top: 0.25rem;
 }
 
@@ -828,15 +904,15 @@ img { max-width: 100%; }
 
 .toast--success {
   background: var(--color-success);
-  color: #fff;
+  color: var(--on-accent);
 }
 .toast--error {
   background: var(--color-error);
-  color: #fff;
+  color: var(--on-accent);
 }
 .toast--info {
   background: var(--color-charcoal);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ── Loading Spinner ──────────────────────────────── */
@@ -847,13 +923,13 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--color-beige);
+  border: 3px solid var(--border);
   border-top-color: var(--color-sage);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -869,7 +945,7 @@ img { max-width: 100%; }
 .tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid var(--color-beige);
+  border-bottom: 2px solid var(--border);
   margin-bottom: 2rem;
 }
 
@@ -880,14 +956,14 @@ img { max-width: 100%; }
   font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   transition: all var(--transition);
 }
 .tab-btn:hover {
-  color: var(--color-charcoal);
+  color: var(--text);
 }
 .tab-btn.active {
   color: var(--color-sage-dark);
@@ -933,8 +1009,8 @@ img { max-width: 100%; }
     top: 64px;
     left: 0;
     right: 0;
-    background: var(--color-warm-white);
-    border-bottom: 1px solid var(--color-beige);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     flex-direction: column;
     padding: 1rem 2rem;
     gap: 0.75rem;
@@ -963,7 +1039,7 @@ img { max-width: 100%; }
 
 /* ── Utility ──────────────────────────────────────── */
 
-.text-muted { color: var(--color-warm-brown); }
+.text-muted { color: var(--text-muted); }
 .text-sage { color: var(--color-sage); }
 .text-terracotta { color: var(--color-terracotta); }
 .text-center { text-align: center; }
@@ -990,7 +1066,7 @@ img { max-width: 100%; }
   height: 72px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--color-beige);
+  border: 2px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -999,7 +1075,7 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   background: var(--color-sage);
-  color: #fff;
+  color: var(--on-accent);
   font-family: var(--font-heading);
   font-size: 1.5rem;
   font-weight: 600;
@@ -1018,7 +1094,7 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   background: var(--color-sage);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.7rem;
   font-weight: 600;
 }
@@ -1053,7 +1129,7 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   background: var(--color-sage);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 1.5rem;
   font-weight: 600;
   flex-shrink: 0;
@@ -1092,19 +1168,19 @@ img { max-width: 100%; }
   object-fit: cover;
   object-position: center;
   flex-shrink: 0;
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
 }
 
 .surfer-photo--sm.surfer-photo--empty {
   width: 44px;
   height: 44px;
-  background: var(--color-beige);
+  background: var(--fill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -1124,7 +1200,7 @@ img { max-width: 100%; }
 .tour-tabs {
   display: flex;
   gap: 0.25rem;
-  border-bottom: 2px solid var(--color-beige);
+  border-bottom: 2px solid var(--border);
   padding-bottom: 0;
 }
 .tour-tab {
@@ -1136,7 +1212,7 @@ img { max-width: 100%; }
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   cursor: pointer;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   transition: color var(--transition), border-color var(--transition);
 }
 .tour-tab:hover { color: var(--color-dark); }
@@ -1214,7 +1290,7 @@ img { max-width: 100%; }
 .dash-subtitle {
   font-family: var(--font-heading);
   font-style: italic;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   font-size: 0.95rem;
   margin-top: 0.2rem;
 }
@@ -1252,7 +1328,7 @@ img { max-width: 100%; }
   border-radius: 10px;
   object-fit: cover;
   object-position: var(--athlete-photo-focus);
-  border: 1px solid var(--color-beige);
+  border: 1px solid var(--border);
   background: var(--color-cream);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   display: block;
@@ -1262,7 +1338,7 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   font-size: 1.1rem;
 }
 .team-row__photo--alt {
@@ -1280,7 +1356,7 @@ img { max-width: 100%; }
      0.72rem lines at line-height 1.06. */
   min-height: 1.53rem;
   line-height: 1.06;
-  color: var(--color-warm-black);
+  color: var(--text-heading);
   gap: 0;
 }
 .team-row__firstname,
@@ -1291,7 +1367,7 @@ img { max-width: 100%; }
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-  color: var(--color-warm-black);
+  color: var(--text-heading);
 }
 /* Stance shown below the name in the editable Your Roster strip —
    matches the format of available-card stance (smaller, non-bold).
@@ -1300,7 +1376,7 @@ img { max-width: 100%; }
 .team-row__stance {
   font-size: 0.6rem;
   font-weight: 400;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   line-height: 1.1;
   margin-top: 0.1rem;
 }
@@ -1314,7 +1390,7 @@ img { max-width: 100%; }
   left: 4px;
   z-index: 2;
   background: rgba(0, 0, 0, 0.5);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1341,7 +1417,7 @@ img { max-width: 100%; }
   line-height: 1.4;
   padding: 0.03rem 0.26rem;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-accent);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1351,7 +1427,7 @@ img { max-width: 100%; }
 .team-row__alt-divider {
   flex: 0 0 1px;
   align-self: stretch;
-  background: var(--color-beige);
+  background: var(--border);
   margin: 0 0.25rem;
   min-height: 2.5rem;
 }
@@ -1364,7 +1440,7 @@ img { max-width: 100%; }
 .team-row__price {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--color-charcoal);
+  color: var(--text);
   margin-top: 0.25rem;
 }
 
@@ -1396,7 +1472,7 @@ img { max-width: 100%; }
   display: block;
   transform: translateY(-1px);
 }
-.team-row__drop-btn:hover { background: var(--color-error); color: #fff; }
+.team-row__drop-btn:hover { background: var(--color-error); color: var(--on-accent); }
 
 /* Editable variant: tiles get the same card-style background + border as
    the .available-card so the visual treatment is consistent between
@@ -1419,7 +1495,7 @@ img { max-width: 100%; }
 .team-row--editable .team-row__surfer {
   /* (position: relative is inherited from the base .team-row__surfer rule) */
   /* Shared fill with the pool tile; empty slots below stay warm-white. */
-  background: var(--athlete-tile-fill);
+  background: var(--surface-raised);
   border: 1px solid var(--athlete-tile-border);
   border-radius: var(--radius-md);
   min-height: 162px;
@@ -1433,7 +1509,7 @@ img { max-width: 100%; }
 /* Empty roster slots stay warm-white so they're visually obvious as
    open drop targets against the slightly-darker filled tiles. */
 .team-row--editable .team-row__surfer--empty {
-  background: var(--color-warm-white);
+  background: var(--surface);
 }
 .team-row--editable .team-row__name {
   margin-top: 0.4rem;
@@ -1451,7 +1527,7 @@ img { max-width: 100%; }
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   border: none;
   box-shadow: none;
-  border-bottom: 1px solid var(--color-beige);
+  border-bottom: 1px solid var(--border);
 }
 
 /* Drag-feedback classes for reorder/drop on the editable strip.
@@ -1515,7 +1591,7 @@ img { max-width: 100%; }
   background-size: 0.5rem;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
 }
-.inline-select:hover { border-color: var(--color-beige); }
+.inline-select:hover { border-color: var(--border); }
 .inline-select:focus:not(:focus-visible) { outline: none; border-color: var(--color-sage); }
 
 .inline-select--status option,
@@ -1527,15 +1603,15 @@ img { max-width: 100%; }
 /* Event status colours — mirror badge styles */
 .inline-select--status[data-current="upcoming"] {
   background-color: var(--color-cream);
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 .inline-select--status[data-current="live"] {
   background-color: var(--color-success-bg);
   color: var(--color-success);
 }
 .inline-select--status[data-current="completed"] {
-  background-color: var(--color-beige);
-  color: var(--color-charcoal);
+  background-color: var(--fill);
+  color: var(--text);
 }
 
 /* Surfer status colours */
@@ -1548,8 +1624,8 @@ img { max-width: 100%; }
   color: var(--color-error);
 }
 .inline-select--surfer-status[data-current="inactive"] {
-  background-color: var(--color-beige);
-  color: var(--color-charcoal);
+  background-color: var(--fill);
+  color: var(--text);
 }
 
 /* ── Trading Toggle Switch ─────────────────────────── */
@@ -1577,7 +1653,7 @@ img { max-width: 100%; }
   left: 2px;
   width: 16px;
   height: 16px;
-  background: #fff;
+  background: var(--on-accent);
   border-radius: 50%;
   transition: transform 0.25s;
 }
@@ -1592,7 +1668,7 @@ img { max-width: 100%; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 
 /* ── Modal ────────────────────────────────────────── */
@@ -1607,7 +1683,7 @@ img { max-width: 100%; }
   z-index: 1000;
 }
 .modal {
-  background: var(--color-warm-white);
+  background: var(--surface);
   border-radius: var(--radius-lg);
   padding: 2rem;
   width: 90%;
@@ -1626,18 +1702,18 @@ img { max-width: 100%; }
   font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--color-charcoal);
+  color: var(--text);
 }
 .modal__close {
   background: none;
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
   padding: 0 0.25rem;
   line-height: 1;
 }
-.modal__close:hover { color: var(--color-charcoal); }
+.modal__close:hover { color: var(--text); }
 
 /* ── Confirm Modal (themed window.confirm replacement) ── */
 
@@ -1645,7 +1721,7 @@ img { max-width: 100%; }
   max-width: 520px;
 }
 .confirm-modal__body {
-  color: var(--color-warm-black);
+  color: var(--text-heading);
   font-size: 0.95rem;
   line-height: 1.55;
   margin-bottom: 1.5rem;
@@ -1664,7 +1740,7 @@ img { max-width: 100%; }
   margin-bottom: 0.35rem;
 }
 .confirm-modal__body strong {
-  color: var(--color-charcoal);
+  color: var(--text);
 }
 .confirm-modal__choice {
   margin-top: 0.65rem;
@@ -1676,12 +1752,12 @@ img { max-width: 100%; }
   line-height: 1.5;
 }
 .confirm-modal__choice--alt {
-  border-left-color: var(--color-warm-brown);
+  border-left-color: var(--text-muted);
 }
 .confirm-modal__choice-label {
   display: block;
   font-weight: 600;
-  color: var(--color-charcoal);
+  color: var(--text);
   margin-bottom: 0.15rem;
 }
 .confirm-modal__require {
@@ -1722,14 +1798,14 @@ img { max-width: 100%; }
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--color-beige);
-  color: var(--color-warm-brown);
+  background: var(--fill);
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 .confirm-modal__step--active {
-  color: var(--color-charcoal);
+  color: var(--text);
   font-weight: 700;
 }
 .confirm-modal__step--active .confirm-modal__step-num {
@@ -1737,7 +1813,7 @@ img { max-width: 100%; }
   color: var(--color-warm-white);
 }
 .confirm-modal__step--done {
-  color: var(--color-warm-brown);
+  color: var(--text-muted);
 }
 .confirm-modal__step--done .confirm-modal__step-num {
   background: var(--color-sage);
@@ -1768,3 +1844,93 @@ img { max-width: 100%; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Dark theme ─────────────────────────────────────────
+   Warm-charcoal Japandi dark — warm tones, never pure/cool black. The
+   synchronous head snippet sets data-theme="light|dark" before first paint;
+   this block reflips the semantic tokens (and the few palette tokens that
+   accents / hovers / tints reference directly). No @media(prefers-color-scheme)
+   fallback: the app is 100% JS-rendered (Firebase), so the snippet always runs
+   — a CSS-only fallback could never fire and would just duplicate these values.
+   "System" is handled in JS (snippet + matchMedia listener in js/theme.js). */
+:root[data-theme="dark"] {
+  /* Surfaces — a warm tonal ladder, lighter as they "raise" off the page. */
+  --bg:             #1C1B1A;
+  --surface:        #262423;
+  --surface-raised: #302D2B;
+  --fill:           #3A3633;
+  --border:         #34302D;
+
+  /* Text — warm off-whites, headings a touch brighter than body. */
+  --text:         #E9E5DF;
+  --text-heading: #F2EEE8;
+  --text-muted:   #A89F94;
+  --on-accent:    #FEFDFB;
+
+  --shadow-color: 0, 0, 0;
+  color-scheme: dark;   /* native inputs, selects, scrollbars render dark too */
+
+  /* Palette tokens referenced directly (hover/secondary surface, faint text,
+     accents) — kept as palette refs in the light sheet, reflipped here. */
+  --color-cream:     #2E2B29;   /* nav/table hover, footer, upcoming badge bg */
+  --color-warm-gray: #6E665C;   /* faint text + alt-tile dashed border */
+  --athlete-tile-fill: #302D2B; /* available-pool + roster tile fill (= surface-raised) */
+  --color-sage:      #B3BEAE;   /* links — lifted for AA on --surface */
+  --color-sage-dark: #C6CFC1;   /* link/tab hover, leaderboard rank-2 */
+  --color-terracotta:#D98E73;   /* secondary accent, admin link, rank-1 — lifted */
+  --color-off-white: #2A2826;   /* about.html scoring-row stripe (only direct use) */
+  --chart-mens:   #A7B49E;      /* rank-chart lines, lifted for contrast on dark */
+  --chart-womens: #C99E94;
+
+  /* Compatibility net: some inline styles / page <style> blocks still reference
+     palette tokens directly (no-build app). Mirror them to the dark surface/text
+     values so those usages theme without per-site edits. --color-charcoal is
+     intentionally omitted — .toast--info uses it as a deliberately dark bg. */
+  --color-warm-white: #262423;  /* = --surface   */
+  --color-beige:      #34302D;  /* = --border    */
+  --color-warm-brown: #A89F94;  /* = --text-muted   */
+  --color-warm-black: #F2EEE8;  /* = --text-heading */
+
+  /* Glass sign-in card → dark frosted glass. */
+  --auth-card-bg: rgba(26, 25, 24, 0.82);
+  --auth-card-border: rgba(255, 255, 255, 0.10);
+  --auth-input-bg: rgba(255, 255, 255, 0.06);
+  --auth-input-border: rgba(255, 255, 255, 0.16);
+  --auth-divider: rgba(255, 255, 255, 0.14);
+  --banner-live-bg: color-mix(in srgb, color-mix(in srgb, var(--color-success) 45%, white) 70%, transparent);   /* pale lime, part-transparent so it recedes into the dark page */
+  --banner-live-text: #173A24;   /* dark green text on the light lime band */
+
+  /* Status — darker tinted backgrounds + lifted foregrounds (keep AA). */
+  --color-success: #5BBE74;  --color-success-bg: #18301D;
+  --color-error:   #E0796B;  --color-error-bg:   #3A1D18;
+  --color-warning: #D9B25A;  --color-warning-bg: #332A12;  --color-warning-border: #5C4A1E;
+
+  /* Shadows — pure black at higher alpha so they read on dark surfaces. */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.30), 0 8px 20px -10px rgba(0,0,0,0.50);
+  --shadow-md: 0 2px 4px rgba(0,0,0,0.40), 0 14px 28px -12px rgba(0,0,0,0.65);
+}
+
+/* Lighter dropdown caret on dark (a fill colour can't be tokenised inside url()). */
+:root[data-theme="dark"] .inline-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23A89F94'/%3E%3C/svg%3E");
+}
+
+/* Sage highlight / drag tints need more alpha to show on dark surfaces. */
+:root[data-theme="dark"] .data-table .highlight { background: rgba(156, 168, 152, 0.16); }
+:root[data-theme="dark"] .scroll-table .highlight td {
+  background-image: linear-gradient(rgba(156, 168, 152, 0.16), rgba(156, 168, 152, 0.16)) !important;
+}
+:root[data-theme="dark"] .scroll-table .highlight:hover td {
+  background-image: linear-gradient(rgba(156, 168, 152, 0.26), rgba(156, 168, 152, 0.26)) !important;
+}
+:root[data-theme="dark"] .drop-zone--over { background: rgba(156, 168, 152, 0.18) !important; }
+:root[data-theme="dark"] .team-row__surfer--drag-over { background: rgba(156, 168, 152, 0.18); }
+
+/* The light-pink danger-button border reads wrong on dark. */
+:root[data-theme="dark"] .btn--danger { border-color: #5E3330; }
+/* The lifted --color-error is tuned for text; deepen it for the filled hover so white keeps AA. */
+:root[data-theme="dark"] .btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-error) 58%, var(--color-charcoal)); border-color: color-mix(in srgb, var(--color-error) 58%, var(--color-charcoal)); }
+/* Mellow the scraped status colour on the dark banner (light keeps it raw). */
+:root[data-theme="dark"] .status-badge { background: color-mix(in srgb, var(--badge-color, var(--color-warm-gray)) 70%, var(--color-charcoal)); }
+/* Deepen the modal drop-shadow on dark. */
+:root[data-theme="dark"] .modal { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6); }

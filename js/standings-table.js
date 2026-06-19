@@ -48,9 +48,9 @@ export function renderStandingsTable({
       <div class="scroll-wrap" style="overflow-x:auto;position:relative">
         <table class="data-table scroll-table"${tableId ? ` id="${tableId}"` : ""}>
           <thead><tr>
-            <th scope="col" style="position:sticky;left:0;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
-            <th scope="col" style="position:sticky;left:56px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
-            <th scope="col" class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:${scoreLeft}px;z-index:2;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--color-beige)">
+            <th scope="col" style="position:sticky;left:0;z-index:2;background:var(--surface);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center">Rank</th>
+            <th scope="col" style="position:sticky;left:56px;z-index:2;background:var(--surface);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">Player</th>
+            <th scope="col" class="text-center sortable-col" data-col="score" data-dir="" style="position:sticky;left:${scoreLeft}px;z-index:2;background:var(--surface);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;font-size:0.65rem;line-height:1.15;vertical-align:bottom;cursor:pointer;user-select:none;border-right:2px solid var(--border)">
               <div>${scoringMode === "all" ? "All Events" : "Best 9"}</div>
               <span class="sort-arrow" style="font-size:0.6rem;opacity:0.4">▲▼</span>
             </th>
@@ -68,8 +68,8 @@ export function renderStandingsTable({
                 data-score="${totalOf(p)}"
                 data-search="${escapeHtml(p.teamName.toLowerCase())}"
                 ${tourEvents.map(e => `data-evt-${e.id}="${p.eventScores[e.id] ?? -1}"`).join(" ")}>
-                <td style="position:sticky;left:0;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
-                <td style="position:sticky;left:56px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">
+                <td style="position:sticky;left:0;z-index:1;background:var(--surface);box-sizing:border-box;width:56px;padding-left:0.5rem;padding-right:0.5rem;text-align:center"><span class="leaderboard-rank leaderboard-rank--${p.rank}">${p.rank}</span></td>
+                <td style="position:sticky;left:56px;z-index:1;background:var(--surface);box-sizing:border-box;width:${playerColWidth}px;padding-left:0.5rem;padding-right:0.5rem">
                   <div class="flex gap-1" style="align-items:center;min-width:0">
                     ${avatarTile(p)}
                     <div style="min-width:0;overflow:hidden">
@@ -77,17 +77,17 @@ export function renderStandingsTable({
                     </div>
                   </div>
                 </td>
-                <td class="text-center" style="position:sticky;left:${scoreLeft}px;z-index:1;background:var(--color-warm-white);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;border-right:2px solid var(--color-beige)"><strong>${totalOf(p)}</strong></td>
+                <td class="text-center" style="position:sticky;left:${scoreLeft}px;z-index:1;background:var(--surface);box-sizing:border-box;width:60px;padding-left:0.5rem;padding-right:0.5rem;border-right:2px solid var(--border)"><strong>${totalOf(p)}</strong></td>
                 ${tourEvents.map(e => {
                   const pts = p.eventScores[e.id];
                   const live = liveEventIds.has(e.id);
                   const hasResults = e.status === "completed" || e.resultsEntered;
                   if (live) {
                     return pts != null
-                      ? `<td class="text-center" style="color:var(--color-warm-brown);font-style:italic" title="Projected (live)">~${pts}</td>`
-                      : `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
+                      ? `<td class="text-center" style="color:var(--text-muted);font-style:italic" title="Projected (live)">~${pts}</td>`
+                      : `<td class="text-center" style="color:var(--text-muted)">·</td>`;
                   }
-                  if (!hasResults) return `<td class="text-center" style="color:var(--color-warm-brown)">·</td>`;
+                  if (!hasResults) return `<td class="text-center" style="color:var(--text-muted)">·</td>`;
                   return `<td class="text-center">${pts ?? "—"}</td>`;
                 }).join("")}
                 <td class="scroll-spacer"></td>

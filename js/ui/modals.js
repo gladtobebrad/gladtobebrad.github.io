@@ -172,31 +172,32 @@ export function showAuthGate(container) {
       <div class="auth-gate" style="
         position:relative;z-index:1;
         max-width:380px;width:100%;
-        background:rgba(255,255,255,0.88);
+        background:var(--auth-card-bg);
         backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
         border-radius:16px;
         padding:2.5rem 2rem;
         box-shadow:0 8px 32px rgba(0,0,0,0.25);
-        border:1px solid rgba(255,255,255,0.3);
+        border:1px solid var(--auth-card-border);
       ">
         <div style="text-align:center;margin-bottom:1.5rem">
-          <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:36px;margin-bottom:1rem">
-          <h2 style="margin:0 0 0.4rem;font-size:1.5rem;color:var(--color-charcoal)">Welcome to Fantasy Surfer</h2>
+          <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" class="theme-logo theme-logo--light" style="height:36px;margin-bottom:1rem">
+          <img src="img/Fsurf_logo_with_text_white.png" alt="Fantasy Surfer" class="theme-logo theme-logo--dark" style="height:36px;margin-bottom:1rem">
+          <h2 style="margin:0 0 0.4rem;font-size:1.5rem;color:var(--text)">Welcome to Fantasy Surfer</h2>
           <p style="margin:0;color:var(--color-warm-gray);font-size:0.9rem">Sign in to join the game, pick your team, and compete on the leaderboard.</p>
         </div>
 
         <button class="btn btn--primary btn--lg" id="btn-gate-signin" style="width:100%;font-size:0.95rem;padding:0.7rem">Sign In with Google</button>
 
         <div style="display:flex;align-items:center;gap:0.75rem;margin:1.25rem 0">
-          <hr style="flex:1;border:none;border-top:1px solid rgba(0,0,0,0.12)">
+          <hr style="flex:1;border:none;border-top:1px solid var(--auth-divider)">
           <span style="font-size:0.8rem;color:var(--color-warm-gray)">or</span>
-          <hr style="flex:1;border:none;border-top:1px solid rgba(0,0,0,0.12)">
+          <hr style="flex:1;border:none;border-top:1px solid var(--auth-divider)">
         </div>
 
         <div style="display:flex;flex-direction:column;gap:0.6rem">
-          ${isRegister ? `<input type="text" id="auth-name" placeholder="Your name" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">` : ""}
-          <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
-          <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:0.9rem;background:rgba(255,255,255,0.7)">
+          ${isRegister ? `<input type="text" id="auth-name" placeholder="Your name" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--auth-input-border);border-radius:8px;font-size:0.9rem;background:var(--auth-input-bg)">` : ""}
+          <input type="email" id="auth-email" placeholder="Email address" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--auth-input-border);border-radius:8px;font-size:0.9rem;background:var(--auth-input-bg)">
+          <input type="password" id="auth-password" placeholder="Password" class="form-input" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--auth-input-border);border-radius:8px;font-size:0.9rem;background:var(--auth-input-bg)">
           <button class="btn btn--outline" id="btn-email-submit" style="width:100%">${isRegister ? "Create Account" : "Sign In"}</button>
           <p id="auth-error" style="color:var(--color-error);font-size:0.85rem;text-align:center;min-height:1.2rem"></p>
           <div style="display:flex;justify-content:space-between;font-size:0.85rem">

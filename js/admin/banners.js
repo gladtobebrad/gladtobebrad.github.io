@@ -93,7 +93,7 @@ export async function wireBanners() {
       reason: "No tour has open trading with a start date.",
     });
   } else {
-    countdownPreview.style.color = "var(--color-charcoal)";
+    countdownPreview.style.color = "var(--text)";
     countdownPreview.title = `Source: ${state.event.name} (${tourLabel(state.tour)}) · deadline from ${state.deadlineSource}`;
     window._countdownPreviewInterval = startCountdownTimer(countdownPreview, state);
     setBannerToggleState(countdownToggle, { state: "available", savedShown: cdSavedShown });
@@ -119,7 +119,7 @@ export async function wireBanners() {
   fetchLiveStatusCached(SEASON).then((liveStatus) => {
     if (!document.body.contains(liveStatusPreview)) return;
     if (liveStatus) {
-      liveStatusPreview.style.color = "var(--color-charcoal)";
+      liveStatusPreview.style.color = "var(--text)";
       liveStatusPreview.title = `Source: WSL /events/${SEASON}/ct (cached ~60s)`;
       renderLiveStatusBanner(liveStatusPreview, liveStatus);
       liveStatusPreview.style.display = "";

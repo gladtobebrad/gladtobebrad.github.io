@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>/* Theme: set data-theme before first paint to avoid a flash. Mirrors js/theme.js. */(function(){try{var t=localStorage.getItem("fsl-theme");var d=t==="dark"||((!t||t==="system")&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){}})();</script>
   <link rel="stylesheet" href="css/fantasy.css">
   <link rel="icon" type="image/png" href="img/Fsurf_logo.png">
+  <link rel="icon" type="image/png" href="img/Fsurf_logo_white.png" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="img/Fsurf_logo.png">
 </head>
 <body>
@@ -135,7 +137,7 @@
                 ${!userTeam ? `<p class="text-muted text-sm">No team submitted for this event.</p>` : !myScore ? `<p class="text-muted text-sm">No results yet.</p>` : `
                   ${myRank != null ? `
                     <div style="text-align:center;padding:0.75rem 0 1rem">
-                      <div style="font-size:2rem;font-weight:700;color:var(--color-charcoal)">${inProgress ? "~" : ""}${myScore.totalPoints}</div>
+                      <div style="font-size:2rem;font-weight:700;color:var(--text)">${inProgress ? "~" : ""}${myScore.totalPoints}</div>
                       <div class="text-sm text-muted">${inProgress ? "projected pts" : "pts"}</div>
                       <div style="margin-top:0.4rem;font-size:0.85rem;color:var(--color-warm-brown)">
                         ${myRank}${myRank === 1 ? "st" : myRank === 2 ? "nd" : myRank === 3 ? "rd" : "th"} of ${totalPlayers}
