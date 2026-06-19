@@ -54,6 +54,11 @@
   --auth-input-border: rgba(0, 0, 0, 0.15);
   --auth-divider: rgba(0, 0, 0, 0.12);
 
+  /* Live-status banner band + its text — own tokens, separate from
+     --color-success-bg. A light green band with dark text in both themes. */
+  --banner-live-bg: #dff5e3;
+  --banner-live-text: var(--text);
+
   /* Semantic state colors — foreground + tinted background (+ a warning
      border) per status. Use these instead of hardcoding success greens,
      error reds or warning golds, which had fragmented into 5 greens, 4 reds
@@ -474,6 +479,21 @@ img { max-width: 100%; }
 .badge--locked {
   background: var(--color-error-bg);
   color: var(--color-error);
+}
+
+/* Live-status badge (renderLiveStatusBanner). --badge-color is the scraped WSL
+   status colour, set inline per-instance: raw in light, mellowed toward charcoal
+   in the dark override (the raw red reads too intense on the dark banner). */
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 4px;
+  background: var(--badge-color, var(--color-warm-gray));
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-right: 0.6rem;
+  vertical-align: middle;
 }
 
 /* ── Data Tables ──────────────────────────────────── */
@@ -1877,6 +1897,8 @@ img { max-width: 100%; }
   --auth-input-bg: rgba(255, 255, 255, 0.06);
   --auth-input-border: rgba(255, 255, 255, 0.16);
   --auth-divider: rgba(255, 255, 255, 0.14);
+  --banner-live-bg: color-mix(in srgb, color-mix(in srgb, var(--color-success) 45%, white) 70%, transparent);   /* pale lime, part-transparent so it recedes into the dark page */
+  --banner-live-text: #173A24;   /* dark green text on the light lime band */
 
   /* Status — darker tinted backgrounds + lifted foregrounds (keep AA). */
   --color-success: #5BBE74;  --color-success-bg: #18301D;
@@ -1906,5 +1928,7 @@ img { max-width: 100%; }
 
 /* The light-pink danger-button border reads wrong on dark. */
 :root[data-theme="dark"] .btn--danger { border-color: #5E3330; }
+/* Mellow the scraped status colour on the dark banner (light keeps it raw). */
+:root[data-theme="dark"] .status-badge { background: color-mix(in srgb, var(--badge-color, var(--color-warm-gray)) 70%, var(--color-charcoal)); }
 /* Deepen the modal drop-shadow on dark. */
 :root[data-theme="dark"] .modal { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6); }

@@ -87,7 +87,7 @@ export function renderHeader() {
   if (!liveStatusEl) {
     liveStatusEl = document.createElement("div");
     liveStatusEl.id = "live-status-banner";
-    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--text)";
+    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--banner-live-bg);font-size:0.85rem;color:var(--banner-live-text)";
     header.parentNode.insertBefore(liveStatusEl, header.nextSibling);
   }
   let countdownEl = document.getElementById("trading-countdown");
