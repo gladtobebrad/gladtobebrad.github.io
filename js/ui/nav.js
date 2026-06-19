@@ -85,14 +85,14 @@ export function renderHeader() {
   if (!liveStatusEl) {
     liveStatusEl = document.createElement("div");
     liveStatusEl.id = "live-status-banner";
-    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--color-charcoal)";
+    liveStatusEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--text)";
     header.parentNode.insertBefore(liveStatusEl, header.nextSibling);
   }
   let countdownEl = document.getElementById("trading-countdown");
   if (!countdownEl) {
     countdownEl = document.createElement("div");
     countdownEl.id = "trading-countdown";
-    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--color-charcoal)";
+    countdownEl.style.cssText = "display:none;text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--text)";
     header.parentNode.insertBefore(countdownEl, liveStatusEl.nextSibling);
   }
 
@@ -113,7 +113,7 @@ export function renderHeader() {
       const photoSrc = safeUrl(profile?.avatarUrl || user.photoURL);
       const photo = photoSrc
         ? `<img src="${escapeHtml(photoSrc)}" alt="" class="nav-avatar" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-        : `<div class="nav-avatar" style="background:var(--color-sage);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${escapeHtml((profile?.displayName || user.displayName || "?")[0])}</div>`;
+        : `<div class="nav-avatar" style="background:var(--color-sage);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem">${escapeHtml((profile?.displayName || user.displayName || "?")[0])}</div>`;
       const adminLink = profile?.isAdmin
         ? `<a href="admin.html" class="nav-admin-link">Admin</a>`
         : "";
@@ -339,7 +339,7 @@ export function openProfileEditModal(user, profile) {
           </div>
           <div class="form-group mb-1">
             <label class="form-label">Profile Photo</label>
-            <div id="pe-drop-zone" style="border:2px dashed var(--color-beige);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
+            <div id="pe-drop-zone" style="border:2px dashed var(--border);border-radius:8px;padding:0.6rem 0.8rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;cursor:pointer;transition:border-color 0.15s,background 0.15s">
               <label class="btn btn--outline btn--sm" style="cursor:pointer;margin:0">
                 Choose File
                 <input type="file" id="pe-file" accept="image/jpeg,image/png" style="display:none">

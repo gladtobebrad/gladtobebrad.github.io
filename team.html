@@ -13,7 +13,7 @@
   <style>
     .surfer-row--selected {
       border: 2px solid var(--color-success);
-      background: #d6ebca;
+      background: var(--color-success-bg);
     }
     /* Unaffordable surfers in the Available pane just fade out — clearer
        affordance than tinting the tile color, which previously got
@@ -79,7 +79,7 @@
       aspect-ratio: 1 / 1;
       object-position: var(--athlete-photo-focus);
       /* Same flush-photo divider as the roster tile so the two read identically. */
-      border-bottom: 1px solid var(--color-beige);
+      border-bottom: 1px solid var(--border);
     }
     /* Typography below mirrors the Your Roster tile (.team-row__*) exactly
        so an available surfer and a rostered surfer read as the same tile
@@ -118,7 +118,7 @@
       display: block;
       font-size: 0.6rem;
       font-weight: 400;
-      color: var(--color-warm-brown);
+      color: var(--text-muted);
       line-height: 1.1;
       margin-top: 0.1rem;
     }
@@ -156,13 +156,13 @@
     .available-card__photo--empty {
       width: 54px;
       height: 100%;
-      background: var(--color-beige);
+      background: var(--fill);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 600;
       font-size: 0.9rem;
-      color: var(--color-warm-brown);
+      color: var(--text-muted);
     }
     .available-card__overlay {
       position: absolute;
@@ -232,7 +232,7 @@
     .available-card__price {
       font-size: 0.875rem;
       font-weight: 600;
-      color: var(--color-charcoal);
+      color: var(--text);
     }
   </style>
 </head>
@@ -592,7 +592,7 @@
                 <div class="card mb-3">
                   <div class="card__header" style="padding-bottom:0.5rem;margin-bottom:0.5rem">
                     <span class="card__title" style="font-size:0.95rem">${escapeHtml(event.name)}</span>
-                    <span class="text-sm" style="font-weight:600;color:var(--color-warm-black);white-space:nowrap">
+                    <span class="text-sm" style="font-weight:600;color:var(--text-heading);white-space:nowrap">
                       ${score ? `${score.totalPoints} pts` : (event.status === "live" ? "Live" : "—")}
                     </span>
                   </div>

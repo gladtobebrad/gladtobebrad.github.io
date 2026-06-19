@@ -172,8 +172,8 @@
         .sort((a, b) => (a.eventNumber || 0) - (b.eventNumber || 0))
         .map(e => e.id);
 
-      const MENS_LINE_COLOR = "#7D8975";   // sage-dark
-      const WOMENS_LINE_COLOR = "#B0837A"; // muted dusty rose, matches sage-dark luminance
+      const MENS_LINE_COLOR = "var(--chart-mens)";     // themed — see :root --chart-mens
+      const WOMENS_LINE_COLOR = "var(--chart-womens)"; // themed — see :root --chart-womens
 
       const renderRankChart = (mensRanks, womensRanks, totalPlayers, opts = {}) => {
         const maxEvents = Math.max(mensRanks.length, womensRanks.length);

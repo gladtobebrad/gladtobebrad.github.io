@@ -182,7 +182,7 @@ export function wireRepricing(ctx) {
               <h4 style="margin:0">${modified.length} of ${matched.length} surfers change price</h4>
               ${applyBtnHtml}
             </div>
-            <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:#fff;max-height:360px;overflow-y:auto">
+            <div style="overflow-x:auto;border:1px solid var(--color-beige);border-radius:6px;background:var(--surface);max-height:360px;overflow-y:auto">
               <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
                 <thead><tr style="background:var(--color-cream);position:sticky;top:0">
                   <th scope="col" style="padding:0.3rem 0.4rem;text-align:right">Rank</th>

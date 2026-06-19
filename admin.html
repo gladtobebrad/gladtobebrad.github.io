@@ -105,7 +105,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center;margin-bottom:0.6rem">
                   <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Live Status</span>
-                  <div id="live-status-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <div id="live-status-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-success-bg);font-size:0.85rem;color:var(--text);border-radius:6px"></div>
                   <label class="toggle" id="toggle-live-status" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
@@ -114,7 +114,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 140px;gap:1rem;align-items:center">
                   <span style="font-size:0.78rem;font-weight:600;color:var(--color-warm-gray)">Countdown</span>
-                  <div id="countdown-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--color-charcoal);border-radius:6px"></div>
+                  <div id="countdown-preview" style="text-align:center;padding:0.4rem 1rem;background:var(--color-error-bg);font-size:0.85rem;color:var(--text);border-radius:6px"></div>
                   <label class="toggle" id="toggle-banner" style="justify-self:start">
                     <input type="checkbox">
                     <span class="toggle__track"></span>
@@ -253,11 +253,11 @@
                   <button class="btn btn--sm btn--primary" id="btn-add-surfer">+ Add Surfer</button>
                 </div>
               </div>
-              <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--color-beige);padding-bottom:0">
-                <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+              <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0">
+                <button data-surfer-tour="mens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="mens"?"600":"400"};color:${activeSurferTour==="mens"?"var(--text)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="mens"?"var(--text)":"transparent"};margin-bottom:-1px">
                   Men's CT (${surfers.filter(s=>(s.tour||"mens")==="mens").length})
                 </button>
-                <button data-surfer-tour="womens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="womens"?"600":"400"};color:${activeSurferTour==="womens"?"var(--color-charcoal)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="womens"?"var(--color-charcoal)":"transparent"};margin-bottom:-1px">
+                <button data-surfer-tour="womens" style="padding:0.4rem 1rem;border:none;background:none;cursor:pointer;font-size:0.875rem;font-weight:${activeSurferTour==="womens"?"600":"400"};color:${activeSurferTour==="womens"?"var(--text)":"var(--color-sage)"};border-bottom:2px solid ${activeSurferTour==="womens"?"var(--text)":"transparent"};margin-bottom:-1px">
                   Women's CT (${surfers.filter(s=>s.tour==="womens").length})
                 </button>
               </div>
@@ -370,7 +370,7 @@
             <div class="form-actions">
               <button class="btn btn--primary" id="btn-fetch-results">Fetch &amp; Update Results from WSL</button>
             </div>
-            <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:var(--font-mono);font-size:0.78rem;background:var(--color-cream);border:1px solid var(--color-beige);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
+            <div id="wsl-fetch-log" class="mt-3" style="display:none;font-family:var(--font-mono);font-size:0.78rem;background:var(--color-cream);border:1px solid var(--border);border-radius:6px;padding:0.6rem 0.8rem;max-height:240px;overflow-y:auto;white-space:pre-wrap"></div>
             <div id="wsl-fetch-output" class="mt-3"></div>
           </div>
           <div class="card mb-3">

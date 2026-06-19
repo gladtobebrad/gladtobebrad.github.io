@@ -31,7 +31,7 @@ export function wireResults(ctx) {
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;margin-bottom:1rem">
               ${eventSurfers.map((s) => {
                 const ex = existingMap[s.id];
-                return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border:1px solid var(--color-beige);border-radius:6px;background:#fff">
+                return `<div style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.5rem;border:1px solid var(--color-beige);border-radius:6px;background:var(--surface)">
                   <span style="font-size:0.72rem;color:var(--color-warm-gray);flex-shrink:0;min-width:1.6rem">#${s.rank || "?"}</span>
                   <span style="flex:1;font-size:0.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
                   <input class="form-input" type="text" data-result-surfer="${s.id}" data-result-tour="${eventTour}" value="${ex?.withdrawn ? "WDRW" : (ex?.finish || "")}" style="width:55px;padding:0.2rem 0.3rem;font-size:0.82rem;text-align:center" placeholder="">
