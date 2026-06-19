@@ -65,7 +65,8 @@ export function renderHeader() {
   header.innerHTML = `
     <div class="nav-inner">
       <a href="index.html" class="nav-brand" id="nav-brand-link">
-        <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:26px;display:block;">
+        <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" class="theme-logo theme-logo--light" style="height:26px">
+        <img src="img/Fsurf_logo_with_text_white.png" alt="Fantasy Surfer" class="theme-logo theme-logo--dark" style="height:26px">
       </a>
       <button class="nav-toggle" aria-label="Toggle menu">
         <span></span><span></span><span></span>

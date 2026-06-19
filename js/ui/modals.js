@@ -180,7 +180,8 @@ export function showAuthGate(container) {
         border:1px solid rgba(255,255,255,0.3);
       ">
         <div style="text-align:center;margin-bottom:1.5rem">
-          <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" style="height:36px;margin-bottom:1rem">
+          <img src="img/Fsurf_logo_with_text.png" alt="Fantasy Surfer" class="theme-logo theme-logo--light" style="height:36px;margin-bottom:1rem">
+          <img src="img/Fsurf_logo_with_text_white.png" alt="Fantasy Surfer" class="theme-logo theme-logo--dark" style="height:36px;margin-bottom:1rem">
           <h2 style="margin:0 0 0.4rem;font-size:1.5rem;color:var(--color-charcoal)">Welcome to Fantasy Surfer</h2>
           <p style="margin:0;color:var(--color-warm-gray);font-size:0.9rem">Sign in to join the game, pick your team, and compete on the leaderboard.</p>
         </div>

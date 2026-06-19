@@ -161,6 +161,14 @@ img { max-width: 100%; }
 }
 .nav-brand:hover { color: var(--color-sage); }
 
+/* Theme-swapped wordmark (header + sign-in card): the light logo shows by
+   default; the white version replaces it under [data-theme="dark"]. Display is
+   controlled here (not inline) so the swap is pure-CSS and tracks the theme. */
+.theme-logo { display: inline-block; vertical-align: middle; }
+.theme-logo--dark { display: none; }
+[data-theme="dark"] .theme-logo--light { display: none; }
+[data-theme="dark"] .theme-logo--dark { display: inline-block; }
+
 .nav-links {
   display: flex;
   list-style: none;
