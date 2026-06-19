@@ -27,6 +27,9 @@
   --color-dark: var(--color-charcoal);
   --color-off-white: #f8f7f4;
 
+  /* Page background — a hair darker than the surfaces so cards/panels lift. */
+  --bg: #F6F5F3;
+
   /* Semantic state colors — foreground + tinted background (+ a warning
      border) per status. Use these instead of hardcoding success greens,
      error reds or warning golds, which had fragmented into 5 greens, 4 reds
@@ -46,8 +49,8 @@
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(15, 15, 15, 0.03), 0 8px 20px -10px rgba(15, 15, 15, 0.12);
+  --shadow-md: 0 2px 4px rgba(15, 15, 15, 0.04), 0 14px 28px -12px rgba(15, 15, 15, 0.17);
 
   --transition: 250ms ease;
   /* 984 = 920 (content panes) + 2 × 32 (app-main horizontal padding).
@@ -81,7 +84,7 @@ html {
 body {
   font-family: var(--font-body);
   color: var(--color-charcoal);
-  background: var(--color-warm-white);
+  background: var(--bg);
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
@@ -114,6 +117,7 @@ img { max-width: 100%; }
 .app-header {
   background: var(--color-warm-white);
   border-bottom: 1px solid var(--color-beige);
+  box-shadow: 0 1px 6px rgba(15, 15, 15, 0.04);
   position: sticky;
   top: 0;
   z-index: 100;
