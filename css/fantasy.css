@@ -47,6 +47,13 @@
   --chart-womens: #B0837A;      /* (women) */
   color-scheme: light;
 
+  /* Glass sign-in card (showAuthGate) — component-local; dark values in the dark block. */
+  --auth-card-bg: rgba(255, 255, 255, 0.88);
+  --auth-card-border: rgba(255, 255, 255, 0.3);
+  --auth-input-bg: rgba(255, 255, 255, 0.7);
+  --auth-input-border: rgba(0, 0, 0, 0.15);
+  --auth-divider: rgba(0, 0, 0, 0.12);
+
   /* Semantic state colors — foreground + tinted background (+ a warning
      border) per status. Use these instead of hardcoding success greens,
      error reds or warning golds, which had fragmented into 5 greens, 4 reds
@@ -1846,6 +1853,13 @@ img { max-width: 100%; }
   --color-beige:      #34302D;  /* = --border    */
   --color-warm-brown: #A89F94;  /* = --text-muted   */
   --color-warm-black: #F2EEE8;  /* = --text-heading */
+
+  /* Glass sign-in card → dark frosted glass. */
+  --auth-card-bg: rgba(26, 25, 24, 0.82);
+  --auth-card-border: rgba(255, 255, 255, 0.10);
+  --auth-input-bg: rgba(255, 255, 255, 0.06);
+  --auth-input-border: rgba(255, 255, 255, 0.16);
+  --auth-divider: rgba(255, 255, 255, 0.14);
 
   /* Status — darker tinted backgrounds + lifted foregrounds (keep AA). */
   --color-success: #5BBE74;  --color-success-bg: #18301D;
