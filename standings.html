@@ -102,12 +102,12 @@
         container.innerHTML = `
           <h1 class="page-title">Standings</h1>
           <div class="standings-controls" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem">
-            <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden">
-              <button id="toggle-mens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:var(--color-charcoal);color:#fff">Men's CT</button>
-              <button id="toggle-womens" style="padding:0.4rem 1rem;border:none;cursor:pointer;font-size:0.9rem;font-weight:400;background:#fff;color:var(--color-sage)">Women's CT</button>
+            <div class="tour-tabs" style="margin-bottom:0;border-bottom-width:1px">
+              <button class="tour-tab tour-tab--active" data-tour="mens" style="padding:0.35rem 1rem;font-size:0.85rem">Men's CT</button>
+              <button class="tour-tab" data-tour="womens" style="padding:0.35rem 1rem;font-size:0.85rem">Women's CT</button>
             </div>
-            <input type="search" id="player-search" placeholder="Search players..." style="flex:1;min-width:160px;max-width:280px;padding:0.4rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem;outline:none;">
-            <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden;font-size:0.8rem;margin-left:auto">
+            <input type="search" id="player-search" placeholder="Search players..." style="width:240px;min-width:160px;max-width:280px;margin-left:auto;padding:0.4rem 0.75rem;border:1px solid var(--color-beige);border-radius:6px;font-size:0.9rem;outline:none;">
+            <div style="display:flex;border:1px solid var(--color-beige);border-radius:6px;overflow:hidden;font-size:0.8rem">
               <button class="scoring-toggle" data-mode="best9" style="padding:0.3rem 0.7rem;border:none;cursor:pointer;font-family:inherit;${scoringMode === "best9" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">Best 9</button>
               <button class="scoring-toggle" data-mode="all" style="padding:0.3rem 0.7rem;border:none;border-left:1px solid var(--color-beige);cursor:pointer;font-family:inherit;${scoringMode === "all" ? "background:var(--color-sage);color:#fff;font-weight:600" : "background:var(--color-warm-white);color:var(--color-warm-brown)"}">All Events</button>
             </div>
@@ -123,19 +123,16 @@
         wireStandingsTables(container);
 
         // Tour toggle
-        const btnMens = document.getElementById("toggle-mens");
-        const btnWomens = document.getElementById("toggle-womens");
         const panelMens = document.getElementById("panel-mens");
         const panelWomens = document.getElementById("panel-womens");
-        btnMens.addEventListener("click", () => {
-          panelMens.style.display = ""; panelWomens.style.display = "none";
-          btnMens.style.cssText += ";font-weight:600;background:var(--color-charcoal);color:#fff";
-          btnWomens.style.cssText += ";font-weight:400;background:#fff;color:var(--color-sage)";
-        });
-        btnWomens.addEventListener("click", () => {
-          panelWomens.style.display = ""; panelMens.style.display = "none";
-          btnWomens.style.cssText += ";font-weight:600;background:var(--color-charcoal);color:#fff";
-          btnMens.style.cssText += ";font-weight:400;background:#fff;color:var(--color-sage)";
+        container.querySelectorAll(".tour-tab").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            container.querySelectorAll(".tour-tab").forEach((b) => b.classList.remove("tour-tab--active"));
+            btn.classList.add("tour-tab--active");
+            const isMens = btn.dataset.tour === "mens";
+            panelMens.style.display = isMens ? "" : "none";
+            panelWomens.style.display = isMens ? "none" : "";
+          });
         });
 
         // Scoring mode toggle
