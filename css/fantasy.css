@@ -176,6 +176,23 @@ img { max-width: 100%; }
 [data-theme="dark"] .theme-logo--light { display: none; }
 [data-theme="dark"] .theme-logo--dark { display: inline-block; }
 
+/* Light / Dark / System segmented control (Edit Profile modal). */
+.theme-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.theme-seg__opt {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.theme-seg__opt:first-child { border-left: none; }
+.theme-seg__opt:hover { color: var(--text); }
+.theme-seg__opt.is-active { background: var(--color-sage); color: var(--on-accent); font-weight: 600; }
+
 .nav-links {
   display: flex;
   list-style: none;

@@ -6,6 +6,7 @@ import { toast, showAuthGate } from "./modals.js";
 import { showLoading } from "./format.js";
 import { initAuth, signIn, signOut, onAuth, requireAuth, requireAdmin, currentProfile } from "../auth.js";
 import { SEASON } from "../config.js";
+import { getStoredTheme, setTheme, reconcileTheme } from "../theme.js";
 
 // ── Navigation ───────────────────────────────────────
 
@@ -106,6 +107,9 @@ export function renderHeader() {
 
   // Auth state UI
   onAuth(async (user, profile) => {
+    // Adopt the account's saved theme on login (only if this device has no
+    // explicit local choice — localStorage always wins first paint).
+    reconcileTheme(profile?.theme);
     const authEl = document.getElementById("nav-auth");
     if (!authEl) return;
     if (user) {
@@ -349,6 +353,14 @@ export function openProfileEditModal(user, profile) {
             </div>
             <p class="text-xs text-muted mt-1">or paste a URL: <input type="text" class="search-input" id="pe-url" placeholder="https://i.imgur.com/..." value="${escapeHtml(urlValue)}" style="display:inline;width:auto;max-width:200px;padding:0.2rem 0.4rem;font-size:0.8rem"></p>
           </div>
+          <div class="form-group mb-1">
+            <label class="form-label">Appearance</label>
+            <div class="theme-seg" role="radiogroup" aria-label="Theme">
+              <button type="button" class="theme-seg__opt" data-theme-pref="light" role="radio">Light</button>
+              <button type="button" class="theme-seg__opt" data-theme-pref="dark" role="radio">Dark</button>
+              <button type="button" class="theme-seg__opt" data-theme-pref="system" role="radio">System</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="confirm-modal__actions" style="margin-top:1rem">
@@ -372,6 +384,19 @@ export function openProfileEditModal(user, profile) {
   document.addEventListener("keydown", onKey);
 
   document.body.appendChild(overlay);
+
+  // ── Theme (Light / Dark / System) — applies instantly; persisted on Save ──
+  const themeSeg = overlay.querySelector(".theme-seg");
+  if (themeSeg) {
+    const markTheme = () => {
+      const cur = getStoredTheme();
+      themeSeg.querySelectorAll(".theme-seg__opt").forEach((btn) =>
+        btn.classList.toggle("is-active", btn.dataset.themePref === cur));
+    };
+    markTheme();
+    themeSeg.querySelectorAll(".theme-seg__opt").forEach((btn) =>
+      btn.addEventListener("click", () => { setTheme(btn.dataset.themePref); markTheme(); }));
+  }
 
   // ── File / URL / drag-drop handlers ──
   const fileInput = document.getElementById("pe-file");
@@ -448,7 +473,7 @@ export function openProfileEditModal(user, profile) {
 
     try {
       const { updateUser } = await import("../db.js");
-      await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl });
+      await updateUser(user.uid, { teamName: name, avatarUrl: finalUrl, theme: getStoredTheme() });
       toast("Profile saved!", "success");
       setTimeout(() => location.reload(), 800);
     } catch (err) {
