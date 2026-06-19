@@ -461,6 +461,19 @@ img { max-width: 100%; }
   font-weight: 500;
 }
 
+/* Frozen standings/clubhouse tables: the pinned Rank/Player/Total cells have an
+   opaque inline background that masks the row tint above, so only the event
+   columns shade. Re-layer the same sage @ 8% opaquely on every cell to shade
+   the row edge to edge (it composites to the colour the event cells show), and
+   deepen it on hover so the row still reads as interactive. */
+.scroll-table .highlight td {
+  background-color: var(--color-warm-white) !important;
+  background-image: linear-gradient(rgba(156, 168, 152, 0.08), rgba(156, 168, 152, 0.08)) !important;
+}
+.scroll-table .highlight:hover td {
+  background-image: linear-gradient(rgba(156, 168, 152, 0.16), rgba(156, 168, 152, 0.16)) !important;
+}
+
 .data-table .text-right {
   text-align: right;
 }
