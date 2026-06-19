@@ -196,7 +196,7 @@ img { max-width: 100%; }
 }
 .theme-seg__opt:first-child { border-left: none; }
 .theme-seg__opt:hover { color: var(--text); }
-.theme-seg__opt.is-active { background: var(--color-sage); color: var(--on-accent); font-weight: 600; }
+.theme-seg__opt.is-active { background: var(--color-sage-deep); color: var(--on-accent); font-weight: 600; }
 
 .nav-links {
   display: flex;
@@ -1810,14 +1810,14 @@ img { max-width: 100%; }
 }
 .confirm-modal__step--active .confirm-modal__step-num {
   background: var(--color-sage-dark);
-  color: var(--on-accent);
+  color: var(--color-warm-white);
 }
 .confirm-modal__step--done {
   color: var(--text-muted);
 }
 .confirm-modal__step--done .confirm-modal__step-num {
   background: var(--color-sage);
-  color: var(--on-accent);
+  color: var(--color-warm-white);
 }
 .confirm-modal__step-sep {
   color: var(--color-warm-gray);
@@ -1928,6 +1928,8 @@ img { max-width: 100%; }
 
 /* The light-pink danger-button border reads wrong on dark. */
 :root[data-theme="dark"] .btn--danger { border-color: #5E3330; }
+/* The lifted --color-error is tuned for text; deepen it for the filled hover so white keeps AA. */
+:root[data-theme="dark"] .btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-error) 58%, var(--color-charcoal)); border-color: color-mix(in srgb, var(--color-error) 58%, var(--color-charcoal)); }
 /* Mellow the scraped status colour on the dark banner (light keeps it raw). */
 :root[data-theme="dark"] .status-badge { background: color-mix(in srgb, var(--badge-color, var(--color-warm-gray)) 70%, var(--color-charcoal)); }
 /* Deepen the modal drop-shadow on dark. */
